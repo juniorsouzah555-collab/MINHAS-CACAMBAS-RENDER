@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Righteous&family=Orbitron:wght@600;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom gorgeous neon glow text and box classes */
+.font-righteous {
+  font-family: 'Righteous', cursive, sans-serif;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.neon-text-yellow {
+  color: #ffffff;
+  text-shadow: 
+    0 0 1px #fff,
+    0 0 4px #ffd700,
+    0 0 8px #ffaa00,
+    0 0 16px #ff5500;
+}
+
+.neon-text-cyan {
+  color: #ffffff;
+  text-shadow: 
+    0 0 1px #fff,
+    0 0 4px #00ffff,
+    0 0 8px #00bfff,
+    0 0 16px #0000ff;
+}
+
+.neon-text-pink {
+  color: #ffffff;
+  text-shadow: 
+    0 0 1px #fff,
+    0 0 4px #ff007f,
+    0 0 8px #ff00ff,
+    0 0 16px #aa00ff;
+}
+
+.neon-border-cyan {
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.4), inset 0 0 4px rgba(0, 255, 255, 0.2);
+}
+
+.neon-border-pink {
+  box-shadow: 0 0 8px rgba(255, 0, 127, 0.4), inset 0 0 4px rgba(255, 0, 127, 0.2);
+}
+
+.neon-border-yellow {
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.4), inset 0 0 4px rgba(255, 215, 0, 0.2);
+}
+
+/* Premium entering animations for login container without framer-motion */
+@keyframes slideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slideUpFade 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.12;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.22;
+    transform: scale(1.08) translate(8px, -8px);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 10s ease-in-out infinite;
+}
+
