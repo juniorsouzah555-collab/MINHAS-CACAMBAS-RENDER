@@ -36,9 +36,12 @@ export const getSupabaseConfig = () => {
   
   // Statically access import.meta.env variables so Vite can replace them at compile-time for production/Vercel
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 
-                 (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string) || '';
+                 (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string) || 
+                 (import.meta.env.SUPABASE_URL as string) || '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
-                 (import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || '';
+                 (import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || 
+                 (import.meta.env.SUPABASE_ANON_KEY as string) || 
+                 (import.meta.env.SUPABASE_KEY as string) || '';
 
   const activeUrl = sanitizeSecret(localUrl || envUrl);
   const activeKey = sanitizeSecret(localKey || envKey);
