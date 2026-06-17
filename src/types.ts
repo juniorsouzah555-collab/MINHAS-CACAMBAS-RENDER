@@ -24,6 +24,8 @@ export interface Lancamento {
   vehicleId?: string;
   status: 'Pendente' | 'Concluido';
   createdAt: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Vehicle {
@@ -55,6 +57,8 @@ export interface FuelLog {
   mediaKmL?: number;
   tipo?: 'POSTO' | 'GARAGEM';
   isRetiradaDiversa?: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface MaintenanceAlert {
@@ -114,5 +118,7 @@ export interface ComissaoMotorista {
   retiradas: number;
   data: string;
   createdAt: string;
+  lat?: number;
+  lng?: number;
 }
 

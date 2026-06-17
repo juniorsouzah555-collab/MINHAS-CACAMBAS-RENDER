@@ -1,5 +1,25 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+declare global {
+  interface ImportMeta {
+    readonly env: Record<string, string | undefined>;
+  }
+}
+
+const sanitizeSecret = (str: string): string => {
+  if (!str) return '';
+  let cleaned = str.trim();
+  // Strip starting/ending double quotes if any
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  // Strip starting/ending single quotes if any
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  return cleaned.trim();
+};
+
 const isValidHttpUrl = (str: string): boolean => {
   try {
     const url = new URL(str);
@@ -14,11 +34,14 @@ export const getSupabaseConfig = () => {
   const localUrl = localStorage.getItem('supabase_url');
   const localKey = localStorage.getItem('supabase_anon_key');
   
-  const envUrl = (import.meta as any).env?.NEXT_PUBLIC_SUPABASE_URL || '';
-  const envKey = (import.meta as any).env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  // Statically access import.meta.env variables so Vite can replace them at compile-time for production/Vercel
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 
+                 (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string) || '';
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
+                 (import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || '';
 
-  const activeUrl = localUrl || envUrl;
-  const activeKey = localKey || envKey;
+  const activeUrl = sanitizeSecret(localUrl || envUrl);
+  const activeKey = sanitizeSecret(localKey || envKey);
 
   return {
     url: activeUrl,

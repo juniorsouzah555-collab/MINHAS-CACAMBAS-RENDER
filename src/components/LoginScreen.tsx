@@ -8,24 +8,74 @@ import {
   ShieldCheck, 
   Zap, 
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Database,
+  UserPlus,
+  CheckCircle2
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getSupabaseConfig } from '../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
 }
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
-  const [email, setEmail] = useState('JRodrigues138@gmail.com');
-  const [password, setPassword] = useState('relampago2026');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  // Registration specific states
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regRole, setRegRole] = useState<'Director' | 'Driver' | 'Fleet'>('Driver');
+  const [regSuccessMsg, setRegSuccessMsg] = useState('');
+  const [registrationPendingConfirm, setRegistrationPendingConfirm] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Connection testing states
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMessage, setTestMessage] = useState('');
+
+  const isConfigured = isSupabaseConfigured();
+
+  const runConnectionTest = async () => {
+    setTestStatus('testing');
+    setTestMessage('Iniciando handshake com a API do Supabase...');
+    try {
+      const { data, error } = await supabase.from('vehicles').select('id').limit(1);
+      
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('Fetch failed') || msg.includes('Failed to fetch') || msg.includes('network') || msg.includes('NetworkError')) {
+          setTestStatus('error');
+          setTestMessage('Erro de Rede: Não foi possível conectar ao host do Supabase. Verifique a URL configurada.');
+        } else if (msg.includes('Invalid API key') || msg.includes('invalid api key') || msg.includes('JWT') || error.code === '401') {
+          setTestStatus('error');
+          setTestMessage('Chave inválida! A sua chaves de acesso anônima (anon key) do Supabase está incorreta.');
+        } else if (msg.includes('relation "vehicles" does not exist') || error.code === '42P01') {
+          setTestStatus('success');
+          setTestMessage('Conexão estabelecida! O Supabase respondeu corretamente (a tabela "vehicles" não existe ainda, mas a autenticação e conexão das chaves estão OK!).');
+        } else {
+          setTestStatus('error');
+          setTestMessage(`Supabase respondeu com erro: ${msg} (Código: ${error.code || 'sem código'})`);
+        }
+      } else {
+        setTestStatus('success');
+        setTestMessage('Conexão perfeita! O Supabase está ativo, as chaves são válidas e as tabelas estão prontas.');
+      }
+    } catch (err: any) {
+      setTestStatus('error');
+      setTestMessage(`Falha de conexão: ${err.message || String(err)}`);
+    }
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setRegSuccessMsg('');
     
     if (!email || !password) {
       setErrorMsg('Por favor, preencha todos os campos.');
@@ -36,26 +86,79 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     try {
       // 1. Try Authenticating with Supabase if Configured
-      if (isSupabaseConfigured()) {
+      if (isConfigured) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email,
           password: password,
         });
 
         if (!error && data?.user) {
-          const role = email === 'JRodrigues138@gmail.com' ? 'Diretor de Operações' : 'Operador de Frota';
+          // Robust role resolution (reading metadata, matching email, or defaulting safely)
+          const normEmail = email.trim().toLowerCase();
+          let role = 'Operador de Frota';
+
+          if (normEmail === 'jrodrigues138@gmail.com') {
+            role = 'Diretor de Operações'; // Admin override for JRodrigues - ALWAYS approved
+          } else {
+            // Verify if user is approved
+            let isApproved = false;
+
+            try {
+              const { data: approvalRecord, error: approvalErr } = await supabase
+                .from('user_approvals')
+                .select('*')
+                .eq('email', normEmail)
+                .maybeSingle();
+
+              if (!approvalErr && approvalRecord) {
+                isApproved = approvalRecord.status === 'Ativo';
+                role = approvalRecord.role || role;
+              } else {
+                // Check localStorage fallback redundancy
+                const savedUsersStr = localStorage.getItem('relampago_system_users');
+                if (savedUsersStr) {
+                  const savedUsers = JSON.parse(savedUsersStr);
+                  const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
+                  if (found) {
+                    isApproved = found.status === 'Ativo';
+                    role = found.role || role;
+                  }
+                }
+              }
+            } catch (pErr) {
+              // Redundancy check fallback
+              const savedUsersStr = localStorage.getItem('relampago_system_users');
+              if (savedUsersStr) {
+                const savedUsers = JSON.parse(savedUsersStr);
+                const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
+                if (found) {
+                  isApproved = found.status === 'Ativo';
+                  role = found.role || role;
+                }
+              }
+            }
+
+            if (!isApproved) {
+              await supabase.auth.signOut(); // Revoke session
+              setErrorMsg('Acesso Bloqueado: Sua conta ainda aguarda liberação de acesso pelo operador Diretor de Operações (JRodrigues). Entre em contato para liberação.');
+              setIsLoading(false);
+              return;
+            }
+          }
+
           onLoginSuccess(data.user.email || email, role);
           setIsLoading(false);
           return;
         } else if (error) {
           // If it isn't one of the pre-set demo local accounts, reject it with Supabase error
+          const normEmail = email.trim().toLowerCase();
           const isDemoLocalAccount = 
-            (email === 'JRodrigues138@gmail.com' && password === 'relampago2026') ||
-            (email === 'motorista@relampago.com' && password === 'parceiro123') ||
-            (email === 'admin' && password === 'admin');
+            (normEmail === 'jrodrigues138@gmail.com' && password === 'relampago2026') ||
+            (normEmail === 'motorista@relampago.com' && password === 'parceiro123') ||
+            ((normEmail === 'admin@relampago.com' || normEmail === 'admin') && password === 'admin');
 
           if (!isDemoLocalAccount) {
-            setErrorMsg(`Supabase Auth: ${error.message}`);
+            setErrorMsg(`Autenticação na nuvem: ${error.message}. Verifique suas credenciais de acesso ou use as contas de demonstração abaixo.`);
             setIsLoading(false);
             return;
           }
@@ -65,19 +168,110 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       // 2. Demo local accounts/fallback verification
       setTimeout(() => {
         setIsLoading(false);
-        if (email === 'JRodrigues138@gmail.com' && password === 'relampago2026') {
-          onLoginSuccess(email, 'Diretor de Operações');
-        } else if (email === 'motorista@relampago.com' && password === 'parceiro123') {
-          onLoginSuccess(email, 'Operador de Frota');
-        } else if (email === 'admin' && password === 'admin') {
+        const normEmail = email.trim();
+        if (normEmail === 'JRodrigues138@gmail.com' && password === 'relampago2026') {
+          onLoginSuccess(normEmail, 'Diretor de Operações');
+        } else if (normEmail === 'motorista@relampago.com' && password === 'parceiro123') {
+          onLoginSuccess(normEmail, 'Motorista');
+        } else if ((normEmail === 'admin@relampago.com' || normEmail === 'admin') && password === 'admin') {
           onLoginSuccess('admin@relampago.com', 'Administrador');
         } else {
-          setErrorMsg('E-mail ou senha incorretos! Por favor, verifique as suas credenciais de acesso.');
+          setErrorMsg('Credencial inválida. Se você cadastrou este usuário recentemente, certifique-se de que ativou a sua conta através do link enviado ao seu e-mail e que preencheu os dados corretamente.');
         }
       }, 300);
     } catch (e: any) {
       setIsLoading(false);
       setErrorMsg(`Erro de autenticação: ${e.message || e}`);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setRegSuccessMsg('');
+
+    if (!regEmail || !regPassword) {
+      setErrorMsg('Preencha todos os campos do formulário de cadastro.');
+      return;
+    }
+
+    if (regPassword.length < 6) {
+      setErrorMsg('A senha do Supabase deve conter no mínimo 6 caracteres.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (!isConfigured) {
+          throw new Error('O banco de dados em nuvem não está configurado. A conexão de rede deve ser ativada nas variáveis de ambiente (.env).');
+      }
+
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          data: {
+            role: regRole === 'Director' ? 'Diretor de Operações' : regRole === 'Driver' ? 'Motorista' : 'Operador de Frota',
+            approved: false
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // 2. Prepare user record for the approvals list
+      const finalRole = regRole === 'Director' ? 'Diretor de Operações' : regRole === 'Driver' ? 'Motorista' : 'Operador de Frota';
+      const userName = regEmail.split('@')[0];
+      const newUserRecord = {
+        name: userName.charAt(0).toUpperCase() + userName.slice(1),
+        email: regEmail.toLowerCase().trim(),
+        role: finalRole,
+        status: 'Inativo' as const, // Inativo = Pendente in Settings list
+        registrationDate: new Date().toLocaleDateString('pt-BR')
+      };
+
+      // Try inserting into Supabase custom user_approvals list
+      try {
+        await supabase.from('user_approvals').insert([{
+          email: newUserRecord.email,
+          name: newUserRecord.name,
+          role: newUserRecord.role,
+          status: 'Inativo',
+          created_at: new Date().toISOString()
+        }]);
+      } catch (dbErr) {
+        console.warn('user_approvals insert failed: ', dbErr);
+      }
+
+      // Update redundant localStorage to immediately mirror registrations
+      const savedUsersStr = localStorage.getItem('relampago_system_users');
+      let currentUsers = [];
+      if (savedUsersStr) {
+        try {
+          currentUsers = JSON.parse(savedUsersStr);
+        } catch (e) {
+          currentUsers = [];
+        }
+      }
+      currentUsers.push({
+        id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+        ...newUserRecord
+      });
+      localStorage.setItem('relampago_system_users', JSON.stringify(currentUsers));
+
+      setRegSuccessMsg('Cadastro efetuado! Por favor, verifique a sua conta no seu e-mail.');
+      // Auto fill login inputs for when they come back
+      setEmail(regEmail);
+      setPassword(regPassword);
+      setRegistrationPendingConfirm(true);
+    } catch (err: any) {
+      setErrorMsg(`Erro ao registrar a conta: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -93,15 +287,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       {/* Main Container */}
       <div className="w-full max-w-md space-y-4 relative z-10">
-        
+
         {/* Main login card box with clean entering animation */}
         <div 
           className="w-full bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl relative"
         >
           {/* Brand Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div 
-              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-700 p-0.5 shadow-xl shadow-emerald-950/40 mb-4"
+              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-700 p-0.5 shadow-xl shadow-emerald-950/40 mb-3"
             >
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
                 <Zap className="w-8 h-8 text-emerald-400 absolute animate-pulse" />
@@ -117,107 +311,260 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </p>
           </div>
 
-          {/* Form area */}
-          <form onSubmit={handleLoginSubmit} className="space-y-5">
-            {errorMsg && (
-              <div 
-                className="bg-red-950/50 border border-red-900/60 rounded-xl p-3 flex items-start gap-2.5"
+          {/* Secure Tabs switcher for login / registration */}
+          {!registrationPendingConfirm && (
+            <div className="grid grid-cols-2 bg-slate-950/60 p-1 rounded-xl mb-6 border border-slate-800/60 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  setErrorMsg('');
+                  setRegSuccessMsg('');
+                }}
+                className={`py-2 rounded-lg font-bold transition-all ${
+                  activeTab === 'login'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm'
+                    : 'text-slate-450 hover:text-white hover:bg-slate-900/40'
+                }`}
               >
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span className="text-[11px] font-sans font-bold text-red-300 leading-relaxed">
-                  {errorMsg}
-                </span>
-              </div>
-            )}
-
-            {/* Email input field */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">
-                E-mail Funcional
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400">
-                  <Mail className="w-4 h-4" />
-                </span>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nome@relampago.com"
-                  className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-semibold font-mono tracking-wide focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
-                />
-              </div>
+                Autenticar
+              </button>
+              <button
+                type="button"
+                disabled={!isConfigured}
+                onClick={() => {
+                  setActiveTab('register');
+                  setErrorMsg('');
+                  setRegSuccessMsg('');
+                }}
+                className={`py-2 rounded-lg font-bold transition-all relative ${
+                  activeTab === 'register'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm'
+                    : !isConfigured
+                      ? 'text-slate-650 cursor-not-allowed opacity-50'
+                      : 'text-slate-450 hover:text-white hover:bg-slate-900/40'
+                }`}
+                title={!isConfigured ? 'Banco de dados em nuvem não configurado.' : 'Cadastre uma conta na nuvem'}
+              >
+                {!isConfigured && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />}
+                <span>Criar Conta</span>
+              </button>
             </div>
+          )}
 
-            {/* Password Input field */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest font-sans">
-                  Senha Operacional
+          {errorMsg && (
+            <div className="bg-red-950/50 border border-red-900/60 rounded-xl p-3 flex items-start gap-2.5 mb-4 animate-in fade-in duration-200">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <span className="text-[11px] font-sans font-bold text-red-300 leading-relaxed">
+                {errorMsg}
+              </span>
+            </div>
+          )}
+
+          {regSuccessMsg && !registrationPendingConfirm && (
+            <div className="bg-emerald-950/50 border border-emerald-900/60 rounded-xl p-3 flex items-start gap-2.5 mb-4 animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span className="text-[11px] font-sans font-bold text-emerald-300 leading-relaxed">
+                {regSuccessMsg}
+              </span>
+            </div>
+          )}
+
+          {registrationPendingConfirm ? (
+            <div className="space-y-6 py-2 animate-in fade-in duration-300">
+              <div className="text-center space-y-3">
+                <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 animate-pulse">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-100 tracking-wide font-sans">
+                  Ativação Requerida via E-mail
+                </h3>
+                <p className="text-xs text-slate-400 px-2 leading-relaxed">
+                  Um link de ativação segura foi enviado para o seu endereço de e-mail corporativo:
+                </p>
+                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl mx-2">
+                  <span className="text-xs font-mono font-bold text-center text-emerald-400 select-all block break-all">
+                    {regEmail}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/40 border border-slate-800/85 p-4 rounded-xl space-y-3 text-xs leading-relaxed text-slate-350 font-sans mx-2">
+                <p className="font-bold text-slate-200 text-[10px] uppercase tracking-wider">Como liberar seu acesso:</p>
+                <ul className="space-y-2.5 list-none pl-0 text-slate-400 text-[11px]">
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-extrabold shrink-0">1.</span>
+                    <span>Acesse sua caixa de e-mails (e verifique a caixa de <strong>Spam / Lixo Eletrônico</strong>).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-extrabold shrink-0">2.</span>
+                    <span>Procure a mensagem do do Supabase e clique no link de ativação da conta.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-extrabold shrink-0">3.</span>
+                    <span>Sua conta receberá o cargo de <strong>{regRole === 'Director' ? 'Diretor de Operações (Acesso Total)' : regRole === 'Driver' ? 'Motorista Parceiro' : 'Operador de Frota'}</strong> e você estará apto para fazer o login.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRegistrationPendingConfirm(false);
+                  setActiveTab('login');
+                  setRegSuccessMsg('');
+                  setErrorMsg('');
+                }}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/30 font-sans cursor-pointer"
+              >
+                <span>Ir para tela de login iniciar</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : activeTab === 'login' ? (
+            /* Login Form */
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans animate-pulse">
+                  E-mail do Operador ou Motorista
                 </label>
-                <button
-                  type="button"
-                  onClick={() => alert("Por favor, entre em contato com o administrador do sistema operacional para recuperar ou redefinir a sua senha.")}
-                  className="text-[9px] font-extrabold text-emerald-400 hover:underline cursor-pointer font-sans"
-                >
-                  Esqueceu a senha?
-                </button>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nome@relampago.com"
+                    className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-semibold font-mono tracking-wide focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400">
-                  <Lock className="w-4 h-4" />
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="******"
-                  className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white font-semibold font-mono tracking-widest focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
 
-            {/* Remember me & security declaration */}
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  defaultChecked 
-                  className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" 
-                />
-                <span>Manter conectado</span>
-              </label>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-500/80 font-bold">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Criptografia SSL</span>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest font-sans">
+                    Senha de Acesso
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => alert("Para redefinir a sua senha no Supabase ou no banco de dados local da Relâmpago Caçambas, solicite assistência ao administrador operacional através do chat.")}
+                    className="text-[9px] font-extrabold text-emerald-400 hover:underline cursor-pointer font-sans font-mono"
+                  >
+                    Recuperar senha?
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="******"
+                    className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white font-semibold font-mono tracking-widest focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Submit Action Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Autenticar no Sistema</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </form>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    defaultChecked 
+                    className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" 
+                  />
+                  <span>Lembrar credenciais</span>
+                </label>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-500/80 font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Criptografado</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Entrar no Painel</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* Register form for Supabase */
+            <form onSubmit={handleRegisterSubmit} className="space-y-4 animate-in fade-in duration-250">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">
+                  E-mail Corporativo
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="colaborador@relampago.com"
+                    className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-semibold font-mono tracking-wide focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">
+                  Nova Senha (Mínimo 6 dígitos)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="password"
+                    required
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="******"
+                    className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-semibold font-mono tracking-widest focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-450 hover:to-indigo-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Criar nova conta</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Page Footer credentials */}
@@ -230,3 +577,4 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     </div>
   );
 }
+

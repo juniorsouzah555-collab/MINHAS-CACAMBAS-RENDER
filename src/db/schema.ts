@@ -32,6 +32,8 @@ export const lancamentos = pgTable('lancamentos', {
   vehicleId: text('vehicle_id'),
   status: text('status').notNull(), // 'Pendente' | 'Concluido'
   createdAt: timestamp('created_at').defaultNow(),
+  lat: real('lat'),
+  lng: real('lng'),
 });
 
 // Define 'vehicles' table
@@ -65,6 +67,8 @@ export const fuelLogs = pgTable('fuel_logs', {
   mediaKmL: real('media_km_l'),
   tipo: text('tipo'), // 'POSTO' | 'GARAGEM'
   isRetiradaDiversa: boolean('is_retirada_diversa').default(false),
+  lat: real('lat'),
+  lng: real('lng'),
 });
 
 // Define 'maintenance_alerts' table

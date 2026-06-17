@@ -51,6 +51,8 @@ export default function Header({
         return 'Buscar rotas ou tipos de carga...';
       case 'commissions':
         return 'Buscar por motorista ou data de comissão...';
+      case 'driver-portal':
+        return 'Buscar registros ou abastecimentos do motorista...';
       default:
         return 'Buscar no painel Relâmpago Caçambas...';
     }
@@ -60,6 +62,8 @@ export default function Header({
     switch (currentTab) {
       case 'dashboard':
         return 'Painel Relâmpago Caçambas';
+      case 'driver-portal':
+        return 'Portal do Motorista';
       case 'operations':
         return 'Rotas e Envios';
       case 'disposal':

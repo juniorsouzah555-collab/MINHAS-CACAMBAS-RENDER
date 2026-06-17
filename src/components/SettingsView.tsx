@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -60,40 +61,97 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   const [defaultTerminal, setDefaultTerminal] = useState('Aterro Central - Setor 4');
 
   // Interactive Users Database
-  const [users, setUsers] = useState<SystemUser[]>([
-    {
-      id: "USR-001",
-      name: "Alex Rivera",
-      email: "relampagoentulho@gmail.com",
-      role: "Administrador Geral",
-      status: "Ativo",
-      registrationDate: "12/01/2026"
-    },
-    {
-      id: "USR-002",
-      name: "Carlos Augusto Silva",
-      email: "carlos.silva@relampago.com",
-      role: "Diretor de Operações",
-      status: "Ativo",
-      registrationDate: "15/02/2026"
-    },
-    {
-      id: "USR-003",
-      name: "Mariana Souza",
-      email: "financeiro@relampago.com",
-      role: "Financeiro",
-      status: "Ativo",
-      registrationDate: "03/03/2026"
-    },
-    {
-      id: "USR-004",
-      name: "Marcos Pinheiro",
-      email: "marcos@relampago.com",
-      role: "Motorista",
-      status: "Inativo",
-      registrationDate: "10/05/2026"
+  const [users, setUsers] = useState<SystemUser[]>(() => {
+    const saved = localStorage.getItem('relampago_system_users');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore and fallback
+      }
     }
-  ]);
+    const defaultUsersList: SystemUser[] = [
+      {
+        id: "USR-001",
+        name: "Alex Rivera",
+        email: "relampagoentulho@gmail.com",
+        role: "Administrador Geral",
+        status: "Ativo",
+        registrationDate: "12/01/2026"
+      },
+      {
+        id: "USR-002",
+        name: "Carlos Augusto Silva",
+        email: "carlos.silva@relampago.com",
+        role: "Diretor de Operações",
+        status: "Ativo",
+        registrationDate: "15/02/2026"
+      },
+      {
+        id: "USR-003",
+        name: "Mariana Souza",
+        email: "financeiro@relampago.com",
+        role: "Financeiro",
+        status: "Ativo",
+        registrationDate: "03/03/2026"
+      },
+      {
+        id: "USR-004",
+        name: "Marcos Pinheiro",
+        email: "marcos@relampago.com",
+        role: "Motorista",
+        status: "Inativo",
+        registrationDate: "10/05/2026"
+      }
+    ];
+    localStorage.setItem('relampago_system_users', JSON.stringify(defaultUsersList));
+    return defaultUsersList;
+  });
+
+  // Load dynamic users from Supabase if configured and merge partners
+  useEffect(() => {
+    const syncUsersFromSupabase = async () => {
+      if (!isSupabaseConfigured()) return;
+      try {
+        const { data: remoteUsers, error } = await supabase
+          .from('user_approvals')
+          .select('*');
+        
+        if (!error && remoteUsers && remoteUsers.length > 0) {
+          setUsers(prev => {
+            const updated = [...prev];
+            remoteUsers.forEach(ru => {
+              const cleanedEmail = ru.email.toLowerCase().trim();
+              const existingIdx = updated.findIndex(u => u.email.toLowerCase().trim() === cleanedEmail);
+              const mappedUser: SystemUser = {
+                id: ru.id ? `USR-${ru.id}` : `USR-${Math.floor(100 + Math.random() * 900)}`,
+                name: ru.name || cleanedEmail.split('@')[0],
+                email: cleanedEmail,
+                role: ru.role || 'Operador de Frota',
+                status: ru.status === 'Ativo' ? 'Ativo' : 'Inativo',
+                registrationDate: ru.created_at ? new Date(ru.created_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+              };
+              if (existingIdx !== -1) {
+                // Keep active updates but conserve local ones as base
+                updated[existingIdx] = {
+                  ...updated[existingIdx],
+                  role: mappedUser.role,
+                  status: mappedUser.status
+                };
+              } else {
+                updated.push(mappedUser);
+              }
+            });
+            localStorage.setItem('relampago_system_users', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      } catch (err) {
+        console.warn("Could not load user_approvals dynamically:", err);
+      }
+    };
+    syncUsersFromSupabase();
+  }, []);
 
   // Form for New User Registration State
   const [newUserName, setNewUserName] = useState('');
@@ -184,15 +242,30 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     }
 
     const newUserObj: SystemUser = {
-      id: `USR-0${users.length + 1}`,
+      id: `USR-${Math.floor(100 + Math.random() * 900)}`,
       name: newUserName,
-      email: newUserEmail,
+      email: newUserEmail.toLowerCase().trim(),
       role: newUserRole,
       status: newUserStatus,
       registrationDate: new Date().toLocaleDateString('pt-BR')
     };
 
-    setUsers([...users, newUserObj]);
+    const updatedUsers = [...users, newUserObj];
+    setUsers(updatedUsers);
+    localStorage.setItem('relampago_system_users', JSON.stringify(updatedUsers));
+
+    // Try inserting into Supabase
+    if (isSupabaseConfigured()) {
+      supabase.from('user_approvals').insert([{
+        email: newUserObj.email,
+        name: newUserObj.name,
+        role: newUserObj.role,
+        status: newUserObj.status === 'Ativo' ? 'Ativo' : 'Inativo',
+        created_at: new Date().toISOString()
+      }]).then(({ error }) => {
+        if (error) console.warn("Supabase user_approvals insert error: ", error);
+      });
+    }
     
     // Set default permissions for this role if not exists
     if (!permissionsMap[newUserRole]) {
@@ -214,21 +287,54 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   };
 
   const handleDeleteUser = (id: string, name: string) => {
+    const targetUser = users.find(u => u.id === id);
     if (confirm(`Deseja realmente excluir o cadastro de ${name}?`)) {
-      setUsers(users.filter(u => u.id !== id));
+      const updated = users.filter(u => u.id !== id);
+      setUsers(updated);
+      localStorage.setItem('relampago_system_users', JSON.stringify(updated));
+
+      if (targetUser && isSupabaseConfigured()) {
+        supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
+          if (error) console.warn("Supabase user_approvals delete failed: ", error);
+        });
+      }
+
       onShowNotification(`Cadastro de ${name} removido do sistema corporativo.`);
     }
   };
 
   const toggleUserStatus = (id: string) => {
-    setUsers(users.map(u => {
+    const updated = users.map(u => {
       if (u.id === id) {
         const nextStatus = u.status === 'Ativo' ? 'Inativo' : 'Ativo';
         onShowNotification(`O status de ${u.name} agora é ${nextStatus}`);
+
+        // Update in Supabase
+        if (isSupabaseConfigured()) {
+          supabase
+            .from('user_approvals')
+            .update({ status: nextStatus === 'Ativo' ? 'Ativo' : 'Inativo' })
+            .eq('email', u.email.toLowerCase().trim())
+            .then(({ error }) => {
+              if (error) {
+                supabase.from('user_approvals').insert([{
+                  email: u.email.toLowerCase().trim(),
+                  name: u.name,
+                  role: u.role,
+                  status: nextStatus === 'Ativo' ? 'Ativo' : 'Inativo',
+                  created_at: new Date().toISOString()
+                }]);
+              }
+            });
+        }
+
         return { ...u, status: nextStatus };
       }
       return u;
-    }));
+    });
+
+    setUsers(updated);
+    localStorage.setItem('relampago_system_users', JSON.stringify(updated));
   };
 
   const handleTogglePermission = (permissionId: string) => {

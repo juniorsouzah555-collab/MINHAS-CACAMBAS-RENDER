@@ -246,6 +246,8 @@ app.post("/api/lancamentos", async (req, res) => {
       driverName: lan.driverName || null,
       vehicleId: lan.vehicleId || null,
       status: lan.status || 'Concluido',
+      lat: lan.lat !== undefined ? Number(lan.lat) : null,
+      lng: lan.lng !== undefined ? Number(lan.lng) : null,
     });
     res.json({ success: true, lancamento: lan });
   } catch (e: any) {
@@ -278,6 +280,8 @@ app.post("/api/fuel-logs", async (req, res) => {
       mediaKmL: f.mediaKmL ? Number(f.mediaKmL) : null,
       tipo: f.tipo || 'POSTO',
       isRetiradaDiversa: f.isRetiradaDiversa || false,
+      lat: f.lat !== undefined ? Number(f.lat) : null,
+      lng: f.lng !== undefined ? Number(f.lng) : null,
     });
     res.json({ success: true, log: f });
   } catch (e: any) {

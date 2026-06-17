@@ -15,7 +15,8 @@ import {
   HelpCircle,
   Zap,
   FileText,
-  Percent
+  Percent,
+  Smartphone
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,11 +24,16 @@ interface SidebarProps {
   setCurrentTab: (tab: string) => void;
   onOpenNewDispatch: () => void;
   transitCount: number;
+  userRole?: string;
+  userEmail?: string;
 }
 
-export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount }: SidebarProps) {
+export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, userRole, userEmail }: SidebarProps) {
+  const isDriver = (userRole?.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com');
+
   const navItems = [
     { id: 'dashboard', name: 'Painel', icon: LayoutDashboard },
+    { id: 'driver-portal', name: 'Portal Motorista', icon: Smartphone },
     { id: 'operations', name: 'Operações', icon: Activity },
     { id: 'disposal', name: 'Cadastro', icon: Trash2 },
     { id: 'finance', name: 'Financeiro', icon: DollarSign },
@@ -35,7 +41,12 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }
-  ];
+  ].filter(item => {
+    if (isDriver) {
+      return item.id === 'driver-portal';
+    }
+    return true;
+  });
 
   return (
     <aside id="sidebar-container" className="fixed left-0 top-0 h-full w-[280px] z-50 bg-slate-900 text-slate-100 flex flex-col py-6 border-r border-slate-800">
@@ -87,29 +98,31 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
         </ul>
       </nav>
 
-      {/* Bottom Actions */}
-      <div className="px-4 mt-auto space-y-4">
-        <button
-          id="btn-sidebar-new-dispatch"
-          onClick={onOpenNewDispatch}
-          className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 cursor-pointer transition-all duration-150 hover:-translate-y-0.5"
-        >
-          <Plus className="w-4 h-4 text-white stroke-[3]" />
-          <span>Novo Lançamento</span>
-        </button>
-
-        <div className="pt-2 border-t border-slate-800">
+      {/* Bottom Actions - Hidden for drivers */}
+      {!isDriver && (
+        <div className="px-4 mt-auto space-y-4 animate-in fade-in duration-200">
           <button
-            onClick={() => setCurrentTab('help')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-150 cursor-pointer ${
-              currentTab === 'help' ? 'text-purple-400 bg-slate-850/50' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
-            }`}
+            id="btn-sidebar-new-dispatch"
+            onClick={onOpenNewDispatch}
+            className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 cursor-pointer transition-all duration-150 hover:-translate-y-0.5"
           >
-            <HelpCircle className="w-5 h-5 text-slate-450" />
-            <span>Central de Ajuda</span>
+            <Plus className="w-4 h-4 text-white stroke-[3]" />
+            <span>Novo Lançamento</span>
           </button>
+
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              onClick={() => setCurrentTab('help')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-150 cursor-pointer ${
+                currentTab === 'help' ? 'text-purple-400 bg-slate-850/50' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
+              }`}
+            >
+              <HelpCircle className="w-5 h-5 text-slate-450" />
+              <span>Central de Ajuda</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

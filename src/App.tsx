@@ -55,6 +55,7 @@ import NewDispatchModal from './components/NewDispatchModal';
 import ReportsView from './components/ReportsView';
 import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
+import DriverPortal from './components/DriverPortal';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -80,6 +81,14 @@ export default function App() {
   // Bota fora & Lançamentos eco state
   const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
+
+  // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
+  useEffect(() => {
+    const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('frota') || currentUserEmail === 'motorista@relampago.com';
+    if (isDriver && currentTab !== 'driver-portal') {
+      setCurrentTab('driver-portal');
+    }
+  }, [currentUserRole, currentUserEmail, currentTab]);
 
   // Load data from Cloud SQL / Supabase when authenticated
   useEffect(() => {
@@ -346,6 +355,14 @@ export default function App() {
     localStorage.setItem('relampago_auth_active', 'true');
     localStorage.setItem('relampago_auth_email', userEmail);
     localStorage.setItem('relampago_auth_role', userRole);
+
+    const isDriver = userRole.toLowerCase().includes('motorista') || userRole.toLowerCase().includes('frota') || userEmail === 'motorista@relampago.com';
+    if (isDriver) {
+      setCurrentTab('driver-portal');
+    } else {
+      setCurrentTab('fleet');
+    }
+
     handleShowToast("Acesso Autorizado", `Bem-vindo! Entrou como ${userRole}.`, "success");
   };
 
@@ -839,6 +856,8 @@ export default function App() {
         }} 
         onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
         transitCount={transitBadgeCount}
+        userRole={currentUserRole}
+        userEmail={currentUserEmail}
       />
 
       {/* Main workspace arena */}
@@ -919,6 +938,26 @@ export default function App() {
               onAddComissao={handleAddComissao}
               onUpdateComissao={handleUpdateComissao}
               onDeleteComissao={handleDeleteComissao}
+            />
+          )}
+
+          {currentTab === 'driver-portal' && (
+            <DriverPortal
+              vehicles={vehicles}
+              botaForas={botaForas}
+              motoristas={motoristas}
+              currentUserEmail={currentUserEmail}
+              currentUserRole={currentUserRole}
+              lancamentos={lancamentos}
+              comissoes={comissoes}
+              dispatches={dispatches}
+              fuelLogs={fuelLogs}
+              onAddLancamento={handleAddLancamento}
+              onAddComissao={handleAddComissao}
+              onUpdateComissao={handleUpdateComissao}
+              onAddFuelLog={handleAddFuelLog}
+              onAuthorizeDispatch={handleAuthorizeDispatch}
+              onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
             />
           )}
 
