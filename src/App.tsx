@@ -72,15 +72,36 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // App core state DB
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(INITIAL_FUEL_LOGS);
-  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(INITIAL_ALERTS);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [dispatches, setDispatches] = useState<Dispatch[]>(INITIAL_DISPATCHES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    const saved = localStorage.getItem('relampago_vehicles');
+    return saved ? JSON.parse(saved) : INITIAL_VEHICLES;
+  });
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
+    const saved = localStorage.getItem('relampago_fuel_logs');
+    return saved ? JSON.parse(saved) : INITIAL_FUEL_LOGS;
+  });
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(() => {
+    const saved = localStorage.getItem('relampago_alerts');
+    return saved ? JSON.parse(saved) : INITIAL_ALERTS;
+  });
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    const saved = localStorage.getItem('relampago_invoices');
+    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
+  });
+  const [dispatches, setDispatches] = useState<Dispatch[]>(() => {
+    const saved = localStorage.getItem('relampago_dispatches');
+    return saved ? JSON.parse(saved) : INITIAL_DISPATCHES;
+  });
   
   // Bota fora & Lançamentos eco state
-  const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
+  const [botaForas, setBotaForas] = useState<BotaFora[]>(() => {
+    const saved = localStorage.getItem('relampago_bota_foras');
+    return saved ? JSON.parse(saved) : INITIAL_BOTA_FORAS;
+  });
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>(() => {
+    const saved = localStorage.getItem('relampago_lancamentos');
+    return saved ? JSON.parse(saved) : INITIAL_LANCAMENTOS;
+  });
 
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
@@ -99,7 +120,7 @@ export default function App() {
             console.log("Supabase config detected. Querying Supabase directly...");
             const { data: listVehicles, error: errVehicles } = await supabase.from('vehicles').select('*');
             if (listVehicles && !errVehicles) {
-              setVehicles(listVehicles.map(v => {
+              setVehicles(listVehicles.map((v: any) => {
                 let parsedTrend: number[] = [];
                 if (v.trend) {
                   if (typeof v.trend === 'string') {
@@ -118,8 +139,20 @@ export default function App() {
                   }
                 }
                 return {
-                  ...v,
-                  trend: parsedTrend
+                  id: v.id,
+                  status: v.status,
+                  efficiency: v.efficiency,
+                  fuelUsed: v.fuel_used !== undefined ? v.fuel_used : v.fuelUsed,
+                  costPerKm: v.cost_per_km !== undefined ? v.cost_per_km : v.costPerKm,
+                  driver: v.driver,
+                  trend: parsedTrend,
+                  lastMaintenanceDate: v.last_maintenance_date || v.lastMaintenanceDate,
+                  speed: v.speed,
+                  lat: v.lat,
+                  lng: v.lng,
+                  isActive: v.is_active !== undefined ? v.is_active : v.isActive,
+                  type: v.type,
+                  initialKm: v.initial_km !== undefined ? v.initial_km : v.initialKm
                 };
               }));
             } else if (errVehicles) {
@@ -128,17 +161,52 @@ export default function App() {
 
             const { data: listBf, error: errBf } = await supabase.from('bota_foras').select('*');
             if (listBf && !errBf) {
-              setBotaForas(listBf);
+              setBotaForas(listBf.map((b: any) => ({
+                id: b.id,
+                nome: b.nome,
+                cnpj: b.cnpj,
+                telefone: b.telefone,
+                endereco: b.endereco,
+                createdAt: b.created_at || b.createdAt,
+                valorPadraoDescarte: b.valor_padrao_descarte !== undefined ? b.valor_padrao_descarte : b.valorPadraoDescarte
+              })));
             }
 
             const { data: listLan, error: errLan } = await supabase.from('lancamentos').select('*');
             if (listLan && !errLan) {
-              setLancamentos(listLan);
+              setLancamentos(listLan.map((l: any) => ({
+                id: l.id,
+                botaForaId: l.bota_fora_id || l.botaForaId,
+                botaForaNome: l.bota_fora_nome || l.botaForaNome,
+                quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
+                valor: l.valor,
+                data: l.data,
+                driverName: l.driver_name || l.driverName,
+                vehicleId: l.vehicle_id || l.vehicleId,
+                status: l.status,
+                createdAt: l.created_at || l.createdAt,
+                lat: l.lat,
+                lng: l.lng
+              })));
             }
 
             const { data: listFuel, error: errFuel } = await supabase.from('fuel_logs').select('*');
             if (listFuel && !errFuel) {
-              setFuelLogs(listFuel);
+              setFuelLogs(listFuel.map((f: any) => ({
+                id: f.id,
+                vehicleId: f.vehicle_id || f.vehicleId,
+                quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
+                kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
+                kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
+                valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
+                data: f.data,
+                driver: f.driver,
+                mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
+                tipo: f.tipo,
+                isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
+                lat: f.lat,
+                lng: f.lng
+              })));
             }
 
             const { data: listAlerts, error: errAlerts } = await supabase.from('maintenance_alerts').select('*');
@@ -148,12 +216,32 @@ export default function App() {
 
             const { data: listInvoices, error: errInvoices } = await supabase.from('invoices').select('*');
             if (listInvoices && !errInvoices) {
-              setInvoices(listInvoices);
+              setInvoices(listInvoices.map((i: any) => ({
+                id: i.id,
+                clientName: i.client_name || i.clientName,
+                entityCode: i.entity_code || i.entityCode,
+                serviceDesc: i.service_desc || i.serviceDesc,
+                issueDate: i.issue_date || i.issueDate,
+                dueDate: i.due_date || i.dueDate,
+                amount: i.amount,
+                status: i.status
+              })));
             }
 
             const { data: listDisp, error: errDisp } = await supabase.from('dispatches').select('*');
             if (listDisp && !errDisp) {
-              setDispatches(listDisp);
+              setDispatches(listDisp.map((d: any) => ({
+                id: d.id,
+                vehicleId: d.vehicle_id || d.vehicleId,
+                driverName: d.driver_name || d.driverName,
+                clientName: d.client_name || d.clientName,
+                origin: d.origin,
+                destination: d.destination,
+                payloadType: d.payload_type || d.payloadType,
+                weight: d.weight,
+                status: d.status,
+                createdAt: d.created_at || d.createdAt
+              })));
             }
 
             return;
@@ -202,42 +290,48 @@ export default function App() {
     }
   }, [isAuthenticated]);
   // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([
-    {
-      id: 'COM-001',
-      motorista: 'Carlos Santana',
-      vaziasColocadas: 24,
-      retiradas: 22,
-      data: '2026-06-16',
-      createdAt: '2526-06-16T08:30:00Z'
-    },
-    {
-      id: 'COM-002',
-      motorista: 'Marcus Warren',
-      vaziasColocadas: 18,
-      retiradas: 18,
-      data: '2026-06-15',
-      createdAt: '2526-06-15T09:12:00Z'
-    },
-    {
-      id: 'COM-003',
-      motorista: 'Emily Watson',
-      vaziasColocadas: 30,
-      retiradas: 28,
-      data: '2026-06-12',
-      createdAt: '2526-06-12T11:05:00Z'
-    }
-  ]);
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
+    const saved = localStorage.getItem('relampago_comissoes');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'COM-001',
+        motorista: 'Carlos Santana',
+        vaziasColocadas: 24,
+        retiradas: 22,
+        data: '2026-06-16',
+        createdAt: '2526-06-16T08:30:00Z'
+      },
+      {
+        id: 'COM-002',
+        motorista: 'Marcus Warren',
+        vaziasColocadas: 18,
+        retiradas: 18,
+        data: '2026-06-15',
+        createdAt: '2526-06-15T09:12:00Z'
+      },
+      {
+        id: 'COM-003',
+        motorista: 'Emily Watson',
+        vaziasColocadas: 30,
+        retiradas: 28,
+        data: '2026-06-12',
+        createdAt: '2526-06-12T11:05:00Z'
+      }
+    ];
+  });
 
   // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>([
-    'Carlos Santana',
-    'Marcus Warren',
-    'Emily Watson',
-    'Sophia Loren',
-    'Alexandre Nero',
-    'Beatriz Albuquerque'
-  ]);
+  const [motoristas, setMotoristas] = useState<string[]>(() => {
+    const saved = localStorage.getItem('relampago_motoristas');
+    return saved ? JSON.parse(saved) : [
+      'Carlos Santana',
+      'Marcus Warren',
+      'Emily Watson',
+      'Sophia Loren',
+      'Alexandre Nero',
+      'Beatriz Albuquerque'
+    ];
+  });
 
   // Garage Diesel Tank States
   const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
@@ -257,6 +351,42 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('eco_garage_diesel_price', garageDieselPrice.toString());
   }, [garageDieselPrice]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles));
+  }, [vehicles]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs));
+  }, [fuelLogs]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_alerts', JSON.stringify(alerts));
+  }, [alerts]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_invoices', JSON.stringify(invoices));
+  }, [invoices]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches));
+  }, [dispatches]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas));
+  }, [botaForas]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos));
+  }, [lancamentos]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes));
+  }, [comissoes]);
+
+  useEffect(() => {
+    localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas));
+  }, [motoristas]);
 
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
@@ -506,7 +636,18 @@ export default function App() {
     setDispatches([freshRecord, ...dispatches]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('dispatches').insert([freshRecord]).then(({ error }) => {
+      supabase.from('dispatches').insert([{
+        id: freshRecord.id,
+        vehicle_id: freshRecord.vehicleId,
+        driver_name: freshRecord.driverName,
+        client_name: freshRecord.clientName,
+        origin: freshRecord.origin,
+        destination: freshRecord.destination,
+        payload_type: freshRecord.payloadType,
+        weight: freshRecord.weight,
+        status: freshRecord.status,
+        created_at: freshRecord.createdAt
+      }]).then(({ error }) => {
         if (error) console.error("Supabase error saving dispatch:", error);
       });
     }
@@ -552,7 +693,15 @@ export default function App() {
     setBotaForas(prev => [...prev, freshRecord]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('bota_foras').insert([freshRecord]).then(({ error }) => {
+      supabase.from('bota_foras').insert([{
+        id: freshRecord.id,
+        nome: freshRecord.nome,
+        cnpj: freshRecord.cnpj,
+        telefone: freshRecord.telefone,
+        endereco: freshRecord.endereco,
+        valor_padrao_descarte: freshRecord.valorPadraoDescarte,
+        created_at: freshRecord.createdAt
+      }]).then(({ error }) => {
         if (error) console.error("Supabase error saving bota fora:", error);
       });
     }
@@ -625,10 +774,32 @@ export default function App() {
     setInvoices(prev => [autoInvoice, ...prev]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('lancamentos').insert([freshRecord]).then(({ error }) => {
+      supabase.from('lancamentos').insert([{
+        id: freshRecord.id,
+        bota_fora_id: freshRecord.botaForaId,
+        bota_fora_nome: freshRecord.botaForaNome,
+        quantidade_cacambas: freshRecord.quantidadeCacambas,
+        valor: freshRecord.valor,
+        data: freshRecord.data,
+        driver_name: freshRecord.driverName,
+        vehicle_id: freshRecord.vehicleId,
+        status: freshRecord.status,
+        created_at: freshRecord.createdAt,
+        lat: freshRecord.lat,
+        lng: freshRecord.lng
+      }]).then(({ error }) => {
         if (error) console.error("Supabase error saving lancamento:", error);
       });
-      supabase.from('invoices').insert([autoInvoice]).then(({ error }) => {
+      supabase.from('invoices').insert([{
+        id: autoInvoice.id,
+        client_name: autoInvoice.clientName,
+        entity_code: autoInvoice.entityCode,
+        service_desc: autoInvoice.serviceDesc,
+        issue_date: autoInvoice.issueDate,
+        due_date: autoInvoice.dueDate,
+        amount: autoInvoice.amount,
+        status: autoInvoice.status
+      }]).then(({ error }) => {
         if (error) console.error("Supabase error saving invoice:", error);
       });
     }
@@ -696,8 +867,20 @@ export default function App() {
 
     if (isSupabaseConfigured()) {
       supabase.from('vehicles').insert([{
-        ...freshRecord,
-        trend: JSON.stringify(freshRecord.trend)
+        id: freshRecord.id,
+        status: freshRecord.status,
+        efficiency: freshRecord.efficiency,
+        fuel_used: freshRecord.fuelUsed,
+        cost_per_km: freshRecord.costPerKm,
+        driver: freshRecord.driver,
+        trend: JSON.stringify(freshRecord.trend),
+        last_maintenance_date: freshRecord.lastMaintenanceDate,
+        speed: freshRecord.speed,
+        lat: freshRecord.lat,
+        lng: freshRecord.lng,
+        is_active: freshRecord.isActive,
+        type: freshRecord.type,
+        initial_km: freshRecord.initialKm
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving vehicle:", error);
       });
@@ -740,7 +923,21 @@ export default function App() {
     setFuelLogs(prev => [freshRecord, ...prev]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('fuel_logs').insert([freshRecord]).then(({ error }) => {
+      supabase.from('fuel_logs').insert([{
+        id: freshRecord.id,
+        vehicle_id: freshRecord.vehicleId,
+        quantidade_litros: freshRecord.quantidadeLitros,
+        km_inicial: freshRecord.kmInicial,
+        km_final: freshRecord.kmFinal,
+        valor_pago: freshRecord.valorPago,
+        data: freshRecord.data,
+        driver: freshRecord.driver,
+        media_km_l: freshRecord.mediaKmL,
+        tipo: freshRecord.tipo,
+        is_retirada_diversa: freshRecord.isRetiradaDiversa,
+        lat: freshRecord.lat,
+        lng: freshRecord.lng
+      }]).then(({ error }) => {
         if (error) console.error("Supabase error saving fuel log:", error);
       });
     }
