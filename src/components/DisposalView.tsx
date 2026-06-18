@@ -118,7 +118,7 @@ export default function DisposalView({
     setCnpj(b.cnpj);
     setTelefone(b.telefone || '');
     setEndereco(b.endereco);
-    setValorPadraoDescarte(b.valorPadraoDescarte !== undefined ? b.valorPadraoDescarte : '');
+    setValorPadraoDescarte(typeof b.valorPadraoDescarte === 'number' ? b.valorPadraoDescarte : '');
     setErrorMsg('');
   };
 
@@ -326,7 +326,7 @@ export default function DisposalView({
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-slate-900 font-sans">{rec.nome}</span>
                       <span className="font-mono text-[9px] text-purple-600 bg-purple-50 border border-purple-100 px-1.5 py-0.2 rounded font-bold">{rec.id}</span>
-                      {rec.valorPadraoDescarte !== undefined && rec.valorPadraoDescarte > 0 && (
+                      {typeof rec.valorPadraoDescarte === 'number' && rec.valorPadraoDescarte > 0 && (
                         <span className="font-sans text-[10px] text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100 px-1.5 py-0.2 rounded font-black flex items-center gap-0.5">
                           <Coins className="w-2.5 h-2.5" />
                           Tarifa: R$ {rec.valorPadraoDescarte.toFixed(2)}/caçamba

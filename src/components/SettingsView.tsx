@@ -39,6 +39,7 @@ interface SystemUser {
   role: string;
   status: 'Ativo' | 'Inativo';
   registrationDate: string;
+  linkedDriver?: string;
 }
 
 interface RolePermission {
@@ -107,6 +108,30 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     localStorage.setItem('relampago_system_users', JSON.stringify(defaultUsersList));
     return defaultUsersList;
   });
+
+  const [motoristas, setMotoristas] = useState<string[]>(() => {
+    const saved = localStorage.getItem('relampago_motoristas');
+    return saved ? JSON.parse(saved) : [
+      'Carlos Santana',
+      'Marcus Warren',
+      'Emily Watson',
+      'Sophia Loren',
+      'Alexandre Nero',
+      'Beatriz Albuquerque'
+    ];
+  });
+
+  const handleLinkDriver = (userId: string, driverName: string) => {
+    const updated = users.map(u => {
+      if (u.id === userId) {
+        return { ...u, linkedDriver: driverName || undefined };
+      }
+      return u;
+    });
+    setUsers(updated);
+    localStorage.setItem('relampago_system_users', JSON.stringify(updated));
+    onShowNotification(`Vinculação de motorista atualizada com sucesso!`);
+  };
 
   // Load dynamic users from Supabase if configured and merge partners
   useEffect(() => {
@@ -658,6 +683,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                       <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
                         <th className="px-4 py-3">Nome Integrante</th>
                         <th className="px-4 py-3">Nível de Função</th>
+                        <th className="px-4 py-3">Motorista Vinculado</th>
                         <th className="px-4 py-3 text-center">Status</th>
                         <th className="px-4 py-3 text-right">Ação</th>
                       </tr>
@@ -689,7 +715,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                               <div className="flex items-center gap-1.5 pt-0.5">
                                 <Shield className={`w-3.5 h-3.5 ${
                                   u.role === 'Administrador Geral' ? 'text-amber-500' :
-                                  u.role === 'Diretor de Operações' ? 'text-indigo-505' :
+                                  u.role === 'Diretor de Operações' ? 'text-indigo-550' :
                                   u.role === 'Financeiro' ? 'text-emerald-500' : 'text-slate-400'
                                 }`} />
                                 <span className={`text-[11px] font-bold ${
@@ -700,6 +726,26 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                                   {u.role}
                                 </span>
                               </div>
+                            </td>
+
+                            {/* linked motorista driver */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {u.role.toLowerCase().includes('motorista') || u.role.toLowerCase().includes('driver') ? (
+                                <select
+                                  value={u.linkedDriver || ""}
+                                  onChange={(e) => handleLinkDriver(u.id, e.target.value)}
+                                  className="bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[10px] text-slate-800 outline-none focus:border-cyan-500 font-bold cursor-pointer max-w-[150px]"
+                                >
+                                  <option value="">-- Sem Vinculação --</option>
+                                  {motoristas.map((drv) => (
+                                    <option key={drv} value={drv}>
+                                      {drv}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-slate-400 text-[10px] font-mono pl-4">—</span>
+                              )}
                             </td>
 
                             {/* status check badge */}

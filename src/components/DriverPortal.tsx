@@ -185,13 +185,47 @@ export default function DriverPortal({
   onAuthorizeDispatch,
   onShowToast
 }: DriverPortalProps) {
+  const isDriverUser = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('driver') || currentUserEmail === 'motorista@relampago.com';
+
+  const getLinkedDriverName = () => {
+    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') {
+      return 'Carlos Santana';
+    }
+    const savedUsersStr = localStorage.getItem('relampago_system_users');
+    if (savedUsersStr) {
+      try {
+        const savedUsers = JSON.parse(savedUsersStr);
+        const matchedUser = savedUsers.find((u: any) => u.email.toLowerCase() === currentUserEmail.toLowerCase());
+        if (matchedUser && matchedUser.linkedDriver) {
+          return matchedUser.linkedDriver;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
+  };
+
+  const linkedDriverName = getLinkedDriverName();
+
   // Determine active driver name
   const [selectedDriver, setSelectedDriver] = useState<string>(() => {
     if (currentUserEmail === 'motorista@relampago.com') {
       return 'Carlos Santana'; // Default driver linked to this demo account
     }
+    const linked = getLinkedDriverName();
+    if (linked) {
+      return linked;
+    }
     return motoristas[0] || 'Carlos Santana';
   });
+
+  // Force selectedDriver to stay linked to the actual driver if they are a driver user
+  useEffect(() => {
+    if (isDriverUser && linkedDriverName) {
+      setSelectedDriver(linkedDriverName);
+    }
+  }, [isDriverUser, linkedDriverName]);
 
   // Select active vehicle
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => {
@@ -527,6 +561,54 @@ export default function DriverPortal({
     setCurrentKm('');
   };
 
+  if (isDriverUser && !linkedDriverName) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-slate-100 shadow-2xl relative overflow-hidden font-sans">
+        <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 p-0.5 border border-amber-500/20 mb-6">
+          <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+        </div>
+        
+        <h3 className="text-xl font-extrabold text-white tracking-tight leading-snug mb-3">
+          Acesso Pendente de Vinculação
+        </h3>
+        
+        <p className="text-xs text-slate-305 leading-relaxed max-w-sm mx-auto mb-6">
+          Sua conta <span className="text-emerald-400 font-bold font-mono">{currentUserEmail}</span> foi criada com sucesso, mas para acessar o console de atividades, um administrador precisa vincular seu login a um motorista cadastrado no sistema.
+        </p>
+        
+        <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-850 text-left space-y-2 mb-6">
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+            <span>Passo-a-passo para ativação:</span>
+          </div>
+          <ul className="text-[11px] text-slate-300 space-y-2 font-medium">
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              <span>O administrador acessa o menu de <strong className="text-slate-100 font-semibold">Configurações &rarr; Integrantes</strong>.</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              <span>Na sua linha de cadastro, seleciona qual motorista do sistema de caçambas é você.</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Após a vinculação, atualize a página para acessar o painel completo.</span>
+            </li>
+          </ul>
+        </div>
+        
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
+        >
+          Atualizar Página
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div id="driver-app-console" className="space-y-4 sm:space-y-6">
       
@@ -554,18 +636,20 @@ export default function DriverPortal({
 
         {/* Quick Driver or Vehicle Select to let anyone test seamlessly */}
         <div className="flex flex-row flex-wrap items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 w-full md:w-auto justify-between sm:justify-start">
-          <div className="space-y-1 min-w-[120px] flex-1 sm:flex-initial">
-            <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Simular Motorista</span>
-            <select
-              value={selectedDriver}
-              onChange={(e) => setSelectedDriver(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full sm:max-w-[150px] font-bold cursor-pointer"
-            >
-              {motoristas.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
+          {!isDriverUser && (
+            <div className="space-y-1 min-w-[120px] flex-1 sm:flex-initial">
+              <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Simular Motorista</span>
+              <select
+                value={selectedDriver}
+                onChange={(e) => setSelectedDriver(e.target.value)}
+                className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full sm:max-w-[150px] font-bold cursor-pointer"
+              >
+                {motoristas.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1 min-w-[100px] flex-1 sm:flex-initial">
             <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Veículo Operado</span>
@@ -643,7 +727,7 @@ export default function DriverPortal({
               Roteamento do condutor monitorado centralmente com coordenadas geodésicas de precisão em tempo real.
             </p>
           </div>
-          {userCoords && (
+          {userCoords && typeof userCoords.lat === 'number' && typeof userCoords.lng === 'number' && (
             <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-250 px-3 py-1.5 rounded-xl text-[10px] text-emerald-700 font-extrabold font-mono shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>LAT: {userCoords.lat.toFixed(6)} | LNG: {userCoords.lng.toFixed(6)}</span>
@@ -1055,7 +1139,7 @@ export default function DriverPortal({
                   </div>
                   <p className="text-slate-600 font-medium mb-1.5 leading-relaxed">{item.description}</p>
                   
-                  {item.lat && item.lng && (
+                  {typeof item.lat === 'number' && typeof item.lng === 'number' && (
                     <div className="mt-1.5 mb-2 text-[10px] bg-slate-50 border border-slate-150 rounded-lg p-2 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1 text-slate-500 font-semibold font-mono">
                         <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />

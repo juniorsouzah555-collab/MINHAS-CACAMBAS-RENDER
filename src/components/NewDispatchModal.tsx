@@ -33,7 +33,7 @@ export default function NewDispatchModal({ botaForas, vehicles, motoristas, onCl
     if (botaForas.length > 0) {
       const firstBtf = botaForas[0];
       setBotaForaId(firstBtf.id);
-      if (firstBtf.valorPadraoDescarte !== undefined && firstBtf.valorPadraoDescarte > 0) {
+      if (typeof firstBtf.valorPadraoDescarte === 'number' && firstBtf.valorPadraoDescarte > 0) {
         setValor(firstBtf.valorPadraoDescarte * quantidadeCacambas);
       }
     }
@@ -43,7 +43,7 @@ export default function NewDispatchModal({ botaForas, vehicles, motoristas, onCl
   useEffect(() => {
     if (botaForaId) {
       const selected = botaForas.find(b => b.id === botaForaId);
-      if (selected && selected.valorPadraoDescarte !== undefined && selected.valorPadraoDescarte > 0) {
+      if (selected && typeof selected.valorPadraoDescarte === 'number' && selected.valorPadraoDescarte > 0) {
         setValor(selected.valorPadraoDescarte * quantidadeCacambas);
       }
     }
@@ -152,11 +152,11 @@ export default function NewDispatchModal({ botaForas, vehicles, motoristas, onCl
                 >
                   {botaForas.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.id} - {b.nome} {b.valorPadraoDescarte !== undefined ? `(Tarifa: R$ ${b.valorPadraoDescarte.toFixed(2)})` : ''}
+                      {b.id} - {b.nome} {typeof b.valorPadraoDescarte === 'number' ? `(Tarifa: R$ ${b.valorPadraoDescarte.toFixed(2)})` : ''}
                     </option>
                   ))}
                 </select>
-                {selectedBtfObj?.valorPadraoDescarte !== undefined && selectedBtfObj.valorPadraoDescarte > 0 && (
+                {typeof selectedBtfObj?.valorPadraoDescarte === 'number' && selectedBtfObj.valorPadraoDescarte > 0 && (
                   <div className="text-[11px] text-purple-650 font-bold flex items-center gap-1.5 mt-1 bg-purple-50 p-2 rounded border border-purple-100">
                     <Coins className="w-4 h-4 text-purple-500 shrink-0" />
                     <span>Valor total sugerido automaticamente pela tarifa: <strong>{quantidadeCacambas} caçamba(s) x R$ {selectedBtfObj.valorPadraoDescarte.toFixed(2)} = R$ {(selectedBtfObj.valorPadraoDescarte * quantidadeCacambas).toFixed(2)}</strong></span>
