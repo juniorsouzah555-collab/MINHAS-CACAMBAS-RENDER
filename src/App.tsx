@@ -72,36 +72,15 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // App core state DB
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
-    const saved = localStorage.getItem('relampago_vehicles');
-    return saved ? JSON.parse(saved) : INITIAL_VEHICLES;
-  });
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
-    const saved = localStorage.getItem('relampago_fuel_logs');
-    return saved ? JSON.parse(saved) : INITIAL_FUEL_LOGS;
-  });
-  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(() => {
-    const saved = localStorage.getItem('relampago_alerts');
-    return saved ? JSON.parse(saved) : INITIAL_ALERTS;
-  });
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const saved = localStorage.getItem('relampago_invoices');
-    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
-  });
-  const [dispatches, setDispatches] = useState<Dispatch[]>(() => {
-    const saved = localStorage.getItem('relampago_dispatches');
-    return saved ? JSON.parse(saved) : INITIAL_DISPATCHES;
-  });
+  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(INITIAL_FUEL_LOGS);
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(INITIAL_ALERTS);
+  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
+  const [dispatches, setDispatches] = useState<Dispatch[]>(INITIAL_DISPATCHES);
   
   // Bota fora & Lançamentos eco state
-  const [botaForas, setBotaForas] = useState<BotaFora[]>(() => {
-    const saved = localStorage.getItem('relampago_bota_foras');
-    return saved ? JSON.parse(saved) : INITIAL_BOTA_FORAS;
-  });
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(() => {
-    const saved = localStorage.getItem('relampago_lancamentos');
-    return saved ? JSON.parse(saved) : INITIAL_LANCAMENTOS;
-  });
+  const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
 
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
@@ -290,106 +269,52 @@ export default function App() {
     }
   }, [isAuthenticated]);
   // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
-    const saved = localStorage.getItem('relampago_comissoes');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'COM-001',
-        motorista: 'Carlos Santana',
-        vaziasColocadas: 24,
-        retiradas: 22,
-        data: '2026-06-16',
-        createdAt: '2526-06-16T08:30:00Z'
-      },
-      {
-        id: 'COM-002',
-        motorista: 'Marcus Warren',
-        vaziasColocadas: 18,
-        retiradas: 18,
-        data: '2026-06-15',
-        createdAt: '2526-06-15T09:12:00Z'
-      },
-      {
-        id: 'COM-003',
-        motorista: 'Emily Watson',
-        vaziasColocadas: 30,
-        retiradas: 28,
-        data: '2026-06-12',
-        createdAt: '2526-06-12T11:05:00Z'
-      }
-    ];
-  });
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([
+    {
+      id: 'COM-001',
+      motorista: 'Carlos Santana',
+      vaziasColocadas: 24,
+      retiradas: 22,
+      data: '2026-06-16',
+      createdAt: '2526-06-16T08:30:00Z'
+    },
+    {
+      id: 'COM-002',
+      motorista: 'Marcus Warren',
+      vaziasColocadas: 18,
+      retiradas: 18,
+      data: '2026-06-15',
+      createdAt: '2526-06-15T09:12:00Z'
+    },
+    {
+      id: 'COM-003',
+      motorista: 'Emily Watson',
+      vaziasColocadas: 30,
+      retiradas: 28,
+      data: '2026-06-12',
+      createdAt: '2526-06-12T11:05:00Z'
+    }
+  ]);
 
   // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>(() => {
-    const saved = localStorage.getItem('relampago_motoristas');
-    return saved ? JSON.parse(saved) : [
-      'Carlos Santana',
-      'Marcus Warren',
-      'Emily Watson',
-      'Sophia Loren',
-      'Alexandre Nero',
-      'Beatriz Albuquerque'
-    ];
-  });
+  const [motoristas, setMotoristas] = useState<string[]>([
+    'Carlos Santana',
+    'Marcus Warren',
+    'Emily Watson',
+    'Sophia Loren',
+    'Alexandre Nero',
+    'Beatriz Albuquerque'
+  ]);
 
   // Garage Diesel Tank States
-  const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
-    const saved = localStorage.getItem('eco_garage_diesel_qty');
-    return saved !== null ? parseFloat(saved) : 5000;
-  });
-  const [garageDieselPrice, setGarageDieselPrice] = useState<number>(() => {
-    const saved = localStorage.getItem('eco_garage_diesel_price');
-    return saved !== null ? parseFloat(saved) : 5.68;
-  });
-
-  // Keep localStorage synced
-  useEffect(() => {
-    localStorage.setItem('eco_garage_diesel_qty', garageDieselQty.toString());
-  }, [garageDieselQty]);
-
-  useEffect(() => {
-    localStorage.setItem('eco_garage_diesel_price', garageDieselPrice.toString());
-  }, [garageDieselPrice]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles));
-  }, [vehicles]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs));
-  }, [fuelLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_alerts', JSON.stringify(alerts));
-  }, [alerts]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches));
-  }, [dispatches]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas));
-  }, [botaForas]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos));
-  }, [lancamentos]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes));
-  }, [comissoes]);
-
-  useEffect(() => {
-    localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas));
-  }, [motoristas]);
+  const [garageDieselQty, setGarageDieselQty] = useState<number>(5000);
+  const [garageDieselPrice, setGarageDieselPrice] = useState<number>(5.68);
 
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
+    if (isSupabaseConfigured()) {
+      supabase.from('motoristas').insert([{ nome: name }]).then();
+    }
     handleShowToast("Motorista Cadastrado", `O motorista "${name}" foi adicionado com sucesso.`, "success");
   };
 
@@ -397,11 +322,19 @@ export default function App() {
     setMotoristas(prev => prev.map(x => x === oldName ? newName : x));
     setComissoes(prev => prev.map(c => c.motorista === oldName ? { ...c, motorista: newName } : c));
     setDispatches(prev => prev.map(d => d.driverName === oldName ? { ...d, driverName: newName } : d));
+    
+    if (isSupabaseConfigured()) {
+      supabase.from('motoristas').update({ nome: newName }).eq('nome', oldName).then();
+    }
+
     handleShowToast("Motorista Atualizado", `O cadastro de "${oldName}" foi alterado para "${newName}".`, "success");
   };
 
   const handleDeleteMotorista = (name: string) => {
     setMotoristas(prev => prev.filter(x => x !== name));
+    if (isSupabaseConfigured()) {
+      supabase.from('motoristas').delete().eq('nome', name).then();
+    }
     handleShowToast("Motorista Removido", `O motorista "${name}" foi removido do cadastro.`, "info");
   };
 
@@ -412,6 +345,18 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
     setComissoes(prev => [freshRecord, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('comissoes').insert([{
+        id: freshRecord.id,
+        motorista: freshRecord.motorista,
+        vazias_colocadas: freshRecord.vaziasColocadas,
+        retiradas: freshRecord.retiradas,
+        data: freshRecord.data,
+        created_at: freshRecord.createdAt
+      }]).then();
+    }
+
     handleShowToast(
       "Comissão Registrada", 
       `Atividade gravada com sucesso para o motorista ${newCom.motorista}.`, 
@@ -421,6 +366,14 @@ export default function App() {
 
   const handleUpdateComissao = (updatedCom: ComissaoMotorista) => {
     setComissoes(prev => prev.map(c => c.id === updatedCom.id ? updatedCom : c));
+    if (isSupabaseConfigured()) {
+      supabase.from('comissoes').update({
+        motorista: updatedCom.motorista,
+        vazias_colocadas: updatedCom.vaziasColocadas,
+        retiradas: updatedCom.retiradas,
+        data: updatedCom.data
+      }).eq('id', updatedCom.id).then();
+    }
     handleShowToast(
       "Comissão Atualizada",
       `Os dados de comissão para ${updatedCom.motorista} foram salvos com sucesso.`,
@@ -430,6 +383,9 @@ export default function App() {
 
   const handleDeleteComissao = (id: string) => {
     setComissoes(prev => prev.filter(c => c.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('comissoes').delete().eq('id', id).then();
+    }
     handleShowToast(
       "Lançamento Removido", 
       "O registro de comissão do motorista foi deletado com sucesso.", 
@@ -514,12 +470,22 @@ export default function App() {
         const randomEfficiencyChange = parseFloat((Math.random() * 0.4 - 0.2).toFixed(1));
         const efficiency = Math.max(2.1, Math.min(5.2, parseFloat(((v.efficiency ?? 0) + randomEfficiencyChange).toFixed(1))));
 
-        return {
+        const updated = {
           ...v,
           speed: currentSpeed,
           efficiency,
           fuelUsed: v.fuelUsed + Math.floor(Math.random() * 12) + 2
         };
+
+        if (isSupabaseConfigured()) {
+          supabase.from('vehicles').update({
+            speed: updated.speed,
+            efficiency: updated.efficiency,
+            fuel_used: updated.fuelUsed
+          }).eq('id', v.id).then();
+        }
+
+        return updated;
       }
       return v;
     }));
@@ -535,6 +501,9 @@ export default function App() {
   const handleStopDispatchVehicle = (vehicleId: string, alertId: string) => {
     setVehicles(prev => prev.map(v => {
       if (v.id === vehicleId) {
+        if (isSupabaseConfigured()) {
+          supabase.from('vehicles').update({ status: 'Maintenance', speed: 0 }).eq('id', vehicleId).then();
+        }
         return {
           ...v,
           status: 'Maintenance',
@@ -548,13 +517,20 @@ export default function App() {
 
     // Mark matching alert resolved
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, resolved: true } : a));
+    if (isSupabaseConfigured()) {
+      supabase.from('maintenance_alerts').update({ resolved: true }).eq('id', alertId).then();
+    }
 
     // Resolve matching running dispatch
-    setDispatches(prev => prev.map(d => 
-      d.vehicleId === vehicleId && d.status === 'In Transit' 
-        ? { ...d, status: 'Completed' } 
-        : d
-    ));
+    setDispatches(prev => prev.map(d => {
+      if (d.vehicleId === vehicleId && d.status === 'In Transit') {
+        if (isSupabaseConfigured()) {
+          supabase.from('dispatches').update({ status: 'Completed' }).eq('id', d.id).then();
+        }
+        return { ...d, status: 'Completed' };
+      }
+      return d;
+    }));
 
     setNotificationsCount(prev => Math.max(0, prev - 1));
     handleShowToast(
@@ -567,6 +543,9 @@ export default function App() {
   // Action: Log maintenance ticket
   const handleLogMaintenanceTicket = (alertId: string) => {
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, resolved: true } : a));
+    if (isSupabaseConfigured()) {
+      supabase.from('maintenance_alerts').update({ resolved: true }).eq('id', alertId).then();
+    }
     setNotificationsCount(prev => Math.max(0, prev - 1));
     handleShowToast(
       "Ordem de Serviço Aberta", 
@@ -595,6 +574,11 @@ export default function App() {
       return v;
     }));
 
+    if (isSupabaseConfigured()) {
+      supabase.from('dispatches').update({ status: 'Completed' }).eq('id', dispatchId).then();
+      supabase.from('vehicles').update({ status: 'Available', speed: 0 }).eq('id', targetDisp.vehicleId).then();
+    }
+
     handleShowToast(
       "Remessa Concluída", 
       `A ordem de despacho ${dispatchId} foi finalizada. Registros de balança gravados no banco ecológico.`, 
@@ -606,6 +590,10 @@ export default function App() {
   const handleUpdateInvoiceStatus = (id: string, newStatus: InvoiceStatus) => {
     setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv));
     
+    if (isSupabaseConfigured()) {
+      supabase.from('invoices').update({ status: newStatus }).eq('id', id).then();
+    }
+
     const displayStatus = newStatus === 'PAID' ? 'Pago' : 'Pendente';
     handleShowToast(
       "Status Atualizado",
@@ -617,6 +605,9 @@ export default function App() {
   // Action: Delete Invoice
   const handleDeleteInvoice = (id: string) => {
     setInvoices(prev => prev.filter(inv => inv.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('invoices').delete().eq('id', id).then();
+    }
     handleShowToast(
       "Fatura Removida",
       `Fatura corporativa ${id} apagada e auditada com sucesso.`,
@@ -719,12 +710,26 @@ export default function App() {
   // Action: Update existing Bota Fora
   const handleUpdateBotaFora = (updatedBtf: BotaFora) => {
     setBotaForas(prev => prev.map(b => b.id === updatedBtf.id ? updatedBtf : b));
+    if (isSupabaseConfigured()) {
+      supabase.from('bota_foras').update({
+        nome: updatedBtf.nome,
+        cnpj: updatedBtf.cnpj,
+        telefone: updatedBtf.telefone,
+        endereco: updatedBtf.endereco,
+        valor_padrao_descarte: updatedBtf.valorPadraoDescarte
+      }).eq('id', updatedBtf.id).then(({ error }) => {
+        if (error) console.error("Error updating bota fora in Supabase:", error);
+      });
+    }
     handleShowToast("Bota Fora Atualizado", `A área "${updatedBtf.nome}" foi editada com sucesso.`, "success");
   };
 
   // Action: Delete Bota Fora
   const handleDeleteBotaFora = (id: string) => {
     setBotaForas(prev => prev.filter(b => b.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('bota_foras').delete().eq('id', id).then();
+    }
     handleShowToast("Bota Fora Removido", `O bota fora ${id} foi removido das áreas ativas.`, "info");
   };
 
@@ -844,6 +849,9 @@ export default function App() {
   // Action: Delete Lançamento
   const handleDeleteLancamento = (id: string) => {
     setLancamentos(prev => prev.filter(lan => lan.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('lancamentos').delete().eq('id', id).then();
+    }
     handleShowToast("Lançamento Excluído", `O extrato ${id} foi removido do histórico de operações.`, "info");
   };
 
@@ -899,6 +907,25 @@ export default function App() {
   // Action: Update existing Vehicle
   const handleUpdateVehicle = (updatedVehicle: Vehicle) => {
     setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+    if (isSupabaseConfigured()) {
+      supabase.from('vehicles').update({
+        status: updatedVehicle.status,
+        efficiency: updatedVehicle.efficiency,
+        fuel_used: updatedVehicle.fuelUsed,
+        cost_per_km: updatedVehicle.costPerKm,
+        driver: updatedVehicle.driver,
+        trend: JSON.stringify(updatedVehicle.trend),
+        last_maintenance_date: updatedVehicle.lastMaintenanceDate,
+        speed: updatedVehicle.speed,
+        lat: updatedVehicle.lat,
+        lng: updatedVehicle.lng,
+        is_active: updatedVehicle.isActive,
+        type: updatedVehicle.type,
+        initial_km: updatedVehicle.initialKm
+      }).eq('id', updatedVehicle.id).then(({ error }) => {
+        if (error) console.error("Supabase error updating vehicle:", error);
+      });
+    }
     handleShowToast("Veículo Atualizado", `O cadastro do veículo "${updatedVehicle.id}" foi alterado com sucesso.`, "success");
   };
 
