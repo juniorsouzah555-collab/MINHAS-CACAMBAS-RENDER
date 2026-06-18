@@ -137,7 +137,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   useEffect(() => {
     const syncUsersFromSupabase = async () => {
       if (!isSupabaseConfigured()) return;
-      /*
       try {
         const { data: remoteUsers, error } = await supabase
           .from('user_approvals')
@@ -175,7 +174,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       } catch (err) {
         console.warn("Could not load user_approvals dynamically:", err);
       }
-      */
     };
     syncUsersFromSupabase();
   }, []);
@@ -282,7 +280,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     localStorage.setItem('relampago_system_users', JSON.stringify(updatedUsers));
 
     // Try inserting into Supabase
-    /*
     if (isSupabaseConfigured()) {
       supabase.from('user_approvals').insert([{
         email: newUserObj.email,
@@ -294,7 +291,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
         if (error) console.warn("Supabase user_approvals insert error: ", error);
       });
     }
-    */
     
     // Set default permissions for this role if not exists
     if (!permissionsMap[newUserRole]) {
@@ -323,11 +319,9 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       localStorage.setItem('relampago_system_users', JSON.stringify(updated));
 
       if (targetUser && isSupabaseConfigured()) {
-        /*
         supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
           if (error) console.warn("Supabase user_approvals delete failed: ", error);
         });
-        */
       }
 
       onShowNotification(`Cadastro de ${name} removido do sistema corporativo.`);
@@ -342,7 +336,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
 
         // Update in Supabase
         if (isSupabaseConfigured()) {
-          /*
           supabase
             .from('user_approvals')
             .update({ status: nextStatus === 'Ativo' ? 'Ativo' : 'Inativo' })
@@ -358,7 +351,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                 }]);
               }
             });
-          */
         }
 
         return { ...u, status: nextStatus };

@@ -606,7 +606,7 @@ export default function FinanceView({
 
               <div className="w-full h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={fuelTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={fuelTrend.map(ft => ({ ...ft, thisWeek: ft.thisWeek || 0, lastWeek: ft.lastWeek || 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} stroke="#e2e8f0" />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} stroke="#e2e8f0" />
                     <Tooltip 
@@ -638,7 +638,7 @@ export default function FinanceView({
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={costStructure}
+                        data={costStructure.map(c => ({ ...c, value: c.value || 0, percentage: c.percentage || 0 }))}
                         cx="50%"
                         cy="50%"
                         innerRadius={50}

@@ -648,7 +648,7 @@ export default function FleetView({
 
               <div className="h-64 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={fuelTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <AreaChart data={fuelTrendData.map(ft => ({ ...ft, thisWeek: ft.thisWeek || 0, lastWeek: ft.lastWeek || 0 }))} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorFuelGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#9333ea" stopOpacity={0.2} />
@@ -679,7 +679,7 @@ export default function FleetView({
 
               <div className="h-64 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={costStructureData} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                  <BarChart data={costStructureData.map(c => ({ ...c, value: c.value || 0 }))} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis type="number" stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val || 0}`} />
                     <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
