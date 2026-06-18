@@ -144,7 +144,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           // If it isn't one of the pre-set demo local accounts, reject it with Supabase error
           const normEmail = email.trim().toLowerCase();
           const isDemoLocalAccount = 
-            (normEmail === 'jrodrigues138@gmail.com' && password === '21685430') ||
+            (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') ||
             (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
 
           if (!isDemoLocalAccount) {
@@ -159,7 +159,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       setTimeout(() => {
         setIsLoading(false);
         const normEmail = email.trim().toLowerCase();
-        if (normEmail === 'jrodrigues138@gmail.com' && password === '21685430') {
+        if (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') {
           onLoginSuccess('jrodrigues138@gmail.com', 'Administrador Geral');
         } else if (normEmail === 'motorista@relampago.com' && password === 'parceiro123') {
           onLoginSuccess('motorista@relampago.com', 'Motorista');
