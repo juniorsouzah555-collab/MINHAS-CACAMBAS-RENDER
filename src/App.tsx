@@ -223,6 +223,23 @@ export default function App() {
               })));
             }
 
+            const { data: listMotoristas, error: errMotoristas } = await supabase.from('motoristas').select('*');
+            if (listMotoristas && !errMotoristas) {
+              setMotoristas(listMotoristas.map((m: any) => m.nome));
+            }
+
+            const { data: listComissoes, error: errComissoes } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
+            if (listComissoes && !errComissoes) {
+              setComissoes(listComissoes.map((c: any) => ({
+                id: c.id,
+                motorista: c.motorista,
+                vaziasColocadas: c.vazias_colocadas !== undefined ? c.vazias_colocadas : c.vaziasColocadas,
+                retiradas: c.retiradas,
+                data: c.data,
+                createdAt: c.created_at || c.createdAt
+              })));
+            }
+
             return;
           }
 
