@@ -117,17 +117,17 @@ export default function DashboardView({
   // Specific Minimalist KPIs requested by the user:
   // 1. Quantidade de caçambas
   const totalCacambas = useMemo(() => {
-    return filteredLancamentosForKPI.reduce((acc, curr) => acc + curr.quantidadeCacambas, 0);
+    return filteredLancamentosForKPI.reduce((acc, curr) => acc + (curr.quantidadeCacambas || 0), 0);
   }, [filteredLancamentosForKPI]);
 
   // 2. Valor gasto com bota fora
   const totalBotaForaGasto = useMemo(() => {
-    return filteredLancamentosForKPI.reduce((acc, curr) => acc + curr.valor, 0);
+    return filteredLancamentosForKPI.reduce((acc, curr) => acc + (curr.valor || 0). 0);
   }, [filteredLancamentosForKPI]);
 
   // 3. Valor gasto com combustível
   const totalFuelGasto = useMemo(() => {
-    return filteredFuelLogsForKPI.reduce((acc, curr) => acc + curr.valorPago, 0);
+    return filteredFuelLogsForKPI.reduce((acc, curr) => acc + (curr.valorPago || 0), 0);
   }, [filteredFuelLogsForKPI]);
 
   // 4. Média do valor de combustível gasto por caçamba (Valor total gasto com combustível / Quantidade de Caçambas)
