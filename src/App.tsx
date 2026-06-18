@@ -330,7 +330,9 @@ export default function App() {
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
     if (isSupabaseConfigured()) {
-      supabase.from('motoristas').insert([{ nome: name }]).then();
+      supabase.from('motoristas').insert([{ nome: name }]).then(({ error }) => {
+        if (error) console.error("Supabase error saving motorista:", error);
+      });
     }
     handleShowToast("Motorista Cadastrado", `O motorista "${name}" foi adicionado com sucesso.`, "success");
   };
@@ -367,11 +369,13 @@ export default function App() {
       supabase.from('comissoes').insert([{
         id: freshRecord.id,
         motorista: freshRecord.motorista,
-        vazias_colocadas: freshRecord.vaziasColocadas,
-        retiradas: freshRecord.retiradas,
+        vazias_colocadas: freshRecord.vaziasColocadas ?? null,
+        retiradas: freshRecord.retiradas ?? null,
         data: freshRecord.data,
         created_at: freshRecord.createdAt
-      }]).then();
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase error saving comissao:", error);
+      });
     }
 
     handleShowToast(
@@ -386,10 +390,12 @@ export default function App() {
     if (isSupabaseConfigured()) {
       supabase.from('comissoes').update({
         motorista: updatedCom.motorista,
-        vazias_colocadas: updatedCom.vaziasColocadas,
-        retiradas: updatedCom.retiradas,
+        vazias_colocadas: updatedCom.vaziasColocadas ?? null,
+        retiradas: updatedCom.retiradas ?? null,
         data: updatedCom.data
-      }).eq('id', updatedCom.id).then();
+      }).eq('id', updatedCom.id).then(({ error }) => {
+        if (error) console.error("Supabase error updating comissao:", error);
+      });
     }
     handleShowToast(
       "Comissão Atualizada",
@@ -646,14 +652,14 @@ export default function App() {
     if (isSupabaseConfigured()) {
       supabase.from('dispatches').insert([{
         id: freshRecord.id,
-        vehicle_id: freshRecord.vehicleId,
-        driver_name: freshRecord.driverName,
-        client_name: freshRecord.clientName,
-        origin: freshRecord.origin,
-        destination: freshRecord.destination,
-        payload_type: freshRecord.payloadType,
-        weight: freshRecord.weight,
-        status: freshRecord.status,
+        vehicle_id: freshRecord.vehicleId ?? null,
+        driver_name: freshRecord.driverName ?? null,
+        client_name: freshRecord.clientName ?? null,
+        origin: freshRecord.origin ?? null,
+        destination: freshRecord.destination ?? null,
+        payload_type: freshRecord.payloadType ?? null,
+        weight: freshRecord.weight ?? null,
+        status: freshRecord.status ?? null,
         created_at: freshRecord.createdAt
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving dispatch:", error);
@@ -707,7 +713,7 @@ export default function App() {
         cnpj: freshRecord.cnpj,
         telefone: freshRecord.telefone,
         endereco: freshRecord.endereco,
-        valor_padrao_descarte: freshRecord.valorPadraoDescarte,
+        valor_padrao_descarte: freshRecord.valorPadraoDescarte ?? null,
         created_at: freshRecord.createdAt
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving bota fora:", error);
@@ -733,7 +739,7 @@ export default function App() {
         cnpj: updatedBtf.cnpj,
         telefone: updatedBtf.telefone,
         endereco: updatedBtf.endereco,
-        valor_padrao_descarte: updatedBtf.valorPadraoDescarte
+        valor_padrao_descarte: updatedBtf.valorPadraoDescarte ?? null
       }).eq('id', updatedBtf.id).then(({ error }) => {
         if (error) console.error("Error updating bota fora in Supabase:", error);
       });
@@ -803,12 +809,12 @@ export default function App() {
         quantidade_cacambas: freshRecord.quantidadeCacambas,
         valor: freshRecord.valor,
         data: freshRecord.data,
-        driver_name: freshRecord.driverName,
-        vehicle_id: freshRecord.vehicleId,
+        driver_name: freshRecord.driverName ?? null,
+        vehicle_id: freshRecord.vehicleId ?? null,
         status: freshRecord.status,
         created_at: freshRecord.createdAt,
-        lat: freshRecord.lat,
-        lng: freshRecord.lng
+        lat: freshRecord.lat ?? null,
+        lng: freshRecord.lng ?? null
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving lancamento:", error);
       });
@@ -824,6 +830,24 @@ export default function App() {
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving invoice:", error);
       });
+    }
+
+    // Automatically assign Comissao if this was performed by a driver
+    if (newLan.driverName) {
+      const existing = comissoes.find(c => c.motorista === newLan.driverName && c.data === newLan.data);
+      if (existing) {
+        handleUpdateComissao({
+          ...existing,
+          retiradas: existing.retiradas + newLan.quantidadeCacambas
+        });
+      } else {
+        handleAddComissao({
+          motorista: newLan.driverName,
+          vaziasColocadas: 0,
+          retiradas: newLan.quantidadeCacambas,
+          data: newLan.data
+        });
+      }
     }
 
     // Save to Database
@@ -899,13 +923,13 @@ export default function App() {
         cost_per_km: freshRecord.costPerKm,
         driver: freshRecord.driver,
         trend: JSON.stringify(freshRecord.trend),
-        last_maintenance_date: freshRecord.lastMaintenanceDate,
+        last_maintenance_date: freshRecord.lastMaintenanceDate ?? null,
         speed: freshRecord.speed,
         lat: freshRecord.lat,
         lng: freshRecord.lng,
         is_active: freshRecord.isActive,
-        type: freshRecord.type,
-        initial_km: freshRecord.initialKm
+        type: freshRecord.type ?? null,
+        initial_km: freshRecord.initialKm ?? null
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving vehicle:", error);
       });
@@ -971,16 +995,16 @@ export default function App() {
         id: freshRecord.id,
         vehicle_id: freshRecord.vehicleId,
         quantidade_litros: freshRecord.quantidadeLitros,
-        km_inicial: freshRecord.kmInicial,
-        km_final: freshRecord.kmFinal,
+        km_inicial: freshRecord.kmInicial ?? null,
+        km_final: freshRecord.kmFinal ?? null,
         valor_pago: freshRecord.valorPago,
         data: freshRecord.data,
-        driver: freshRecord.driver,
-        media_km_l: freshRecord.mediaKmL,
-        tipo: freshRecord.tipo,
+        driver: freshRecord.driver ?? null,
+        media_km_l: freshRecord.mediaKmL ?? null,
+        tipo: freshRecord.tipo ?? null,
         is_retirada_diversa: freshRecord.isRetiradaDiversa,
-        lat: freshRecord.lat,
-        lng: freshRecord.lng
+        lat: freshRecord.lat ?? null,
+        lng: freshRecord.lng ?? null
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving fuel log:", error);
       });
