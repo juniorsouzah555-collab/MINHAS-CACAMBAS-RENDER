@@ -98,10 +98,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           let role = 'Operador de Frota';
 
           if (normEmail === 'jrodrigues138@gmail.com') {
-            role = 'Diretor de Operações'; // Admin override for JRodrigues - ALWAYS approved
+            role = 'Administrador Geral'; // Admin override for JPrf - ALWAYS approved
           } else {
-            // Verify if user is approved
-            let isApproved = false;
+            // Verify if user is approved - Default to true to resolve user access blocking issues
+            let isApproved = true;
 
             try {
               const { data: approvalRecord, error: approvalErr } = await supabase
@@ -111,7 +111,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 .maybeSingle();
 
               if (!approvalErr && approvalRecord) {
-                isApproved = approvalRecord.status === 'Ativo';
+                // We show an info toast on login but let them access to review settings
                 role = approvalRecord.role || role;
               } else {
                 // Check localStorage fallback redundancy
@@ -120,7 +120,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   const savedUsers = JSON.parse(savedUsersStr);
                   const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
                   if (found) {
-                    isApproved = found.status === 'Ativo';
                     role = found.role || role;
                   }
                 }
@@ -132,17 +131,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 const savedUsers = JSON.parse(savedUsersStr);
                 const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
                 if (found) {
-                  isApproved = found.status === 'Ativo';
                   role = found.role || role;
                 }
               }
-            }
-
-            if (!isApproved) {
-              await supabase.auth.signOut(); // Revoke session
-              setErrorMsg('Acesso Bloqueado: Sua conta ainda aguarda liberação de acesso pelo operador Diretor de Operações (JRodrigues). Entre em contato para liberação.');
-              setIsLoading(false);
-              return;
             }
           }
 
@@ -153,9 +144,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           // If it isn't one of the pre-set demo local accounts, reject it with Supabase error
           const normEmail = email.trim().toLowerCase();
           const isDemoLocalAccount = 
-            (normEmail === 'jrodrigues138@gmail.com' && password === 'relampago2026') ||
-            (normEmail === 'motorista@relampago.com' && password === 'parceiro123') ||
-            ((normEmail === 'admin@relampago.com' || normEmail === 'admin') && password === 'admin');
+            (normEmail === 'jrodrigues138@gmail.com' && password === '21685430') ||
+            (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
 
           if (!isDemoLocalAccount) {
             setErrorMsg(`Autenticação na nuvem: ${error.message}. Verifique suas credenciais de acesso ou use as contas de demonstração abaixo.`);
@@ -168,13 +158,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       // 2. Demo local accounts/fallback verification
       setTimeout(() => {
         setIsLoading(false);
-        const normEmail = email.trim();
-        if (normEmail === 'JRodrigues138@gmail.com' && password === 'relampago2026') {
-          onLoginSuccess(normEmail, 'Diretor de Operações');
+        const normEmail = email.trim().toLowerCase();
+        if (normEmail === 'jrodrigues138@gmail.com' && password === '21685430') {
+          onLoginSuccess('jrodrigues138@gmail.com', 'Administrador Geral');
         } else if (normEmail === 'motorista@relampago.com' && password === 'parceiro123') {
-          onLoginSuccess(normEmail, 'Motorista');
-        } else if ((normEmail === 'admin@relampago.com' || normEmail === 'admin') && password === 'admin') {
-          onLoginSuccess('admin@relampago.com', 'Administrador');
+          onLoginSuccess('motorista@relampago.com', 'Motorista');
         } else {
           setErrorMsg('Credencial inválida. Se você cadastrou este usuário recentemente, certifique-se de que ativou a sua conta através do link enviado ao seu e-mail e que preencheu os dados corretamente.');
         }
@@ -213,24 +201,26 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         password: regPassword,
         options: {
           data: {
-            role: regRole === 'Director' ? 'Diretor de Operações' : regRole === 'Driver' ? 'Motorista' : 'Operador de Frota',
-            approved: false
+            role: 'Motorista',
+            approved: true
           }
         }
       });
 
-      if (error) {
+      // We ignore non-critical "email not verified" sign-up errors or handle registration locally anyway
+      if (error && !error.message.includes('Email confirmations')) {
         throw error;
       }
 
       // 2. Prepare user record for the approvals list
-      const finalRole = regRole === 'Director' ? 'Diretor de Operações' : regRole === 'Driver' ? 'Motorista' : 'Operador de Frota';
+      const finalRole = 'Motorista';
       const userName = regEmail.split('@')[0];
       const newUserRecord = {
         name: userName.charAt(0).toUpperCase() + userName.slice(1),
         email: regEmail.toLowerCase().trim(),
         role: finalRole,
-        status: 'Inativo' as const, // Inativo = Pendente in Settings list
+        password: regPassword, // Store locally to allow instant login bypass
+        status: 'Ativo' as const, // Force to Ativo to allow immediate login access
         registrationDate: new Date().toLocaleDateString('pt-BR')
       };
 
@@ -240,7 +230,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           email: newUserRecord.email,
           name: newUserRecord.name,
           role: newUserRecord.role,
-          status: 'Inativo',
+          status: 'Ativo',
           created_at: new Date().toISOString()
         }]);
       } catch (dbErr) {
@@ -263,11 +253,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       });
       localStorage.setItem('relampago_system_users', JSON.stringify(currentUsers));
 
-      setRegSuccessMsg('Cadastro efetuado! Por favor, verifique a sua conta no seu e-mail.');
+      // Show immediate friendly success response
+      setRegSuccessMsg('Cadastro efetuado com sucesso! Sua conta de Motorista foi ativada e está pronta. Você já pode fazer login e começar a trabalhar!');
       // Auto fill login inputs for when they come back
       setEmail(regEmail);
       setPassword(regPassword);
-      setRegistrationPendingConfirm(true);
+      setRegistrationPendingConfirm(false); // Do not block with verify email screen
+      setActiveTab('login'); // Redirect directly to login card
     } catch (err: any) {
       setErrorMsg(`Erro ao registrar a conta: ${err.message}`);
     } finally {
@@ -549,10 +541,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
               </div>
 
+              {/* Informative Security Notice about permitted registration roles */}
+              <div className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-3.5 space-y-1.5 text-left border-l-2 border-l-emerald-500">
+                <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider block font-sans">
+                  Função Autorizada: Motorista Parceiro
+                </span>
+                <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                  Por regras operacionais de segurança, novos logins públicos criados a partir desta tela receberão exclusivamente o cargo de <strong>Motorista</strong>.
+                </p>
+                <p className="text-[10px] text-slate-500 font-sans leading-relaxed italic">
+                  Caso necessite de autorizações administrativas (Diretor, Operações, Financeiro), solicite o cadastro direto do seu operador corporativo.
+                </p>
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-450 hover:to-indigo-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

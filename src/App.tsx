@@ -62,10 +62,10 @@ export default function App() {
     return localStorage.getItem('relampago_auth_active') === 'true';
   });
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
-    return localStorage.getItem('relampago_auth_email') || 'JRodrigues138@gmail.com';
+    return localStorage.getItem('relampago_auth_email') || 'jrodrigues138@gmail.com';
   });
   const [currentUserRole, setCurrentUserRole] = useState<string>(() => {
-    return localStorage.getItem('relampago_auth_role') || 'Diretor de Operações';
+    return localStorage.getItem('relampago_auth_role') || 'Administrador Geral';
   });
 
   const [currentTab, setCurrentTab] = useState<string>('fleet');
@@ -105,7 +105,7 @@ export default function App() {
 
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
-    const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('frota') || currentUserEmail === 'motorista@relampago.com';
+    const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserEmail === 'motorista@relampago.com';
     if (isDriver && currentTab !== 'driver-portal') {
       setCurrentTab('driver-portal');
     }
@@ -486,7 +486,7 @@ export default function App() {
     localStorage.setItem('relampago_auth_email', userEmail);
     localStorage.setItem('relampago_auth_role', userRole);
 
-    const isDriver = userRole.toLowerCase().includes('motorista') || userRole.toLowerCase().includes('frota') || userEmail === 'motorista@relampago.com';
+    const isDriver = userRole.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com';
     if (isDriver) {
       setCurrentTab('driver-portal');
     } else {
@@ -1058,7 +1058,7 @@ export default function App() {
       />
 
       {/* Main workspace arena */}
-      <div className="flex-1 ml-[280px] min-h-screen flex flex-col justify-between">
+      <div className="flex-1 md:ml-[280px] min-h-screen flex flex-col justify-between overflow-x-hidden">
         
         {/* Persistent top bar */}
         <Header 
@@ -1070,10 +1070,11 @@ export default function App() {
           userEmail={currentUserEmail}
           userRole={currentUserRole}
           onLogout={handleLogout}
+          onNavigate={setCurrentTab}
         />
 
         {/* Dynamic Inner views router based on selected navigation hooks */}
-        <main className="p-6 flex-1 max-w-7xl w-full mx-auto space-y-6">
+        <main className="p-3 sm:p-6 flex-1 max-w-7xl w-full mx-auto space-y-4 sm:space-y-6">
           
           {currentTab === 'dashboard' && (
             <DashboardView 

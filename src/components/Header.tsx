@@ -15,6 +15,7 @@ interface HeaderProps {
   userEmail?: string;
   userRole?: string;
   onLogout?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 export default function Header({ 
@@ -25,7 +26,8 @@ export default function Header({
   onClearNotifications,
   userEmail = 'JRodrigues138@gmail.com',
   userRole = 'Diretor de Operações',
-  onLogout
+  onLogout,
+  onNavigate
 }: HeaderProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
@@ -84,10 +86,10 @@ export default function Header({
   };
 
   return (
-    <header className="w-full h-16 sticky top-0 z-40 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm">
-      <div className="flex items-center gap-8">
-        <h2 className="font-sans font-bold text-xl text-slate-900 tracking-tight">{getTitle()}</h2>
-        <div className="relative w-80">
+    <header className="w-full h-16 sticky top-0 z-40 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm">
+      <div className="flex items-center gap-3 md:gap-8 overflow-hidden">
+        <h2 className="font-sans font-bold text-base md:text-xl text-slate-900 tracking-tight truncate">{getTitle()}</h2>
+        <div className="relative w-80 hidden md:block">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             id="workspace-search-input"
@@ -108,14 +110,14 @@ export default function Header({
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* Support Link */}
         <button 
           onClick={() => alert("Conectando com a equipe de despacho técnico 24/7 da Relâmpago Caçambas...")}
-          className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-emerald-600 font-medium transition-colors cursor-pointer"
+          className="flex items-center gap-1 text-xs md:text-sm text-slate-600 hover:text-emerald-600 font-medium transition-colors cursor-pointer"
         >
           <HelpCircle className="w-4 h-4" />
-          <span className="font-sans">Suporte</span>
+          <span className="font-sans hidden sm:inline">Suporte</span>
         </button>
 
         {/* Notifications Icon with Dropdown */}
@@ -204,16 +206,20 @@ export default function Header({
                 <p className="text-sm font-semibold text-slate-800 break-all">{userEmail}</p>
                 <p className="text-slate-500 text-xs mt-0.5">Função: {userRole}</p>
               </div>
-              <button 
-                onClick={() => {
-                  alert(`Perfil ativo: ${getDisplayName()} (${userRole}). Canal corporativo Relâmpago Caçambas.`);
-                  setShowProfileMenu(false);
-                }}
-                className="w-full text-left p-2 hover:bg-slate-50 rounded text-xs text-slate-700 hover:text-slate-900 font-medium flex items-center gap-2 cursor-pointer"
-              >
-                <User className="w-4 h-4 text-slate-500" />
-                Configurações de Perfil
-              </button>
+              {!(userRole?.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com') && (
+                <button 
+                  onClick={() => {
+                    if (onNavigate) {
+                      onNavigate('settings');
+                    }
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full text-left p-2 hover:bg-slate-50 rounded text-xs text-slate-700 hover:text-slate-900 font-medium flex items-center gap-2 cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-slate-500" />
+                  Configurações de Perfil
+                </button>
+              )}
               <button 
                 onClick={() => {
                   if (onLogout) {

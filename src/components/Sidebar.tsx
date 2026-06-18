@@ -49,7 +49,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
   });
 
   return (
-    <aside id="sidebar-container" className="fixed left-0 top-0 h-full w-[280px] z-50 bg-slate-900 text-slate-100 flex flex-col py-6 border-r border-slate-800">
+    <aside id="sidebar-container" className="hidden md:flex fixed left-0 top-0 h-full w-[280px] z-50 bg-slate-900 text-slate-100 flex flex-col py-6 border-r border-slate-800">
       {/* Brand Header */}
       <div className="px-6 mb-8 mt-1.5 animate-in fade-in duration-300">
         <div className="flex items-center gap-3">

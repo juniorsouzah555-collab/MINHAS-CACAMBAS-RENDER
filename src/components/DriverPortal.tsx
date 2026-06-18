@@ -528,38 +528,38 @@ export default function DriverPortal({
   };
 
   return (
-    <div id="driver-app-console" className="space-y-6">
+    <div id="driver-app-console" className="space-y-4 sm:space-y-6">
       
       {/* Dynamic Header Section for smartphone styling view */}
-      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-6 rounded-2xl border border-slate-800 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
+      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-4 sm:p-6 rounded-2xl border border-slate-800 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1 sm:space-y-1.5">
           <div className="flex items-center gap-2">
             <div className="bg-emerald-500/20 text-emerald-400 p-1 rounded font-black text-[9px] uppercase tracking-widest flex items-center gap-1">
               <Smartphone className="w-3 h-3" />
               <span>Console do Condutor</span>
             </div>
-            <div className="text-slate-400 text-xs flex items-center gap-1.5">
+            <div className="text-slate-400 text-[10px] sm:text-xs flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Sincronizado</span>
             </div>
           </div>
-          <h2 className="text-xl font-extrabold tracking-tight font-sans flex items-center gap-2">
+          <h2 className="text-lg sm:text-xl font-extrabold tracking-tight font-sans flex items-center gap-2">
             <span>Olá, {selectedDriver}!</span>
             <Sparkles className="w-4 h-4 text-emerald-400 fill-emerald-400" />
           </h2>
-          <p className="text-xs text-slate-300">
+          <p className="text-[11px] sm:text-xs text-slate-300 leading-normal">
             Utilize este painel móvel simplificado para registrar as suas atividades em tempo real nas ruas de São Paulo.
           </p>
         </div>
 
         {/* Quick Driver or Vehicle Select to let anyone test seamlessly */}
-        <div className="flex flex-wrap items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-          <div className="space-y-1">
+        <div className="flex flex-row flex-wrap items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 w-full md:w-auto justify-between sm:justify-start">
+          <div className="space-y-1 min-w-[120px] flex-1 sm:flex-initial">
             <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Simular Motorista</span>
             <select
               value={selectedDriver}
               onChange={(e) => setSelectedDriver(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 max-w-[150px] font-bold cursor-pointer"
+              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full sm:max-w-[150px] font-bold cursor-pointer"
             >
               {motoristas.map(m => (
                 <option key={m} value={m}>{m}</option>
@@ -567,12 +567,12 @@ export default function DriverPortal({
             </select>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-[100px] flex-1 sm:flex-initial">
             <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Veículo Operado</span>
             <select
               value={selectedVehicleId}
               onChange={(e) => setSelectedVehicleId(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 font-bold font-mono cursor-pointer"
+              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full font-bold font-mono cursor-pointer"
             >
               {vehicles.map(v => (
                 <option key={v.id} value={v.id}>{v.id} ({v.type})</option>
@@ -583,49 +583,49 @@ export default function DriverPortal({
       </div>
 
       {/* Grid of counters indicating today's active achievements */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
-            <PlusCircle className="w-6 h-6 animate-pulse" />
+        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+            <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
           </div>
-          <div>
-            <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Caçambas Colocadas </span>
-            <strong className="text-xl font-extrabold text-slate-900 block mt-0.5">{placedTodayCount} cç.</strong>
-            <span className="text-[10px] text-slate-450 block mt-0.5">Hoje ({selectedDriver})</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
-            <Truck className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Caçambas Retiradas</span>
-            <strong className="text-xl font-extrabold text-slate-900 block mt-0.5">{removedTodayCount} cç.</strong>
-            <span className="text-[10px] text-slate-450 block mt-0.5">Hoje ({selectedDriver})</span>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Colocadas</span>
+            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{placedTodayCount} cç.</strong>
+            <span className="text-[9px] sm:text-[10px] text-slate-450 block mt-0.5 truncate">Hoje ({selectedDriver})</span>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-            <Building className="w-6 h-6" />
+        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
+            <Truck className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Descarregados / Aterro</span>
-            <strong className="text-xl font-extrabold text-slate-900 block mt-0.5">{dischargesTodayCount} cç.</strong>
-            <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">Lançamentos Sincronizados</span>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Retiradas</span>
+            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{removedTodayCount} cç.</strong>
+            <span className="text-[9px] sm:text-[10px] text-slate-450 block mt-0.5 truncate">Hoje ({selectedDriver})</span>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 shrink-0">
-            <Fuel className="w-6 h-6" />
+        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
+            <Building className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Refueling registrado</span>
-            <strong className="text-xl font-extrabold text-slate-900 block mt-0.5">{fuelTodayLiters} L</strong>
-            <span className="text-[10px] text-slate-450 block mt-0.5">Abastecido hoje</span>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Descartes</span>
+            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{dischargesTodayCount} cç.</strong>
+            <span className="text-[9px] sm:text-[10px] text-emerald-600 font-bold block mt-0.5 truncate">Sincronizados</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 shrink-0">
+            <Fuel className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Diesel</span>
+            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{fuelTodayLiters} L</strong>
+            <span className="text-[9px] sm:text-[10px] text-slate-450 block mt-0.5 truncate">Hoje abastecido</span>
           </div>
         </div>
 
@@ -667,20 +667,20 @@ export default function DriverPortal({
         {/* Left Side: Modular and clean Touch actions form */}
         <div className="lg:col-span-7 space-y-4">
           
-          <div className="bg-white border border-slate-250 rounded-2xl p-6 shadow-sm">
+          <div className="bg-white border border-slate-250 rounded-2xl p-4 sm:p-6 shadow-sm">
             <h3 className="font-sans font-bold text-sm text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Activity className="w-4 h-4 text-emerald-600" />
+              <Activity className="w-4 h-4 text-emerald-600 animate-pulse" />
               <span>Registrar Nova Atividade de Trabalho</span>
             </h3>
 
             {/* Quick Select Buttons between actions forms */}
-            <div className="grid grid-cols-3 gap-2 mb-6">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-6">
               <button
                 type="button"
                 onClick={() => setActiveForm('discharges')}
-                className={`py-2 px-3 rounded-xl border text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
                   activeForm === 'discharges' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20' 
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
                     : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -691,9 +691,9 @@ export default function DriverPortal({
               <button
                 type="button"
                 onClick={() => setActiveForm('refueling')}
-                className={`py-2 px-3 rounded-xl border text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
                   activeForm === 'refueling' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20' 
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
                     : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -704,9 +704,9 @@ export default function DriverPortal({
               <button
                 type="button"
                 onClick={() => setActiveForm('buckets')}
-                className={`py-2 px-3 rounded-xl border text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
                   activeForm === 'buckets' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20' 
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
                     : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
                 }`}
               >
