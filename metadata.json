@@ -1,6 +1,6 @@
 {
-  "name": "Remix: Relâmpago Caçambas",
-  "description": "Suíte interativa de comando de logística de caçambas, bota foras e gestão financeira para a empresa Relâmpago Caçambas (CNPJ: 02.948.345/0001-05), com controle de usuários, níveis de liberação/permissões e rastreamento dinâmico.",
+  "name": "Relampago Cacambas Logistics",
+  "description": "Logistics and financial management system for Relampago Cacambas with user control and dispatch tracking.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

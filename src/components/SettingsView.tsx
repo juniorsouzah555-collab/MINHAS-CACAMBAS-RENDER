@@ -62,64 +62,49 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   const [defaultTerminal, setDefaultTerminal] = useState('Aterro Central - Setor 4');
 
   // Interactive Users Database
-  const [users, setUsers] = useState<SystemUser[]>(() => {
-    const saved = localStorage.getItem('relampago_system_users');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // ignore and fallback
-      }
+  const [users, setUsers] = useState<SystemUser[]>([
+    {
+      id: "USR-001",
+      name: "Alex Rivera",
+      email: "relampagoentulho@gmail.com",
+      role: "Administrador Geral",
+      status: "Ativo",
+      registrationDate: "12/01/2026"
+    },
+    {
+      id: "USR-002",
+      name: "Carlos Augusto Silva",
+      email: "carlos.silva@relampago.com",
+      role: "Diretor de Operações",
+      status: "Ativo",
+      registrationDate: "15/02/2026"
+    },
+    {
+      id: "USR-003",
+      name: "Mariana Souza",
+      email: "financeiro@relampago.com",
+      role: "Financeiro",
+      status: "Ativo",
+      registrationDate: "03/03/2026"
+    },
+    {
+      id: "USR-004",
+      name: "Marcos Pinheiro",
+      email: "marcos@relampago.com",
+      role: "Motorista",
+      status: "Inativo",
+      registrationDate: "10/05/2026"
     }
-    const defaultUsersList: SystemUser[] = [
-      {
-        id: "USR-001",
-        name: "Alex Rivera",
-        email: "relampagoentulho@gmail.com",
-        role: "Administrador Geral",
-        status: "Ativo",
-        registrationDate: "12/01/2026"
-      },
-      {
-        id: "USR-002",
-        name: "Carlos Augusto Silva",
-        email: "carlos.silva@relampago.com",
-        role: "Diretor de Operações",
-        status: "Ativo",
-        registrationDate: "15/02/2026"
-      },
-      {
-        id: "USR-003",
-        name: "Mariana Souza",
-        email: "financeiro@relampago.com",
-        role: "Financeiro",
-        status: "Ativo",
-        registrationDate: "03/03/2026"
-      },
-      {
-        id: "USR-004",
-        name: "Marcos Pinheiro",
-        email: "marcos@relampago.com",
-        role: "Motorista",
-        status: "Inativo",
-        registrationDate: "10/05/2026"
-      }
-    ];
-    localStorage.setItem('relampago_system_users', JSON.stringify(defaultUsersList));
-    return defaultUsersList;
-  });
+  ]);
 
-  const [motoristas, setMotoristas] = useState<string[]>(() => {
-    const saved = localStorage.getItem('relampago_motoristas');
-    return saved ? JSON.parse(saved) : [
-      'Carlos Santana',
-      'Marcus Warren',
-      'Emily Watson',
-      'Sophia Loren',
-      'Alexandre Nero',
-      'Beatriz Albuquerque'
-    ];
-  });
+  const [motoristas, setMotoristas] = useState<string[]>([
+    'Carlos Santana',
+    'Marcus Warren',
+    'Emily Watson',
+    'Sophia Loren',
+    'Alexandre Nero',
+    'Beatriz Albuquerque'
+  ]);
 
   const handleLinkDriver = (userId: string, driverName: string) => {
     const updated = users.map(u => {
@@ -129,7 +114,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       return u;
     });
     setUsers(updated);
-    localStorage.setItem('relampago_system_users', JSON.stringify(updated));
     onShowNotification(`Vinculação de motorista atualizada com sucesso!`);
   };
 
@@ -167,7 +151,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                 updated.push(mappedUser);
               }
             });
-            localStorage.setItem('relampago_system_users', JSON.stringify(updated));
             return updated;
           });
         }
@@ -277,7 +260,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
 
     const updatedUsers = [...users, newUserObj];
     setUsers(updatedUsers);
-    localStorage.setItem('relampago_system_users', JSON.stringify(updatedUsers));
 
     // Try inserting into Supabase
     if (isSupabaseConfigured()) {
@@ -316,7 +298,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     if (confirm(`Deseja realmente excluir o cadastro de ${name}?`)) {
       const updated = users.filter(u => u.id !== id);
       setUsers(updated);
-      localStorage.setItem('relampago_system_users', JSON.stringify(updated));
 
       if (targetUser && isSupabaseConfigured()) {
         supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
@@ -359,7 +340,6 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     });
 
     setUsers(updated);
-    localStorage.setItem('relampago_system_users', JSON.stringify(updated));
   };
 
   const handleTogglePermission = (permissionId: string) => {

@@ -113,27 +113,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               if (!approvalErr && approvalRecord) {
                 // We show an info toast on login but let them access to review settings
                 role = approvalRecord.role || role;
-              } else {
-                // Check localStorage fallback redundancy
-                const savedUsersStr = localStorage.getItem('relampago_system_users');
-                if (savedUsersStr) {
-                  const savedUsers = JSON.parse(savedUsersStr);
-                  const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
-                  if (found) {
-                    role = found.role || role;
-                  }
-                }
               }
             } catch (pErr) {
-              // Redundancy check fallback
-              const savedUsersStr = localStorage.getItem('relampago_system_users');
-              if (savedUsersStr) {
-                const savedUsers = JSON.parse(savedUsersStr);
-                const found = savedUsers.find((u: any) => u.email.toLowerCase() === normEmail);
-                if (found) {
-                  role = found.role || role;
-                }
-              }
+              console.warn("Could not load user_approvals dynamically:", pErr);
             }
           }
 
@@ -212,7 +194,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         throw error;
       }
 
-      // 2. Prepare user record for the approvals list
+      // Prepare user record for the approvals list
       const finalRole = 'Motorista';
       const userName = regEmail.split('@')[0];
       const newUserRecord = {
@@ -236,22 +218,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       } catch (dbErr) {
         console.warn('user_approvals insert failed: ', dbErr);
       }
-
-      // Update redundant localStorage to immediately mirror registrations
-      const savedUsersStr = localStorage.getItem('relampago_system_users');
-      let currentUsers = [];
-      if (savedUsersStr) {
-        try {
-          currentUsers = JSON.parse(savedUsersStr);
-        } catch (e) {
-          currentUsers = [];
-        }
-      }
-      currentUsers.push({
-        id: `USR-${Math.floor(100 + Math.random() * 900)}`,
-        ...newUserRecord
-      });
-      localStorage.setItem('relampago_system_users', JSON.stringify(currentUsers));
 
       // Show immediate friendly success response
       setRegSuccessMsg('Cadastro efetuado com sucesso! Sua conta de Motorista foi ativada e está pronta. Você já pode fazer login e começar a trabalhar!');
