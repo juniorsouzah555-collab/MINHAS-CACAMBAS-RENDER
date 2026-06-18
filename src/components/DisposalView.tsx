@@ -329,7 +329,7 @@ export default function DisposalView({
                       {typeof rec.valorPadraoDescarte === 'number' && rec.valorPadraoDescarte > 0 && (
                         <span className="font-sans text-[10px] text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100 px-1.5 py-0.2 rounded font-black flex items-center gap-0.5">
                           <Coins className="w-2.5 h-2.5" />
-                          Tarifa: R$ {rec.valorPadraoDescarte.toFixed(2)}/caçamba
+                          Tarifa: R$ {(rec.valorPadraoDescarte ?? 0).toFixed(2)}/caçamba
                         </span>
                       )}
                     </div>

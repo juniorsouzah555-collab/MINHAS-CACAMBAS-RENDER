@@ -512,7 +512,7 @@ export default function App() {
         const currentSpeed = Math.max(45, Math.min(110, (v.speed || 60) + randomSpeedChange));
         // fluctuate efficiency slightly
         const randomEfficiencyChange = parseFloat((Math.random() * 0.4 - 0.2).toFixed(1));
-        const efficiency = Math.max(2.1, Math.min(5.2, parseFloat((v.efficiency + randomEfficiencyChange).toFixed(1))));
+        const efficiency = Math.max(2.1, Math.min(5.2, parseFloat(((v.efficiency ?? 0) + randomEfficiencyChange).toFixed(1))));
 
         return {
           ...v,
@@ -910,7 +910,7 @@ export default function App() {
     if (!newLog.isRetiradaDiversa && newLog.kmFinal !== undefined && newLog.kmInicial !== undefined) {
       const distance = newLog.kmFinal - newLog.kmInicial;
       mediaKmL = distance > 0 && newLog.quantidadeLitros > 0 
-        ? parseFloat((distance / newLog.quantidadeLitros).toFixed(2)) 
+        ? parseFloat(((distance / newLog.quantidadeLitros) || 0).toFixed(2)) 
         : 0;
     }
 
@@ -951,7 +951,7 @@ export default function App() {
 
     // If type is GARAGEM, subtract quantity to update stocks (can go negative)
     if (newLog.tipo === 'GARAGEM') {
-      setGarageDieselQty(prev => parseFloat((prev - newLog.quantidadeLitros).toFixed(2)));
+      setGarageDieselQty(prev => parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2)));
     }
 
     // Update corresponding vehicle's stats: efficiency, fuelUsed

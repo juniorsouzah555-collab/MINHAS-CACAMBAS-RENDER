@@ -478,7 +478,7 @@ export default function DriverPortal({
       action: '🔋 Descarregada Registrada',
       description: `${dischargeQty} caçambas no "${selectedBotaFora.nome}"`,
       time: 'Agora mesmo',
-      details: `Custo total de R$ ${totalCost.toFixed(2)} faturado em faturas automáticas`,
+      details: `Custo total de R$ ${(totalCost ?? 0).toFixed(2)} faturado em faturas automáticas`,
       synchronized: true,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
@@ -487,7 +487,7 @@ export default function DriverPortal({
 
     onShowToast(
       "Descarte Registrado", 
-      `Dumping de ${dischargeQty} caçambas gravado no aterro "${selectedBotaFora.nome}" com custo total de R$ ${totalCost.toFixed(2)}.`, 
+      `Dumping de ${dischargeQty} caçambas gravado no aterro "${selectedBotaFora.nome}" com custo total de R$ ${(totalCost ?? 0).toFixed(2)}.`, 
       "success"
     );
 
@@ -543,7 +543,7 @@ export default function DriverPortal({
       action: '⛽ Abastecimento Controlado',
       description: `${inputLiters} Litros de Diesel • ${fuelStationType === 'GARAGEM' ? 'Bomba da Garagem' : 'Posto Externo'}`,
       time: 'Agora mesmo',
-      details: `KM final digitado: ${currentKm || 'Não fornecido'} • R$ ${inputPrice.toFixed(2)} pagos`,
+      details: `KM final digitado: ${currentKm || 'Não fornecido'} • R$ ${(inputPrice ?? 0).toFixed(2)} pagos`,
       synchronized: true,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
@@ -730,7 +730,7 @@ export default function DriverPortal({
           {userCoords && typeof userCoords.lat === 'number' && typeof userCoords.lng === 'number' && (
             <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-250 px-3 py-1.5 rounded-xl text-[10px] text-emerald-700 font-extrabold font-mono shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>LAT: {userCoords.lat.toFixed(6)} | LNG: {userCoords.lng.toFixed(6)}</span>
+              <span>LAT: {(userCoords.lat ?? 0).toFixed(6)} | LNG: {(userCoords.lng ?? 0).toFixed(6)}</span>
             </div>
           )}
         </div>
@@ -978,7 +978,7 @@ export default function DriverPortal({
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
                   <span className="text-slate-505 font-medium">Estimativa do Faturamento de Descarte:</span>
                   <strong className="text-slate-850 font-extrabold text-sm text-emerald-600 font-mono">
-                    R$ {((parseFloat(customDischargePrice) || 0) * dischargeQty).toFixed(2)}
+                    R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) || 0).toFixed(2)}
                   </strong>
                 </div>
 
@@ -1143,7 +1143,7 @@ export default function DriverPortal({
                     <div className="mt-1.5 mb-2 text-[10px] bg-slate-50 border border-slate-150 rounded-lg p-2 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1 text-slate-500 font-semibold font-mono">
                         <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-                        <span>GPS: {item.lat.toFixed(6)}, {item.lng.toFixed(6)}</span>
+                        <span>GPS: {(item.lat ?? 0).toFixed(6)}, {(item.lng ?? 0).toFixed(6)}</span>
                       </div>
                       <a 
                         href={`https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}#map=17/${item.lat}/${item.lng}`} 

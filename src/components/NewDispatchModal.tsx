@@ -152,14 +152,14 @@ export default function NewDispatchModal({ botaForas, vehicles, motoristas, onCl
                 >
                   {botaForas.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.id} - {b.nome} {typeof b.valorPadraoDescarte === 'number' ? `(Tarifa: R$ ${b.valorPadraoDescarte.toFixed(2)})` : ''}
+                      {b.id} - {b.nome} {typeof b.valorPadraoDescarte === 'number' ? `(Tarifa: R$ ${(b.valorPadraoDescarte ?? 0).toFixed(2)})` : ''}
                     </option>
                   ))}
                 </select>
                 {typeof selectedBtfObj?.valorPadraoDescarte === 'number' && selectedBtfObj.valorPadraoDescarte > 0 && (
                   <div className="text-[11px] text-purple-650 font-bold flex items-center gap-1.5 mt-1 bg-purple-50 p-2 rounded border border-purple-100">
                     <Coins className="w-4 h-4 text-purple-500 shrink-0" />
-                    <span>Valor total sugerido automaticamente pela tarifa: <strong>{quantidadeCacambas} caçamba(s) x R$ {selectedBtfObj.valorPadraoDescarte.toFixed(2)} = R$ {(selectedBtfObj.valorPadraoDescarte * quantidadeCacambas).toFixed(2)}</strong></span>
+                    <span>Valor total sugerido automaticamente pela tarifa: <strong>{quantidadeCacambas} caçamba(s) x R$ {(selectedBtfObj?.valorPadraoDescarte ?? 0).toFixed(2)} = R$ {((selectedBtfObj?.valorPadraoDescarte ?? 0) * quantidadeCacambas).toFixed(2)}</strong></span>
                   </div>
                 )}
               </div>

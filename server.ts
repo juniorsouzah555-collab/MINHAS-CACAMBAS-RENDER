@@ -34,8 +34,23 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", database: "connected" });
 });
 
+// In-memory database fallback when PostgreSQL connection is down/unconfigured
+let useMemoryDb = !process.env.SQL_HOST;
+
+const memoryVehicles = [...INITIAL_VEHICLES];
+const memoryFuelLogs = [...INITIAL_FUEL_LOGS];
+const memoryAlerts = [...INITIAL_ALERTS];
+const memoryInvoices = [...INITIAL_INVOICES];
+const memoryDispatches = [...INITIAL_DISPATCHES];
+const memoryBotaForas = [...INITIAL_BOTA_FORAS];
+const memoryLancamentos = [...INITIAL_LANCAMENTOS];
+
 // Seed database on demand or during startup if DB is empty
 async function seedDatabaseIfEmpty() {
+  if (useMemoryDb) {
+    console.log("Memory DB fallback active. Skipping Postgres seeding.");
+    return;
+  }
   try {
     const counts = await db.select({ value: count() }).from(vehiclesTable);
     if (!counts || counts[0].value === 0) {
@@ -151,7 +166,8 @@ async function seedDatabaseIfEmpty() {
       console.log("Database seeded successfully with initial fleet data!");
     }
   } catch (error) {
-    console.error("Failed to seed database on startup:", error);
+    console.error("Failed to seed database on startup, falling back to Memory DB:", error);
+    useMemoryDb = true;
   }
 }
 
@@ -160,6 +176,9 @@ async function seedDatabaseIfEmpty() {
 // Vehicles Endpoints
 app.get("/api/vehicles", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryVehicles);
+    }
     const list = await db.select().from(vehiclesTable);
     const parsed = list.map(v => ({
       ...v,
@@ -174,6 +193,15 @@ app.get("/api/vehicles", async (req, res) => {
 app.post("/api/vehicles", async (req, res) => {
   try {
     const v = req.body;
+    if (useMemoryDb) {
+      const idx = memoryVehicles.findIndex(item => item.id === v.id);
+      if (idx !== -1) {
+        memoryVehicles[idx] = { ...memoryVehicles[idx], ...v };
+      } else {
+        memoryVehicles.push(v);
+      }
+      return res.json({ success: true, vehicle: v });
+    }
     await db.insert(vehiclesTable).values({
       id: v.id,
       status: v.status || 'Available',
@@ -199,6 +227,9 @@ app.post("/api/vehicles", async (req, res) => {
 // Bota Foras Endpoints
 app.get("/api/botaforas", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryBotaForas);
+    }
     const list = await db.select().from(botaForasTable);
     res.json(list);
   } catch (e: any) {
@@ -209,6 +240,10 @@ app.get("/api/botaforas", async (req, res) => {
 app.post("/api/botaforas", async (req, res) => {
   try {
     const bf = req.body;
+    if (useMemoryDb) {
+      memoryBotaForas.push(bf);
+      return res.json({ success: true, botafora: bf });
+    }
     await db.insert(botaForasTable).values({
       id: bf.id,
       nome: bf.nome,
@@ -226,6 +261,9 @@ app.post("/api/botaforas", async (req, res) => {
 // Lancamentos Endpoints
 app.get("/api/lancamentos", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryLancamentos);
+    }
     const list = await db.select().from(lancamentosTable);
     res.json(list);
   } catch (e: any) {
@@ -236,6 +274,19 @@ app.get("/api/lancamentos", async (req, res) => {
 app.post("/api/lancamentos", async (req, res) => {
   try {
     const lan = req.body;
+    if (useMemoryDb) {
+      memoryLancamentos.push(lan);
+      if (lan.vehicleId) {
+        const vehicle = memoryVehicles.find(v => v.id === lan.vehicleId);
+        if (vehicle) {
+          vehicle.status = 'In Transit';
+          vehicle.speed = 55;
+          vehicle.lat = Math.floor(100 + Math.random() * 150);
+          vehicle.lng = Math.floor(250 + Math.random() * 600);
+        }
+      }
+      return res.json({ success: true, lancamento: lan });
+    }
     await db.insert(lancamentosTable).values({
       id: lan.id,
       botaForaId: lan.botaForaId,
@@ -258,6 +309,9 @@ app.post("/api/lancamentos", async (req, res) => {
 // Fuel Logs Endpoints
 app.get("/api/fuel-logs", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryFuelLogs);
+    }
     const list = await db.select().from(fuelLogsTable);
     res.json(list);
   } catch (e: any) {
@@ -268,6 +322,10 @@ app.get("/api/fuel-logs", async (req, res) => {
 app.post("/api/fuel-logs", async (req, res) => {
   try {
     const f = req.body;
+    if (useMemoryDb) {
+      memoryFuelLogs.push(f);
+      return res.json({ success: true, log: f });
+    }
     await db.insert(fuelLogsTable).values({
       id: f.id,
       vehicleId: f.vehicleId,
@@ -292,6 +350,9 @@ app.post("/api/fuel-logs", async (req, res) => {
 // Alerts Endpoints
 app.get("/api/alerts", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryAlerts);
+    }
     const list = await db.select().from(alertsTable);
     res.json(list);
   } catch (e: any) {
@@ -302,6 +363,9 @@ app.get("/api/alerts", async (req, res) => {
 // Invoices Endpoints
 app.get("/api/invoices", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryInvoices);
+    }
     const list = await db.select().from(invoicesTable);
     res.json(list);
   } catch (e: any) {
@@ -312,6 +376,10 @@ app.get("/api/invoices", async (req, res) => {
 app.post("/api/invoices", async (req, res) => {
   try {
     const inv = req.body;
+    if (useMemoryDb) {
+      memoryInvoices.push(inv);
+      return res.json({ success: true, invoice: inv });
+    }
     await db.insert(invoicesTable).values({
       id: inv.id,
       clientName: inv.clientName,
@@ -331,6 +399,9 @@ app.post("/api/invoices", async (req, res) => {
 // Dispatched Endpoints
 app.get("/api/dispatches", async (req, res) => {
   try {
+    if (useMemoryDb) {
+      return res.json(memoryDispatches);
+    }
     const list = await db.select().from(dispatchesTable);
     res.json(list);
   } catch (e: any) {
@@ -341,6 +412,17 @@ app.get("/api/dispatches", async (req, res) => {
 app.post("/api/dispatches", async (req, res) => {
   try {
     const d = req.body;
+    if (useMemoryDb) {
+      memoryDispatches.push(d);
+      const vehicle = memoryVehicles.find(v => v.id === d.vehicleId);
+      if (vehicle) {
+        vehicle.status = 'In Transit';
+        vehicle.speed = 62;
+        vehicle.lat = Math.floor(100 + Math.random() * 150);
+        vehicle.lng = Math.floor(250 + Math.random() * 600);
+      }
+      return res.json({ success: true, dispatch: d });
+    }
     await db.insert(dispatchesTable).values({
       id: d.id,
       vehicleId: d.vehicleId,

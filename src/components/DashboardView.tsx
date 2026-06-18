@@ -111,7 +111,7 @@ export default function DashboardView({
   }, [dispatches]);
 
   const co2SavingsTons = useMemo(() => {
-    return parseFloat((totalCapacityTonsMoved * 1.4).toFixed(1));
+    return parseFloat(((totalCapacityTonsMoved ?? 0) * 1.4).toFixed(1));
   }, [totalCapacityTonsMoved]);
 
   // Specific Minimalist KPIs requested by the user:
@@ -240,7 +240,7 @@ export default function DashboardView({
           </p>
           <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 font-bold">
             <span>Razão Total Mês / Combustível:</span>
-            <span className="text-fuchsia-600 font-black font-mono">{relacaoTotalMesCombustivel.toFixed(2)}x</span>
+            <span className="text-fuchsia-600 font-black font-mono">{(relacaoTotalMesCombustivel ?? 0).toFixed(2)}x</span>
           </div>
         </div>
 

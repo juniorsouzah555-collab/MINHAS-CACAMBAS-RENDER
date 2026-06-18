@@ -364,7 +364,7 @@ export default function FleetView({
       const totalKm = filteredLogsForMetrics.reduce((acc, curr) => acc + ((curr.kmFinal || 0) - (curr.kmInicial || 0)), 0);
       const totalL = filteredLogsForMetrics.reduce((acc, curr) => acc + (curr.quantidadeLitros || 0), 0);
       if (totalL > 0) {
-        return parseFloat((totalKm / totalL).toFixed(2));
+        return parseFloat(((totalKm / totalL) || 0).toFixed(2));
       }
     }
     // Fallback to active vehicle listed efficiency
@@ -372,7 +372,7 @@ export default function FleetView({
     if (activeVehicles.length === 0) return 0;
     const sum = activeVehicles.reduce((acc, v) => acc + (v.efficiency || 0), 0);
     const avg = sum / activeVehicles.length;
-    return parseFloat((avg || 0).toFixed(1));
+    return parseFloat(((avg || 0) ?? 0).toFixed(1));
   }, [filteredVehiclesForMetrics, filteredLogsForMetrics]);
 
   // 4. Operating cost (Custo Op) in BRL (R$/Km)
@@ -380,7 +380,7 @@ export default function FleetView({
     if (filteredVehiclesForMetrics.length === 0) return 0;
     const sum = filteredVehiclesForMetrics.reduce((acc, v) => acc + (v.costPerKm || 0), 0);
     const avg = sum / filteredVehiclesForMetrics.length;
-    return parseFloat((avg || 0).toFixed(2));
+    return parseFloat(((avg || 0) ?? 0).toFixed(2));
   }, [filteredVehiclesForMetrics]);
 
   // 5. Active alerts
@@ -579,7 +579,7 @@ export default function FleetView({
             <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Eficiência de Combustível</span>
               <span className="text-2xl font-black font-sans text-slate-900 mt-2 block">
-                {(metricAverageEfficiency || 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold">Km/L</span>
+                {((metricAverageEfficiency || 0) ?? 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold">Km/L</span>
               </span>
               <div className="text-[10px] text-purple-650 mt-2.5 flex items-center gap-1.5 bg-purple-50 border border-purple-100 py-0.5 px-1.5 rounded w-fit font-bold">
                 <Gauge className="w-3.5 h-3.5 text-purple-650 shrink-0" />
@@ -614,7 +614,7 @@ export default function FleetView({
             <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col justify-between font-medium">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Custo Operacional Médio (OP)</span>
               <span className="text-2xl font-black font-mono text-slate-900 mt-2 block">
-                R$ {(metricAverageOperatingCost || 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold font-sans">/ Km</span>
+                R$ {((metricAverageOperatingCost || 0) ?? 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold font-sans">/ Km</span>
               </span>
               <div className="text-[10px] text-fuchsia-750 mt-2.5 flex items-center gap-1.5 bg-fuchsia-50 border border-fuchsia-100 py-0.5 px-1.5 rounded w-fit font-bold">
                 <TrendingUp className="w-3.5 h-3.5 text-fuchsia-750 shrink-0" />
@@ -684,7 +684,7 @@ export default function FleetView({
                     <XAxis type="number" stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
                     <YAxis type="category" dataKey="item" stroke="#94a3b8" fontSize={10} tickLine={false} />
                     <Tooltip 
-                      formatter={(value: any) => [`R$ ${(typeof value === 'number' ? value : 0).toFixed(2)}/Km`, 'Valor']}
+                      formatter={(value: any) => [`R$ ${((typeof value === 'number' ? value : 0) ?? 0).toFixed(2)}/Km`, 'Valor']}
                       contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '11px' }}
                     />
                     <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
@@ -727,7 +727,7 @@ export default function FleetView({
                 <tbody className="divide-y divide-slate-100">
                   {filteredVehiclesForMetrics.map((v) => {
                     const latestKm = v.initialKm;
-                    const cOp = v.costPerKm ? `R$ ${v.costPerKm.toFixed(2)}/Km` : 'R$ 1.10/Km';
+                    const cOp = v.costPerKm ? `R$ ${(v.costPerKm ?? 0).toFixed(2)}/Km` : 'R$ 1.10/Km';
                     return (
                       <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-3.5 font-mono text-xs font-black text-slate-900">{v.id}</td>
@@ -742,7 +742,7 @@ export default function FleetView({
                           </span>
                         </td>
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-900 font-bold text-right">
-                          {v.efficiency > 0 ? `${v.efficiency.toFixed(1)} Km/L` : 'S/ Refuel'}
+                          {v.efficiency > 0 ? `${(v.efficiency ?? 0).toFixed(1)} Km/L` : 'S/ Refuel'}
                         </td>
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-900 font-bold text-right text-purple-700">
                           {cOp}
@@ -1092,7 +1092,7 @@ export default function FleetView({
                           <div className="flex justify-between text-xs text-slate-600 font-medium pb-1.5 border-b border-purple-100/50">
                             <span>Eficiência Estimada:</span>
                             <strong className="text-purple-700 font-extrabold font-mono text-sm">
-                              {((Number(fuelKmFinal) - Number(fuelKmInicial)) / Number(fuelLitres)).toFixed(2)} Km/L
+                              {(((Number(fuelKmFinal) - Number(fuelKmInicial)) / Number(fuelLitres)) || 0).toFixed(2)} Km/L
                             </strong>
                           </div>
                         )}
@@ -1286,7 +1286,7 @@ export default function FleetView({
                               <span className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-extrabold inline-block mt-1 uppercase">Retirada</span>
                             ) : (
                               <span className="text-[10px] text-purple-650 font-extrabold block mt-0.5">
-                                (R$ {((log.valorPago || 0) / (log.quantidadeLitros || 1)).toFixed(2)}/L)
+                                (R$ {(((log.valorPago || 0) / (log.quantidadeLitros || 1)) || 0).toFixed(2)}/L)
                               </span>
                             )}
                           </td>
@@ -1299,7 +1299,7 @@ export default function FleetView({
                               <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-black tracking-wider uppercase ${
                                 isHighEfficiency ? 'bg-purple-50 text-purple-800 border border-purple-100' : 'bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-100'
                               }`}>
-                                {(efficiencyVal || 0).toFixed(2)} Km/L
+                                {((efficiencyVal || 0) ?? 0).toFixed(2)} Km/L
                               </span>
                             )}
                           </td>
@@ -1470,7 +1470,7 @@ export default function FleetView({
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-800 text-right">{(v.initialKm || 0).toLocaleString()} KM</td>
-                      <td className="px-4 py-3 font-mono text-xs text-purple-700 text-right">R$ {(v.costPerKm || 1.10).toFixed(2)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-purple-700 text-right">R$ {((v.costPerKm || 1.10) ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
                         <button
                           type="button"
