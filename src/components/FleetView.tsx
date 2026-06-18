@@ -656,13 +656,13 @@ export default function FleetView({
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="mês" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
+                    <XAxis dataKey="day" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val || 0}`} />
                     <Tooltip 
-                      formatter={(value: any) => [`R$ ${value.toLocaleString()}`, 'Combustível']}
+                      formatter={(value: any) => [`R$ ${(value || 0).toLocaleString()}`, 'Combustível']}
                       contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '11px' }}
                     />
-                    <Area type="monotone" dataKey="gasto" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorFuelGrad)" />
+                    <Area type="monotone" dataKey="thisWeek" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorFuelGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -681,13 +681,13 @@ export default function FleetView({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={costStructureData} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
-                    <YAxis type="category" dataKey="item" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <XAxis type="number" stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(val) => `R$ ${val || 0}`} />
+                    <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
                     <Tooltip 
-                      formatter={(value: any) => [`R$ ${((typeof value === 'number' ? value : 0) ?? 0).toFixed(2)}/Km`, 'Valor']}
+                      formatter={(value: any) => [`R$ ${((typeof value === 'number' ? value : 0) || 0).toFixed(2)}`, 'Valor']}
                       contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '11px' }}
                     />
-                    <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                       {costStructureData.map((entry, index) => {
                         const colors = ['#9333ea', '#c084fc', '#e879f9'];
                         return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;

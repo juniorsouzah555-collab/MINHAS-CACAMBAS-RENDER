@@ -610,7 +610,7 @@ export default function FinanceView({
                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} stroke="#e2e8f0" />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} stroke="#e2e8f0" />
                     <Tooltip 
-                      formatter={(val: number) => [`${val.toLocaleString()} Litros`, 'Volume Abastecido']}
+                      formatter={(val: number) => [`${(val || 0).toLocaleString()} Litros`, 'Volume Abastecido']}
                       wrapperStyle={{ fontSize: 11, fontFamily: 'Inter, sans-serif' }} 
                     />
                     <Legend wrapperStyle={{ fontSize: 11, fontWeight: 'medium' }} />
@@ -650,7 +650,7 @@ export default function FinanceView({
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(val: number) => [`R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Despesa Acumulada']} />
+                      <Tooltip formatter={(val: number) => [`R$ ${(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Despesa Acumulada']} />
                     </PieChart>
                   </ResponsiveContainer>
                   

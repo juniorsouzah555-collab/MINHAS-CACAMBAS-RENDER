@@ -104,6 +104,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             let isApproved = true;
 
             try {
+              /*
               const { data: approvalRecord, error: approvalErr } = await supabase
                 .from('user_approvals')
                 .select('*')
@@ -114,6 +115,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 // We show an info toast on login but let them access to review settings
                 role = approvalRecord.role || role;
               } else {
+              */
                 // Check localStorage fallback redundancy
                 const savedUsersStr = localStorage.getItem('relampago_system_users');
                 if (savedUsersStr) {
@@ -123,7 +125,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     role = found.role || role;
                   }
                 }
+              /*
               }
+              */
             } catch (pErr) {
               // Redundancy check fallback
               const savedUsersStr = localStorage.getItem('relampago_system_users');
@@ -225,6 +229,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       };
 
       // Try inserting into Supabase custom user_approvals list
+      /*
       try {
         await supabase.from('user_approvals').insert([{
           email: newUserRecord.email,
@@ -236,6 +241,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       } catch (dbErr) {
         console.warn('user_approvals insert failed: ', dbErr);
       }
+      */
 
       // Update redundant localStorage to immediately mirror registrations
       const savedUsersStr = localStorage.getItem('relampago_system_users');
