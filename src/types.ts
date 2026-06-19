@@ -26,6 +26,7 @@ export interface Lancamento {
   createdAt: string;
   lat?: number;
   lng?: number;
+  observacao?: string;
 }
 
 export interface Vehicle {

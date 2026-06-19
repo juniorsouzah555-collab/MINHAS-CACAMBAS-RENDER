@@ -25,7 +25,10 @@ import {
   UserCheck,
   Zap,
   Sliders,
-  AlertCircle
+  AlertCircle,
+  Send,
+  Key,
+  Copy
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -250,6 +253,88 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState('Diretor de Operações');
   const [newUserStatus, setNewUserStatus] = useState<'Ativo' | 'Inativo'>('Ativo');
+
+  // Driver Invitation State
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteLinkedDriver, setInviteLinkedDriver] = useState('');
+  const [inviteGeneratedPassword, setInviteGeneratedPassword] = useState('');
+  const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pwd + '@1';
+  };
+
+  const handleInviteDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteSuccessMsg('');
+    setInviteGeneratedPassword('');
+
+    if (!inviteEmail.trim()) {
+      onShowNotification('Preencha o e-mail do motorista.');
+      return;
+    }
+
+    setInviteLoading(true);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase não configurado.');
+      }
+
+      const tempPassword = generatePassword();
+      const { data, error } = await supabase.auth.signUp({
+        email: inviteEmail.trim().toLowerCase(),
+        password: tempPassword,
+        options: {
+          data: { role: 'Motorista' }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const userName = inviteEmail.split('@')[0];
+      const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
+
+      await supabase.from('user_approvals').insert([{
+        email: inviteEmail.trim().toLowerCase(),
+        name: formattedName,
+        role: 'Motorista',
+        status: 'Inativo',
+        linked_driver: inviteLinkedDriver || null,
+        created_at: new Date().toISOString()
+      }]);
+
+      setInviteGeneratedPassword(tempPassword);
+      setInviteSuccessMsg(`Convite enviado para ${inviteEmail.trim().toLowerCase()}! O motorista precisa confirmar o e-mail antes de fazer login.`);
+      onShowNotification(`Motorista ${inviteEmail} convidado com sucesso!`);
+
+      setInviteEmail('');
+      setInviteLinkedDriver('');
+
+      setUsers(prev => [...prev, {
+        id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+        name: formattedName,
+        email: inviteEmail.trim().toLowerCase(),
+        role: 'Motorista',
+        status: 'Inativo',
+        registrationDate: new Date().toLocaleDateString('pt-BR'),
+        linkedDriver: inviteLinkedDriver || undefined
+      }]);
+    } catch (err: any) {
+      setInviteSuccessMsg('');
+      onShowNotification(`Erro: ${err.message}`);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
 
   // Role Permissions levels state
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<string>('Administrador Geral');
@@ -657,8 +742,11 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       {activeSubTab === 'users' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
           
+          {/* Left column: Registration forms */}
+          <div className="space-y-6">
+
           {/* User Registration Form */}
-          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm h-fit space-y-4">
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
             <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
               <UserPlus className="w-4.5 h-4.5 text-cyan-600" />
               <h3 className="font-sans font-bold text-xs text-slate-800 uppercase tracking-wide">Novo Cadastro de Usuário</h3>
@@ -725,6 +813,92 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                 <span>Salvar Usuário</span>
               </button>
             </form>
+          </div>
+
+            {/* Invite Driver Form */}
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
+              <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                <Send className="w-4.5 h-4.5 text-emerald-600" />
+                <h3 className="font-sans font-bold text-xs text-slate-800 uppercase tracking-wide">Convidar Novo Motorista</h3>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[10px] text-emerald-800 leading-relaxed">
+                O administrador cadastra o e-mail do motorista. O sistema envia um e-mail de confirmação e o motorista só é liberado após confirmar o cadastro.
+              </div>
+
+              <form onSubmit={handleInviteDriver} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">E-mail do Motorista</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Ex: motorista@email.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-sans text-slate-800 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Vincular a Motorista (opcional)</label>
+                  <select
+                    value={inviteLinkedDriver}
+                    onChange={(e) => setInviteLinkedDriver(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl text-xs font-sans font-bold text-slate-700"
+                  >
+                    <option value="">-- Sem Vinculação --</option>
+                    {motoristas.map(drv => (
+                      <option key={drv} value={drv}>{drv}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-550 active:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-98 disabled:opacity-50"
+                >
+                  {inviteLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Convidar Motorista</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {inviteSuccessMsg && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[10px] text-emerald-800 leading-relaxed space-y-2">
+                  <p>{inviteSuccessMsg}</p>
+                  {inviteGeneratedPassword && (
+                    <div className="bg-white border border-emerald-300 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                        <Key className="w-3 h-3" />
+                        <span>Senha Temporária (repassar ao motorista)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 select-all flex-1">
+                          {inviteGeneratedPassword}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(inviteGeneratedPassword);
+                            onShowNotification('Senha copiada!');
+                          }}
+                          className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 cursor-pointer"
+                          title="Copiar senha"
+                        >
+                          <Copy className="w-4 h-4 text-slate-600" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Active Users Table Grid */}

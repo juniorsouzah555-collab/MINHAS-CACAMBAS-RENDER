@@ -58,13 +58,13 @@ import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
-    return localStorage.getItem('relampago_auth_email') || 'jrodrigues138@gmail.com';
+    return localStorage.getItem('relampago_auth_email') || '';
   });
-  const [currentUserRole, setCurrentUserRole] = useState<string>('Administrador Geral');
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
 
-  const [currentTab, setCurrentTab] = useState<string>('fleet');
+  const [currentTab, setCurrentTab] = useState<string>('driver-portal');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // App core state DB — carregados do localStorage para persistir entre sessões
@@ -115,21 +115,14 @@ export default function App() {
     return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
   });
 
-  // Persist data to localStorage as fallback on every change
-  useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
-  useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
-  useEffect(() => { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); }, [alerts]);
-  useEffect(() => { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); }, [dispatches]);
-  useEffect(() => { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); }, [botaForas]);
-  useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
-  useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
-  useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+  // Helper para verificar se usuário é motorista
+  const isDriverUser = (): boolean => {
+    return currentUserRole.toLowerCase().includes('motorista') || currentUserEmail === 'motorista@relampago.com';
+  };
 
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
-    const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserEmail === 'motorista@relampago.com';
-    if (isDriver && currentTab !== 'driver-portal') {
+    if (isDriverUser() && currentTab !== 'driver-portal') {
       setCurrentTab('driver-portal');
     }
   }, [currentUserRole, currentUserEmail, currentTab]);
@@ -209,7 +202,8 @@ export default function App() {
                 status: l.status,
                 createdAt: l.created_at || l.createdAt,
                 lat: l.lat,
-                lng: l.lng
+                lng: l.lng,
+                observacao: l.observacao || l.observation
               })));
             }
 
@@ -875,7 +869,8 @@ export default function App() {
         status: freshRecord.status,
         created_at: freshRecord.createdAt,
         lat: freshRecord.lat ?? null,
-        lng: freshRecord.lng ?? null
+        lng: freshRecord.lng ?? null,
+        observacao: freshRecord.observacao ?? null
       }]).then(({ error }) => {
         if (error) console.error("Supabase error saving lancamento:", error);
       });
@@ -1170,6 +1165,59 @@ export default function App() {
 
   // Filter dynamic badges counts
   const transitBadgeCount = vehicles.filter(v => v.status === 'In Transit').length;
+
+  // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
+  if (isDriverUser()) {
+    return (
+      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
+        <DriverPortal
+          vehicles={vehicles}
+          botaForas={botaForas}
+          motoristas={motoristas}
+          currentUserEmail={currentUserEmail}
+          currentUserRole={currentUserRole}
+          lancamentos={lancamentos}
+          comissoes={comissoes}
+          dispatches={dispatches}
+          fuelLogs={fuelLogs}
+          onAddLancamento={handleAddLancamento}
+          onAddComissao={handleAddComissao}
+          onUpdateComissao={handleUpdateComissao}
+          onAddFuelLog={handleAddFuelLog}
+          onAuthorizeDispatch={handleAuthorizeDispatch}
+          onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
+        />
+
+        {/* Dynamic Slide-Up Toast Popup */}
+        <div 
+          id="quick-operational-toast"
+          className={`fixed bottom-6 right-6 z-[100] transform transition-all duration-300 ${
+            toast.visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'
+          }`}
+        >
+          <div className="bg-slate-900 border border-slate-800 text-white p-4 px-5 rounded-xl shadow-2xl flex items-center gap-3.5 max-w-sm">
+            <div className="shrink-0 bg-emerald-500/20 p-2 rounded-lg text-emerald-400 flex items-center justify-center">
+              {toast.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <Info className="w-5 h-5 text-indigo-400 animate-pulse" />
+              )}
+            </div>
+            <div className="flex-1 font-sans">
+              <div className="font-bold text-xs leading-none text-slate-100">{toast.title}</div>
+              <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">{toast.message}</div>
+            </div>
+            <button 
+              onClick={() => setToast(prev => ({ ...prev, visible: false }))}
+              className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

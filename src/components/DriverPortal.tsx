@@ -3,21 +3,17 @@ import {
   Smartphone, 
   Sparkles, 
   Fuel, 
-  Truck, 
   Calendar, 
   MapPin, 
-  User, 
-  DollarSign, 
   CheckCircle2, 
   Plus, 
   Minus, 
   Activity, 
   Clock, 
-  PlusCircle, 
-  ArrowUpRight, 
   ShieldCheck,
   Building,
-  Navigation
+  Navigation,
+  FileText
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
 
@@ -137,11 +133,18 @@ function DriverLiveMap({
           </button>
         </div>
       ) : !coords ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50 animate-pulse">
-          <Navigation className="w-8 h-8 text-emerald-500 animate-spin mb-3" />
-          <p className="text-xs font-bold text-slate-450 uppercase tracking-widest animate-pulse">
-            Obtendo coordenadas GNSS em tempo real...
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50">
+          <Navigation className="w-8 h-8 text-slate-300 mb-3" />
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+            Localização não ativada
           </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="px-5 py-2.5 bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-colors shadow-md cursor-pointer"
+          >
+            Solicitar Localização
+          </button>
         </div>
       ) : (
         <div ref={mapContainerRef} className="w-full h-full z-0" />
@@ -166,6 +169,43 @@ interface DriverPortalProps {
   onAddFuelLog: (newLog: Omit<FuelLog, 'id' | 'mediaKmL'>) => void;
   onAuthorizeDispatch: (newDisp: Omit<Dispatch, 'id' | 'createdAt'>) => void;
   onShowToast: (title: string, message: string, type: 'success' | 'info' | 'warning') => void;
+}
+
+interface AuditEntry {
+  id: string;
+  action: string;
+  description: string;
+  time: string;
+  timestamp: string;
+  details: string;
+  synchronized: boolean;
+  lat?: number;
+  lng?: number;
+  observacao?: string;
+}
+
+const AUDIT_STORAGE_KEY = 'relampago_driver_audit_log';
+
+function loadAuditLog(): AuditEntry[] {
+  try {
+    const saved = localStorage.getItem(AUDIT_STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+function saveAuditLog(entries: AuditEntry[]) {
+  try {
+    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(entries));
+  } catch {}
+}
+
+function formatTimestamp(date: Date): string {
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateStr(date: Date): string {
+  return date.toLocaleDateString('pt-BR') + ' ' + formatTimestamp(date);
 }
 
 export default function DriverPortal({
@@ -236,23 +276,19 @@ export default function DriverPortal({
   const activeVehicle = vehicles.find(v => v.id === selectedVehicleId);
 
   // Form states and active forms
-  const [activeForm, setActiveForm] = useState<'buckets' | 'discharges' | 'refueling' | null>('discharges');
+  const [activeForm, setActiveForm] = useState<'discharges' | 'refueling'>('discharges');
 
   // Today's date string "YYYY-MM-DD"
   const getTodayDateStr = () => {
     return new Date().toISOString().split('T')[0];
   };
 
-  // 1. Buckets placed/removed form state
-  const [bucketAction, setBucketAction] = useState<'colocar' | 'retirar'>('colocar');
-  const [bucketQty, setBucketQty] = useState(1);
-  const [bucketDate, setBucketDate] = useState(getTodayDateStr());
-
-  // 2. Discharge form state
+  // 1. Discharge form state
   const [selectedBotaForaId, setSelectedBotaForaId] = useState<string>(botaForas[0]?.id || 'BTF-01');
   const [dischargeQty, setDischargeQty] = useState(1);
   const [dischargeDate, setDischargeDate] = useState(getTodayDateStr());
   const [customDischargePrice, setCustomDischargePrice] = useState<string>('200');
+  const [dischargeObservacao, setDischargeObservacao] = useState('');
 
   // Sincroniza o valor padrão do descarte ao alterar o bota-fora selecionado
   useEffect(() => {
@@ -262,11 +298,12 @@ export default function DriverPortal({
     }
   }, [selectedBotaForaId, botaForas]);
 
-  // 3. Refueling form state
+  // 2. Refueling form state
   const [fuelStationType, setFuelStationType] = useState<'POSTO' | 'GARAGEM'>('POSTO');
   const [liters, setLiters] = useState<string>('120');
-  const [fuelPrice, setFuelPrice] = useState<string>('680'); // total value
+  const [fuelPrice, setFuelPrice] = useState<string>('680');
   const [currentKm, setCurrentKm] = useState<string>('');
+  const [fuelObservacao, setFuelObservacao] = useState('');
 
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -314,6 +351,7 @@ export default function DriverPortal({
     return watchId;
   };
 
+  // Auto-request location permission on mount — mostra o popup nativo do navegador
   useEffect(() => {
     const watchId = startWatchingLocation();
     return () => {
@@ -323,26 +361,25 @@ export default function DriverPortal({
     };
   }, []);
 
-  // Local actions logger stream (to verify live synchronizations)
-  const [localAuditHistory, setLocalAuditHistory] = useState<Array<{
-    id: string;
-    action: string;
-    description: string;
-    time: string;
-    details: string;
-    synchronized: boolean;
-    lat?: number;
-    lng?: number;
-  }>>([
-    {
+  // Local actions logger stream — persisted to localStorage
+  const [localAuditHistory, setLocalAuditHistory] = useState<AuditEntry[]>(() => {
+    const saved = loadAuditLog();
+    if (saved.length > 0) return saved;
+    return [{
       id: 'AUD-001',
       action: 'Check-in de Sistema',
       description: 'Inicialização do app de motorista com suporte a coordenadas GNSS',
-      time: 'Há alguns minutos',
-      details: 'Dispositivo móvel conectado em ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      time: formatTimestamp(new Date()),
+      timestamp: new Date().toISOString(),
+      details: 'Dispositivo móvel conectado em ' + formatDateStr(new Date()),
       synchronized: true
-    }
-  ]);
+    }];
+  });
+
+  // Persist audit log on every change
+  useEffect(() => {
+    saveAuditLog(localAuditHistory);
+  }, [localAuditHistory]);
 
   // Adjust default vehicle on driver change
   useEffect(() => {
@@ -350,18 +387,13 @@ export default function DriverPortal({
     if (matched) {
       setSelectedVehicleId(matched.id);
       if (matched.initialKm) {
-        setCurrentKm(String(matched.initialKm + 1200)); // estimate next KM
+        setCurrentKm(String(matched.initialKm + 1200));
       }
     }
   }, [selectedDriver, vehicles]);
 
   // Calculations for Driver's Today statistics
   const todayStr = getTodayDateStr();
-
-  // Buckets logged in commissions for today
-  const driverCommissionsToday = comissoes.find(c => c.motorista === selectedDriver && c.data === todayStr);
-  const placedTodayCount = driverCommissionsToday?.vaziasColocadas || 0;
-  const removedTodayCount = driverCommissionsToday?.retiradas || 0;
 
   // Discharges logged in lancamentos for today
   const dischargesTodayCount = lancamentos
@@ -372,78 +404,6 @@ export default function DriverPortal({
   const fuelTodayLiters = fuelLogs
     .filter(f => f.driver === selectedDriver && f.data === todayStr)
     .reduce((sum, current) => sum + current.quantidadeLitros, 0);
-
-  // Handle Buckets form submission
-  const handleBucketsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clientName = 'Obra / Cliente Geral';
-
-    // 1. Get or create current driver commission record for this selected date
-    const targetDate = bucketDate;
-    const existingCommission = comissoes.find(
-      c => c.motorista === selectedDriver && c.data === targetDate
-    );
-
-    const isColocar = bucketAction === 'colocar';
-
-    if (existingCommission) {
-      // Update existing
-      const updatedRecord: ComissaoMotorista = {
-        ...existingCommission,
-        vaziasColocadas: existingCommission.vaziasColocadas + (isColocar ? bucketQty : 0),
-        retiradas: existingCommission.retiradas + (!isColocar ? bucketQty : 0),
-        lat: userCoords?.lat || undefined,
-        lng: userCoords?.lng || undefined,
-      };
-      onUpdateComissao(updatedRecord);
-    } else {
-      // Create new
-      const newCommission: Omit<ComissaoMotorista, 'id' | 'createdAt'> = {
-        motorista: selectedDriver,
-        vaziasColocadas: isColocar ? bucketQty : 0,
-        retiradas: !isColocar ? bucketQty : 0,
-        data: targetDate,
-        lat: userCoords?.lat || undefined,
-        lng: userCoords?.lng || undefined,
-      };
-      onAddComissao(newCommission);
-    }
-
-    // 2. Also record a beautiful Completed Dispatch
-    const generatedDispatch: Omit<Dispatch, 'id' | 'createdAt'> = {
-      vehicleId: selectedVehicleId,
-      driverName: selectedDriver,
-      clientName: clientName,
-      origin: isColocar ? 'Central - Depósito Vazio' : clientName,
-      destination: isColocar ? clientName : 'Landfill / Área de Triagem',
-      payloadType: isColocar ? 'Caçamba Vazia' : 'Entulhos de Obras',
-      weight: isColocar ? 1.5 : 4.5 * bucketQty,
-      status: 'Completed'
-    };
-    onAuthorizeDispatch(generatedDispatch);
-
-    // 3. Log to local audit feed (visual feedback to the driver)
-    const newAuditAction = {
-      id: `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-      action: isColocar ? '🚚 Colocada Registrada' : '🏗️ Retirada Registrada',
-      description: `${bucketQty} caçamba(s) ${isColocar ? 'colocada(s)' : 'retirada(s)'} • ${clientName}`,
-      time: 'Agora mesmo',
-      details: `Registrado por ${selectedDriver} sob o veículo ${selectedVehicleId}`,
-      synchronized: true,
-      lat: userCoords?.lat || undefined,
-      lng: userCoords?.lng || undefined,
-    };
-    setLocalAuditHistory(prev => [newAuditAction, ...prev]);
-
-    onShowToast(
-      "Ação Sincronizada", 
-      `${bucketQty} caçamba(s) ${isColocar ? 'colocada(s)' : 'retirada(s)'} salvas no sistema central.`, 
-      "success"
-    );
-
-    // Reset inputs
-    setBucketQty(1);
-  };
 
   // Handle Discharge (Descarte em bota-fora) submission
   const handleDischargeSubmit = (e: React.FormEvent) => {
@@ -457,6 +417,7 @@ export default function DriverPortal({
 
     const pricePerBucket = parseFloat(customDischargePrice) || selectedBotaFora.valorPadraoDescarte || 200;
     const totalCost = pricePerBucket * dischargeQty;
+    const now = new Date();
 
     // Call global handler
     onAddLancamento({
@@ -470,18 +431,21 @@ export default function DriverPortal({
       status: 'Concluido',
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
+      observacao: dischargeObservacao || undefined,
     });
 
     // Auditor log
-    const newAuditAction = {
-      id: `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-      action: '🔋 Descarregada Registrada',
+    const newAuditAction: AuditEntry = {
+      id: `AUD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      action: 'Descarga Registrada',
       description: `${dischargeQty} caçambas no "${selectedBotaFora.nome}"`,
-      time: 'Agora mesmo',
+      time: formatTimestamp(now),
+      timestamp: now.toISOString(),
       details: `Custo total de R$ ${(totalCost ?? 0).toFixed(2)} faturado em faturas automáticas`,
       synchronized: true,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
+      observacao: dischargeObservacao || undefined,
     };
     setLocalAuditHistory(prev => [newAuditAction, ...prev]);
 
@@ -492,6 +456,7 @@ export default function DriverPortal({
     );
 
     setDischargeQty(1);
+    setDischargeObservacao('');
   };
 
   // Handle Fuel refueling submission
@@ -518,9 +483,11 @@ export default function DriverPortal({
       if (activeVehicle && activeVehicle.initialKm) {
         initialKmValue = activeVehicle.initialKm;
       } else {
-        initialKmValue = finalKmValue - 350; // estimate previous
+        initialKmValue = finalKmValue - 350;
       }
     }
+
+    const now = new Date();
 
     // Trigger parent state fuel logger
     onAddFuelLog({
@@ -538,15 +505,17 @@ export default function DriverPortal({
     });
 
     // Audit trace
-    const newAuditAction = {
-      id: `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-      action: '⛽ Abastecimento Controlado',
+    const newAuditAction: AuditEntry = {
+      id: `AUD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      action: 'Abastecimento Controlado',
       description: `${inputLiters} Litros de Diesel • ${fuelStationType === 'GARAGEM' ? 'Bomba da Garagem' : 'Posto Externo'}`,
-      time: 'Agora mesmo',
+      time: formatTimestamp(now),
+      timestamp: now.toISOString(),
       details: `KM final digitado: ${currentKm || 'Não fornecido'} • R$ ${(inputPrice ?? 0).toFixed(2)} pagos`,
       synchronized: true,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
+      observacao: fuelObservacao || undefined,
     };
     setLocalAuditHistory(prev => [newAuditAction, ...prev]);
 
@@ -559,6 +528,7 @@ export default function DriverPortal({
     setLiters('120');
     setFuelPrice('680');
     setCurrentKm('');
+    setFuelObservacao('');
   };
 
   if (isDriverUser && !linkedDriverName) {
@@ -670,28 +640,6 @@ export default function DriverPortal({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
-            <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Colocadas</span>
-            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{placedTodayCount} cç.</strong>
-            <span className="text-[9px] sm:text-[10px] text-slate-450 block mt-0.5 truncate">Hoje ({selectedDriver})</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
-            <Truck className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 truncate">Retiradas</span>
-            <strong className="text-base sm:text-xl font-extrabold text-slate-900 block mt-0.5 truncate">{removedTodayCount} cç.</strong>
-            <span className="text-[9px] sm:text-[10px] text-slate-450 block mt-0.5 truncate">Hoje ({selectedDriver})</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
             <Building className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
@@ -758,7 +706,7 @@ export default function DriverPortal({
             </h3>
 
             {/* Quick Select Buttons between actions forms */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-6">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-6">
               <button
                 type="button"
                 onClick={() => setActiveForm('discharges')}
@@ -784,122 +732,9 @@ export default function DriverPortal({
                 <Fuel className="w-4 h-4" />
                 <span>Abastecimento</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveForm('buckets')}
-                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
-                  activeForm === 'buckets' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
-                    : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Truck className="w-4 h-4" />
-                <span>Coloca / Retira</span>
-              </button>
             </div>
 
-            {/* Render form 1: Buckets Colocar/Retirar */}
-            {activeForm === 'buckets' && (
-              <form onSubmit={handleBucketsSubmit} className="space-y-4 animate-in fade-in duration-200">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Tipo da Operação</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setBucketAction('colocar')}
-                      className={`py-3 px-4 rounded-xl border text-xs font-black transition-all text-center flex items-center justify-center gap-2 cursor-pointer ${
-                        bucketAction === 'colocar'
-                          ? 'bg-emerald-600 border-emerald-700 text-white shadow-lg ring-4 ring-emerald-300 scale-[1.02]'
-                          : 'bg-slate-50 border-slate-200 text-slate-450 opacity-70 hover:bg-slate-100 hover:opacity-100'
-                      }`}
-                    >
-                      <span>🚚 Colocar Caçamba (Vazia)</span>
-                      {bucketAction === 'colocar' && <span className="bg-white/20 px-1.5 py-0.5 text-[9px] rounded-md font-bold">✓ ATIVO</span>}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBucketAction('retirar')}
-                      className={`py-3 px-4 rounded-xl border text-xs font-black transition-all text-center flex items-center justify-center gap-2 cursor-pointer ${
-                        bucketAction === 'retirar'
-                          ? 'bg-indigo-600 border-indigo-700 text-white shadow-lg ring-4 ring-indigo-300 scale-[1.02]'
-                          : 'bg-slate-50 border-slate-200 text-slate-450 opacity-70 hover:bg-slate-100 hover:opacity-100'
-                      }`}
-                    >
-                      <span>🏗️ Retirar Caçamba (Cheia)</span>
-                      {bucketAction === 'retirar' && <span className="bg-white/20 px-1.5 py-0.5 text-[9px] rounded-md font-bold">✓ ATIVO</span>}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Banner de Confirmação Ativa de Modo */}
-                <div className={`p-4 rounded-xl border text-xs flex items-center gap-3 transition-all duration-200 ${
-                  bucketAction === 'colocar'
-                    ? 'bg-emerald-50 border-emerald-250 text-emerald-800'
-                    : 'bg-indigo-50 border-indigo-250 text-indigo-800'
-                }`}>
-                  <span className="text-2xl animate-pulse">
-                    {bucketAction === 'colocar' ? '🚚' : '🏗️'}
-                  </span>
-                  <div>
-                    <strong className="block text-[10px] font-black uppercase tracking-wider">
-                      Modo Selecionado: {bucketAction === 'colocar' ? 'LOGÍSTICA DE ENVIO' : 'LOGÍSTICA DE RECOLHIMENTO'}
-                    </strong>
-                    <p className="mt-1 leading-relaxed text-[11px] font-semibold">
-                      {bucketAction === 'colocar'
-                        ? 'Você confirmou a ação de DESCER uma caçamba vazia no endereço de entrega. Isso incrementará seu saldo de comissões.'
-                        : 'Você confirmou a ação de RETIRAR e recolher uma caçamba com entulho para descarte.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Quantidade de Caçambas</label>
-                  <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl max-w-[160px] p-1 justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setBucketQty(prev => Math.max(1, prev - 1))}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-600 border border-slate-200 cursor-pointer shadow-sm hover:bg-slate-50 active:scale-95"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="text-sm font-extrabold text-slate-850 font-sans">{bucketQty}</span>
-                    <button
-                      type="button"
-                      onClick={() => setBucketQty(prev => prev + 1)}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-600 border border-slate-200 cursor-pointer shadow-sm hover:bg-slate-50 active:scale-95"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Data do Serviço</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="date"
-                      value={bucketDate}
-                      onChange={(e) => setBucketDate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-555 text-white py-3 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-505/20 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Sincronizar Atividade &amp; Gravar Comissão</span>
-                </button>
-              </form>
-            )}
-
-            {/* Render form 2: Discharges (Descarte bota-fora) */}
+            {/* Render form 1: Discharges (Descarte bota-fora) */}
             {activeForm === 'discharges' && (
               <form onSubmit={handleDischargeSubmit} className="space-y-4 animate-in fade-in duration-200">
                 <div className="space-y-1.5">
@@ -974,6 +809,22 @@ export default function DriverPortal({
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Observação (opcional)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-slate-400">
+                      <FileText className="w-4 h-4" />
+                    </span>
+                    <textarea
+                      value={dischargeObservacao}
+                      onChange={(e) => setDischargeObservacao(e.target.value)}
+                      placeholder="Ex: Caçamba danificada, cliente ausente..."
+                      rows={2}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    />
+                  </div>
+                </div>
+
                 {/* Live cost estimator to let drivers know */}
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
                   <span className="text-slate-505 font-medium">Estimativa do Faturamento de Descarte:</span>
@@ -987,12 +838,12 @@ export default function DriverPortal({
                   className="w-full bg-gradient-to-r from-emerald-505 to-teal-600 hover:from-emerald-450 hover:to-teal-555 text-white py-3 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <Building className="w-4 h-4 text-white" />
-                  <span>Confirmar Descarga &amp; Gerar Fatura PENDING</span>
+                  <span>Confirmar Descarga &amp; Gerar Fatura</span>
                 </button>
               </form>
             )}
 
-            {/* Render form 3: Refueling (Abastecimento) */}
+            {/* Render form 2: Refueling (Abastecimento) */}
             {activeForm === 'refueling' && (
               <form onSubmit={handleFuelSubmit} className="space-y-4 animate-in fade-in duration-200">
                 <div className="space-y-1.5">
@@ -1016,7 +867,7 @@ export default function DriverPortal({
                       type="button"
                       onClick={() => {
                         setFuelStationType('GARAGEM');
-                        setFuelPrice('0'); // internal free garage inventory tracking
+                        setFuelPrice('0');
                       }}
                       className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center cursor-pointer ${
                         fuelStationType === 'GARAGEM'
@@ -1081,6 +932,22 @@ export default function DriverPortal({
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Observação (opcional)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-slate-400">
+                      <FileText className="w-4 h-4" />
+                    </span>
+                    <textarea
+                      value={fuelObservacao}
+                      onChange={(e) => setFuelObservacao(e.target.value)}
+                      placeholder="Ex: Nota fiscal danificada, bomba com problema..."
+                      rows={2}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-555 text-white py-3 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
@@ -1097,9 +964,9 @@ export default function DriverPortal({
           <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-3.5">
             <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div className="text-[11px] text-emerald-800 space-y-1 leading-relaxed">
-              <strong className="block font-black text-emerald-900 uppercase tracking-wide">💡 DICA OPERACIONAL DE SINCRONISMO:</strong>
+              <strong className="block font-black text-emerald-900 uppercase tracking-wide">DICA:</strong>
               <p>
-                Este aplicativo de motorista possui <strong>sincronismo transparente bidirecional</strong>. Ao registrar qualquer caçamba ou abastecimento, as tabelas SQL correspondentes no banco central são alimentadas na hora, recalculando os lucros da empresa, as médias de consumo por KM/L de frota e abrindo as faturas para auditoria do Diretor imediatamente!
+                Ao registrar qualquer atividade, os dados são sincronizados automaticamente com o sistema central, atualizando comissões, faturas e médias de consumo em tempo real.
               </p>
             </div>
           </div>
@@ -1135,9 +1002,17 @@ export default function DriverPortal({
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       {item.action}
                     </span>
-                    <span className="text-[9px] text-slate-450 font-mono bg-slate-100 px-1 py-0.5 rounded">{item.time}</span>
+                    <span className="text-[9px] text-slate-450 font-mono bg-slate-100 px-1 py-0.5 rounded">
+                      {item.timestamp ? new Date(item.timestamp).toLocaleDateString('pt-BR') + ' ' + item.time : item.time}
+                    </span>
                   </div>
                   <p className="text-slate-600 font-medium mb-1.5 leading-relaxed">{item.description}</p>
+                  
+                  {item.observacao && (
+                    <div className="mb-2 text-[10px] bg-blue-50 border border-blue-100 rounded-lg p-2 text-blue-700 font-medium">
+                      📝 {item.observacao}
+                    </div>
+                  )}
                   
                   {typeof item.lat === 'number' && typeof item.lng === 'number' && (
                     <div className="mt-1.5 mb-2 text-[10px] bg-slate-50 border border-slate-150 rounded-lg p-2 flex items-center justify-between gap-2">
@@ -1165,12 +1040,6 @@ export default function DriverPortal({
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Footer with telemetry indicator */}
-            <div className="pt-4 border-t border-slate-100 mt-4 text-center text-[10px] text-slate-400 font-sans flex items-center justify-center gap-1.5">
-              <Navigation className="w-3.5 h-3.5 text-slate-400" />
-              <span>IP de rede homologada e rastreável: 10.32.22.4</span>
             </div>
 
           </div>

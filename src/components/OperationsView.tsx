@@ -21,7 +21,8 @@ import {
   Award,
   ChevronRight,
   TrendingUp,
-  MapPin
+  MapPin,
+  FileText
 } from 'lucide-react';
 import { Lancamento } from '../types';
 
@@ -527,6 +528,14 @@ export default function OperationsView({
                     </strong>
                   </div>
                 </div>
+
+                {/* Observação do motorista */}
+                {lan.observacao && (
+                  <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 p-2.5 rounded-lg flex items-start gap-2">
+                    <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                    <span className="font-medium">{lan.observacao}</span>
+                  </div>
+                )}
 
                 {/* Subtext info */}
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans bg-slate-50 p-2 rounded-lg">
