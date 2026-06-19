@@ -305,7 +305,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
           email,
           name: formattedName,
           role: 'Motorista',
-          status: 'Ativo',
+          status: 'Inativo',
           linked_driver: inviteLinkedDriver || null,
           created_at: new Date().toISOString()
         }]);
@@ -314,19 +314,8 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       // ignora falha do insert
     }
 
-    // Adiciona na lista de motoristas para aparecer no dropdown
-    setMotoristas(prev => {
-      if (prev.includes(formattedName)) return prev;
-      return [...prev, formattedName];
-    });
-
-    // Se vinculou a um motorista existente que não está na lista, adiciona também
-    if (inviteLinkedDriver && !motoristas.includes(inviteLinkedDriver)) {
-      setMotoristas(prev => [...prev, inviteLinkedDriver!]);
-    }
-
     setInviteGeneratedPassword(tempPassword);
-    setInviteSuccessMsg(`Motorista ${email} cadastrado como "${formattedName}"! Senha temporária: ${tempPassword}`);
+    setInviteSuccessMsg(`Convite enviado para ${email}! Após o motorista confirmar o e-mail, ative-o manualmente na lista abaixo.`);
     onShowNotification(`Motorista ${email} convidado com sucesso!`);
 
     setUsers(prev => [...prev, {
@@ -334,7 +323,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       name: formattedName,
       email,
       role: 'Motorista',
-      status: 'Ativo',
+      status: 'Inativo',
       registrationDate: new Date().toLocaleDateString('pt-BR'),
       linkedDriver: inviteLinkedDriver || undefined
     }]);
@@ -487,10 +476,16 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   };
 
   const toggleUserStatus = (id: string) => {
+    let activatedName = '';
     const updated = users.map(u => {
       if (u.id === id) {
         const nextStatus = u.status === 'Ativo' ? 'Inativo' : 'Ativo';
         onShowNotification(`O status de ${u.name} agora é ${nextStatus}`);
+
+        // Se ativou um motorista, adiciona à lista de motoristas
+        if (nextStatus === 'Ativo' && u.role === 'Motorista') {
+          activatedName = u.name;
+        }
 
         // Update in Supabase
         if (isSupabaseConfigured()) {
@@ -517,6 +512,13 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     });
 
     setUsers(updated);
+
+    if (activatedName) {
+      setMotoristas(prev => {
+        if (prev.includes(activatedName)) return prev;
+        return [...prev, activatedName];
+      });
+    }
   };
 
   const handleTogglePermission = (permissionId: string) => {
