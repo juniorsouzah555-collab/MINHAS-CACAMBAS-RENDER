@@ -37,67 +37,66 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     setIsLoading(true);
 
-    try {
-      if (isConfigured) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: password,
-        });
+    const normEmail = email.trim().toLowerCase();
 
-        if (!error && data?.user) {
-          const normEmail = email.trim().toLowerCase();
-          let role = 'Operador de Frota';
+    // 1. Tenta login via Supabase (funciona se email já foi confirmado)
+    if (isConfigured) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normEmail,
+        password: password,
+      });
 
-          if (normEmail === 'jrodrigues138@gmail.com') {
-            role = 'Administrador Geral';
-          } else {
-            try {
-              const { data: approvalRecord } = await supabase
-                .from('user_approvals')
-                .select('*')
-                .eq('email', normEmail)
-                .maybeSingle();
-
-              if (approvalRecord) {
-                role = approvalRecord.role || role;
-              }
-            } catch (pErr) {
-              console.warn("Could not load user_approvals dynamically:", pErr);
+      if (!error && data?.user) {
+        let role = 'Operador de Frota';
+        if (normEmail === 'jrodrigues138@gmail.com') {
+          role = 'Administrador Geral';
+        } else {
+          try {
+            const { data: approvalRecord } = await supabase
+              .from('user_approvals')
+              .select('*')
+              .eq('email', normEmail)
+              .maybeSingle();
+            if (approvalRecord) {
+              role = approvalRecord.role || role;
             }
-          }
+          } catch {}
+        }
+        setIsLoading(false);
+        onLoginSuccess(normEmail, role);
+        return;
+      }
+    }
 
-          onLoginSuccess(data.user.email || email, role);
+    // 2. Fallback: contas demo fixas
+    const isDemo = 
+      (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') ||
+      (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
+
+    if (isDemo) {
+      const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Motorista';
+      setIsLoading(false);
+      onLoginSuccess(normEmail, role);
+      return;
+    }
+
+    // 3. Fallback: motoristas convidados (verifica localStorage)
+    try {
+      const raw = localStorage.getItem('relampago_invited_drivers');
+      if (raw) {
+        const invited: { email: string; password: string; role: string }[] = JSON.parse(raw);
+        const match = invited.find(d => d.email === normEmail && d.password === password);
+        if (match) {
           setIsLoading(false);
+          onLoginSuccess(normEmail, match.role);
           return;
-        } else if (error) {
-          const normEmail = email.trim().toLowerCase();
-          const isDemoLocalAccount = 
-            (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') ||
-            (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
-
-          if (!isDemoLocalAccount) {
-            setErrorMsg(`Autenticação: ${error.message}. Verifique suas credenciais.`);
-            setIsLoading(false);
-            return;
-          }
         }
       }
+    } catch {}
 
-      setTimeout(() => {
-        setIsLoading(false);
-        const normEmail = email.trim().toLowerCase();
-        if (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') {
-          onLoginSuccess('jrodrigues138@gmail.com', 'Administrador Geral');
-        } else if (normEmail === 'motorista@relampago.com' && password === 'parceiro123') {
-          onLoginSuccess('motorista@relampago.com', 'Motorista');
-        } else {
-          setErrorMsg('Credencial inválida. Se você é um motorista convidado, verifique seu e-mail para confirmar o cadastro antes de fazer login.');
-        }
-      }, 300);
-    } catch (e: any) {
-      setIsLoading(false);
-      setErrorMsg(`Erro de autenticação: ${e.message || e}`);
-    }
+    // 4. Nada funcionou
+    setIsLoading(false);
+    setErrorMsg('Credencial inválida. Verifique seu e-mail e senha ou solicite um novo convite ao administrador.');
   };
 
   return (

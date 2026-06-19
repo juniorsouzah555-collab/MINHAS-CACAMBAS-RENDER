@@ -291,7 +291,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
 
     setInviteLoading(true);
 
-    // Tenta criar no Supabase (email pode ou não ser enviado)
+    // Tenta criar no Supabase
     try {
       if (isSupabaseConfigured()) {
         await supabase.auth.signUp({
@@ -299,12 +299,6 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
           password: tempPassword,
           options: { data: { role: 'Motorista' } }
         });
-      }
-    } catch {
-      // ignora falha do signUp
-    }
-    try {
-      if (isSupabaseConfigured()) {
         await supabase.from('user_approvals').insert([{
           email,
           name: formattedName,
@@ -315,11 +309,21 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
         }]);
       }
     } catch {
-      // ignora falha do insert
+      // ignora falha
     }
 
+    // Salva credenciais localmente para login sem confirmação de email
+    try {
+      const raw = localStorage.getItem('relampago_invited_drivers');
+      const list: { email: string; password: string; role: string }[] = raw ? JSON.parse(raw) : [];
+      if (!list.find(d => d.email === email)) {
+        list.push({ email, password: tempPassword, role: 'Motorista' });
+        localStorage.setItem('relampago_invited_drivers', JSON.stringify(list));
+      }
+    } catch {}
+
     setInviteGeneratedPassword(tempPassword);
-    setInviteSuccessMsg(`Convite enviado para ${email}! Após o motorista confirmar o e-mail, ative-o manualmente na lista abaixo.`);
+    setInviteSuccessMsg(`Motorista ${email} cadastrado! Senha temporária: ${tempPassword}. O motorista já pode fazer login.`);
     onShowNotification(`Motorista ${email} convidado com sucesso!`);
 
     setUsers(prev => [...prev, {
