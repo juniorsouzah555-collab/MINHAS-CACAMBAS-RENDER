@@ -103,6 +103,22 @@ export default function App() {
     return INITIAL_LANCAMENTOS;
   });
 
+  // Commissions (Comissões) tracking state
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
+    try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
+    return [
+      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2526-06-16T08:30:00Z' },
+      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2526-06-15T09:12:00Z' },
+      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2526-06-12T11:05:00Z' }
+    ];
+  });
+
+  // Registered Motoristas (Drivers) state
+  const [motoristas, setMotoristas] = useState<string[]>(() => {
+    try { const s = localStorage.getItem('relampago_motoristas'); if (s) return JSON.parse(s); } catch {}
+    return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
+  });
+
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
     const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserEmail === 'motorista@relampago.com';
@@ -343,22 +359,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
   useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
   useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
-
-  // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
-    try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
-    return [
-      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2526-06-16T08:30:00Z' },
-      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2526-06-15T09:12:00Z' },
-      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2526-06-12T11:05:00Z' }
-    ];
-  });
-
-  // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>(() => {
-    try { const s = localStorage.getItem('relampago_motoristas'); if (s) return JSON.parse(s); } catch {}
-    return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
-  });
 
   // Garage Diesel Tank States
   const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
@@ -1043,7 +1043,7 @@ export default function App() {
     if (!newLog.isRetiradaDiversa && newLog.kmFinal !== undefined && newLog.kmInicial !== undefined) {
       const distance = newLog.kmFinal - newLog.kmInicial;
       mediaKmL = distance > 0 && newLog.quantidadeLitros > 0 
-        ? parseFloat(((distance / newLog.quantidadeLitros) ?? 0).toFixed(2)) 
+        ? parseFloat(((distance / newLog.quantidadeLitros) || 0).toFixed(2)) 
         : 0;
     }
 
@@ -1085,7 +1085,7 @@ export default function App() {
     // If type is GARAGEM, subtract quantity to update stocks (can go negative)
     if (newLog.tipo === 'GARAGEM') {
       setGarageDieselQty(prev => {
-        const newQty = parseFloat(((prev - newLog.quantidadeLitros) ?? 0).toFixed(2));
+        const newQty = parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2));
         localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
         return newQty;
       });

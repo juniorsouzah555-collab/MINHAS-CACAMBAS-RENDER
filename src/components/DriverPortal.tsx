@@ -978,7 +978,7 @@ export default function DriverPortal({
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
                   <span className="text-slate-505 font-medium">Estimativa do Faturamento de Descarte:</span>
                   <strong className="text-slate-850 font-extrabold text-sm text-emerald-600 font-mono">
-                    R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) ?? 0).toFixed(2)}
+                    R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) || 0).toFixed(2)}
                   </strong>
                 </div>
 

@@ -364,7 +364,7 @@ export default function FleetView({
       const totalKm = filteredLogsForMetrics.reduce((acc, curr) => acc + ((curr.kmFinal || 0) - (curr.kmInicial || 0)), 0);
       const totalL = filteredLogsForMetrics.reduce((acc, curr) => acc + (curr.quantidadeLitros || 0), 0);
       if (totalL > 0) {
-        return parseFloat(((totalKm / totalL) ?? 0).toFixed(2));
+        return parseFloat(((totalKm / totalL) || 0).toFixed(2));
       }
     }
     // Fallback to active vehicle listed efficiency
