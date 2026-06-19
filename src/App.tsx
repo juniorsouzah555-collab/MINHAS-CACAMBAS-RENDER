@@ -58,13 +58,20 @@ import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('relampago_auth_active') === 'true';
+  });
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
     return localStorage.getItem('relampago_auth_email') || '';
   });
-  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  const [currentUserRole, setCurrentUserRole] = useState<string>(() => {
+    return localStorage.getItem('relampago_auth_role') || '';
+  });
 
-  const [currentTab, setCurrentTab] = useState<string>('driver-portal');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    return localStorage.getItem('relampago_auth_tab') || 
+      (localStorage.getItem('relampago_auth_role')?.toLowerCase().includes('motorista') ? 'driver-portal' : 'fleet');
+  });
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // App core state DB — carregados do localStorage para persistir entre sessões
@@ -360,6 +367,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
   useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
   useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+  useEffect(() => { if (isAuthenticated) localStorage.setItem('relampago_auth_tab', currentTab); }, [currentTab, isAuthenticated]);
 
   // Garage Diesel Tank States
   const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
@@ -510,11 +518,9 @@ export default function App() {
     localStorage.setItem('relampago_auth_role', userRole);
 
     const isDriver = userRole.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com';
-    if (isDriver) {
-      setCurrentTab('driver-portal');
-    } else {
-      setCurrentTab('fleet');
-    }
+    const tab = isDriver ? 'driver-portal' : 'fleet';
+    setCurrentTab(tab);
+    localStorage.setItem('relampago_auth_tab', tab);
 
     handleShowToast("Acesso Autorizado", `Bem-vindo! Entrou como ${userRole}.`, "success");
   };
