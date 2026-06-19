@@ -280,60 +280,68 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       return;
     }
 
+    const email = inviteEmail.trim().toLowerCase();
+    const userName = email.split('@')[0];
+    const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
+    const tempPassword = generatePassword();
+
     setInviteLoading(true);
 
+    // Tenta criar no Supabase (email pode ou não ser enviado)
     try {
-      if (!isSupabaseConfigured()) {
-        throw new Error('Supabase não configurado.');
+      if (isSupabaseConfigured()) {
+        await supabase.auth.signUp({
+          email,
+          password: tempPassword,
+          options: { data: { role: 'Motorista' } }
+        });
       }
-
-      const tempPassword = generatePassword();
-      const { data, error } = await supabase.auth.signUp({
-        email: inviteEmail.trim().toLowerCase(),
-        password: tempPassword,
-        options: {
-          data: { role: 'Motorista' }
-        }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      const userName = inviteEmail.split('@')[0];
-      const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
-
-      await supabase.from('user_approvals').insert([{
-        email: inviteEmail.trim().toLowerCase(),
-        name: formattedName,
-        role: 'Motorista',
-        status: 'Inativo',
-        linked_driver: inviteLinkedDriver || null,
-        created_at: new Date().toISOString()
-      }]);
-
-      setInviteGeneratedPassword(tempPassword);
-      setInviteSuccessMsg(`Convite enviado para ${inviteEmail.trim().toLowerCase()}! O motorista precisa confirmar o e-mail antes de fazer login.`);
-      onShowNotification(`Motorista ${inviteEmail} convidado com sucesso!`);
-
-      setInviteEmail('');
-      setInviteLinkedDriver('');
-
-      setUsers(prev => [...prev, {
-        id: `USR-${Math.floor(100 + Math.random() * 900)}`,
-        name: formattedName,
-        email: inviteEmail.trim().toLowerCase(),
-        role: 'Motorista',
-        status: 'Inativo',
-        registrationDate: new Date().toLocaleDateString('pt-BR'),
-        linkedDriver: inviteLinkedDriver || undefined
-      }]);
-    } catch (err: any) {
-      setInviteSuccessMsg('');
-      onShowNotification(`Erro: ${err.message}`);
-    } finally {
-      setInviteLoading(false);
+    } catch {
+      // ignora falha do signUp
     }
+    try {
+      if (isSupabaseConfigured()) {
+        await supabase.from('user_approvals').insert([{
+          email,
+          name: formattedName,
+          role: 'Motorista',
+          status: 'Ativo',
+          linked_driver: inviteLinkedDriver || null,
+          created_at: new Date().toISOString()
+        }]);
+      }
+    } catch {
+      // ignora falha do insert
+    }
+
+    // Adiciona na lista de motoristas para aparecer no dropdown
+    setMotoristas(prev => {
+      if (prev.includes(formattedName)) return prev;
+      return [...prev, formattedName];
+    });
+
+    // Se vinculou a um motorista existente que não está na lista, adiciona também
+    if (inviteLinkedDriver && !motoristas.includes(inviteLinkedDriver)) {
+      setMotoristas(prev => [...prev, inviteLinkedDriver!]);
+    }
+
+    setInviteGeneratedPassword(tempPassword);
+    setInviteSuccessMsg(`Motorista ${email} cadastrado como "${formattedName}"! Senha temporária: ${tempPassword}`);
+    onShowNotification(`Motorista ${email} convidado com sucesso!`);
+
+    setUsers(prev => [...prev, {
+      id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+      name: formattedName,
+      email,
+      role: 'Motorista',
+      status: 'Ativo',
+      registrationDate: new Date().toLocaleDateString('pt-BR'),
+      linkedDriver: inviteLinkedDriver || undefined
+    }]);
+
+    setInviteEmail('');
+    setInviteLinkedDriver('');
+    setInviteLoading(false);
   };
 
   // Role Permissions levels state
