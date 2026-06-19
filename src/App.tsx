@@ -71,16 +71,37 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('fleet');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // App core state DB
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(INITIAL_FUEL_LOGS);
-  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(INITIAL_ALERTS);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [dispatches, setDispatches] = useState<Dispatch[]>(INITIAL_DISPATCHES);
+  // App core state DB — carregados do localStorage para persistir entre sessões
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    try { const s = localStorage.getItem('relampago_vehicles'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_VEHICLES;
+  });
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
+    try { const s = localStorage.getItem('relampago_fuel_logs'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_FUEL_LOGS;
+  });
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(() => {
+    try { const s = localStorage.getItem('relampago_alerts'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_ALERTS;
+  });
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    try { const s = localStorage.getItem('relampago_invoices'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_INVOICES;
+  });
+  const [dispatches, setDispatches] = useState<Dispatch[]>(() => {
+    try { const s = localStorage.getItem('relampago_dispatches'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_DISPATCHES;
+  });
   
   // Bota fora & Lançamentos eco state
-  const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
+  const [botaForas, setBotaForas] = useState<BotaFora[]>(() => {
+    try { const s = localStorage.getItem('relampago_bota_foras'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_BOTA_FORAS;
+  });
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>(() => {
+    try { const s = localStorage.getItem('relampago_lancamentos'); if (s) return JSON.parse(s); } catch {}
+    return INITIAL_LANCAMENTOS;
+  });
 
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
@@ -289,49 +310,51 @@ export default function App() {
             setDispatches(data);
           }
         } catch (error) {
-          console.error("Database connection fallback to mock data:", error);
+          console.error("Database connection error, trying localStorage:", error);
+          const loadFallback = (key: string, setter: (v: any) => void) => {
+            try { const s = localStorage.getItem(key); if (s) setter(JSON.parse(s)); } catch {}
+          };
+          loadFallback('relampago_vehicles', setVehicles);
+          loadFallback('relampago_fuel_logs', setFuelLogs);
+          loadFallback('relampago_alerts', setAlerts);
+          loadFallback('relampago_invoices', setInvoices);
+          loadFallback('relampago_dispatches', setDispatches);
+          loadFallback('relampago_bota_foras', setBotaForas);
+          loadFallback('relampago_lancamentos', setLancamentos);
+          loadFallback('relampago_comissoes', setComissoes);
+          loadFallback('relampago_motoristas', setMotoristas);
         }
       };
       loadDatabaseData();
     }
   }, [isAuthenticated]);
+
+  // Sincroniza automaticamente cada estado com localStorage sempre que muda
+  useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
+  useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
+  useEffect(() => { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); }, [alerts]);
+  useEffect(() => { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); }, [dispatches]);
+  useEffect(() => { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); }, [botaForas]);
+  useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
+  useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
+  useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+
   // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([
-    {
-      id: 'COM-001',
-      motorista: 'Carlos Santana',
-      vaziasColocadas: 24,
-      retiradas: 22,
-      data: '2026-06-16',
-      createdAt: '2526-06-16T08:30:00Z'
-    },
-    {
-      id: 'COM-002',
-      motorista: 'Marcus Warren',
-      vaziasColocadas: 18,
-      retiradas: 18,
-      data: '2026-06-15',
-      createdAt: '2526-06-15T09:12:00Z'
-    },
-    {
-      id: 'COM-003',
-      motorista: 'Emily Watson',
-      vaziasColocadas: 30,
-      retiradas: 28,
-      data: '2026-06-12',
-      createdAt: '2526-06-12T11:05:00Z'
-    }
-  ]);
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
+    try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
+    return [
+      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2526-06-16T08:30:00Z' },
+      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2526-06-15T09:12:00Z' },
+      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2526-06-12T11:05:00Z' }
+    ];
+  });
 
   // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>([
-    'Carlos Santana',
-    'Marcus Warren',
-    'Emily Watson',
-    'Sophia Loren',
-    'Alexandre Nero',
-    'Beatriz Albuquerque'
-  ]);
+  const [motoristas, setMotoristas] = useState<string[]>(() => {
+    try { const s = localStorage.getItem('relampago_motoristas'); if (s) return JSON.parse(s); } catch {}
+    return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
+  });
 
   // Garage Diesel Tank States
   const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
