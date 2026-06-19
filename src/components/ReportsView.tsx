@@ -84,7 +84,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
 
   // Format currencies and date
   const formatCurrency = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   const formatDate = (dateStr: string) => {

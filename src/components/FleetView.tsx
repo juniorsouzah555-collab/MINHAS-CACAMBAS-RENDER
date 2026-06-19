@@ -579,7 +579,7 @@ export default function FleetView({
             <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Eficiência de Combustível</span>
               <span className="text-2xl font-black font-sans text-slate-900 mt-2 block">
-                {((metricAverageEfficiency || 0) ?? 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold">Km/L</span>
+                {(Number(metricAverageEfficiency) || 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold">Km/L</span>
               </span>
               <div className="text-[10px] text-purple-650 mt-2.5 flex items-center gap-1.5 bg-purple-50 border border-purple-100 py-0.5 px-1.5 rounded w-fit font-bold">
                 <Gauge className="w-3.5 h-3.5 text-purple-650 shrink-0" />
@@ -614,7 +614,7 @@ export default function FleetView({
             <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col justify-between font-medium">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Custo Operacional Médio (OP)</span>
               <span className="text-2xl font-black font-mono text-slate-900 mt-2 block">
-                R$ {((metricAverageOperatingCost || 0) ?? 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold font-sans">/ Km</span>
+                R$ {(Number(metricAverageOperatingCost) || 0).toFixed(2)} <span className="text-xs text-slate-450 font-bold font-sans">/ Km</span>
               </span>
               <div className="text-[10px] text-fuchsia-750 mt-2.5 flex items-center gap-1.5 bg-fuchsia-50 border border-fuchsia-100 py-0.5 px-1.5 rounded w-fit font-bold">
                 <TrendingUp className="w-3.5 h-3.5 text-fuchsia-750 shrink-0" />
@@ -726,8 +726,8 @@ export default function FleetView({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredVehiclesForMetrics.map((v) => {
-                    const latestKm = v.initialKm;
-                    const cOp = v.costPerKm ? `R$ ${(v.costPerKm ?? 0).toFixed(2)}/Km` : 'R$ 1.10/Km';
+                    const latestKm = v.initialKm || 0;
+                    const cOp = v.costPerKm !== undefined && v.costPerKm !== null ? `R$ ${(Number(v.costPerKm) || 0).toFixed(2)}/Km` : 'R$ 1.10/Km';
                     return (
                       <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-3.5 font-mono text-xs font-black text-slate-900">{v.id}</td>
@@ -742,7 +742,7 @@ export default function FleetView({
                           </span>
                         </td>
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-900 font-bold text-right">
-                          {v.efficiency > 0 ? `${(v.efficiency ?? 0).toFixed(1)} Km/L` : 'S/ Refuel'}
+                          {Number(v.efficiency) > 0 ? `${(Number(v.efficiency) || 0).toFixed(1)} Km/L` : 'S/ Refuel'}
                         </td>
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-900 font-bold text-right text-purple-700">
                           {cOp}
@@ -1470,7 +1470,7 @@ export default function FleetView({
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-800 text-right">{(v.initialKm || 0).toLocaleString()} KM</td>
-                      <td className="px-4 py-3 font-mono text-xs text-purple-700 text-right">R$ {((v.costPerKm || 1.10) ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-purple-700 text-right">R$ {(Number(v.costPerKm) || 1.10).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
                         <button
                           type="button"

@@ -107,39 +107,41 @@ export default function DashboardView({
   const activeTransitCount = activeTravelers.length;
 
   const totalCapacityTonsMoved = useMemo(() => {
-    return dispatches.reduce((acc, curr) => acc + curr.weight, 0);
+    return dispatches.reduce((acc, curr) => acc + (Number(curr.weight) || 0), 0);
   }, [dispatches]);
 
   const co2SavingsTons = useMemo(() => {
-    return parseFloat(((totalCapacityTonsMoved ?? 0) * 1.4).toFixed(1));
+    return parseFloat(((Number(totalCapacityTonsMoved) || 0) * 1.4).toFixed(1));
   }, [totalCapacityTonsMoved]);
 
   // Specific Minimalist KPIs requested by the user:
   // 1. Quantidade de caçambas
   const totalCacambas = useMemo(() => {
-    return filteredLancamentosForKPI.reduce((acc, curr) => acc + curr.quantidadeCacambas, 0);
+    return filteredLancamentosForKPI.reduce((acc, curr) => acc + (Number(curr.quantidadeCacambas) || 0), 0);
   }, [filteredLancamentosForKPI]);
 
   // 2. Valor gasto com bota fora
   const totalBotaForaGasto = useMemo(() => {
-    return filteredLancamentosForKPI.reduce((acc, curr) => acc + curr.valor, 0);
+    return filteredLancamentosForKPI.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
   }, [filteredLancamentosForKPI]);
 
   // 3. Valor gasto com combustível
   const totalFuelGasto = useMemo(() => {
-    return filteredFuelLogsForKPI.reduce((acc, curr) => acc + curr.valorPago, 0);
+    return filteredFuelLogsForKPI.reduce((acc, curr) => acc + (Number(curr.valorPago) || 0), 0);
   }, [filteredFuelLogsForKPI]);
 
   // 4. Média do valor de combustível gasto por caçamba (Valor total gasto com combustível / Quantidade de Caçambas)
   const fuelPerCacamba = useMemo(() => {
-    if (totalCacambas === 0) return 0;
-    return totalFuelGasto / totalCacambas;
+    const divider = Number(totalCacambas) || 0;
+    if (divider === 0) return 0;
+    return (Number(totalFuelGasto) || 0) / divider;
   }, [totalFuelGasto, totalCacambas]);
 
   // Alternativa literal: "O VALOR TOTAL DAQUELE MES DIVIDIDO PELO VALOR TOTAL BRUTO DE COMBUSTIVEL EM REAIS"
   const relacaoTotalMesCombustivel = useMemo(() => {
-    if (totalFuelGasto === 0) return 0;
-    return totalBotaForaGasto / totalFuelGasto;
+    const divider = Number(totalFuelGasto) || 0;
+    if (divider === 0) return 0;
+    return (Number(totalBotaForaGasto) || 0) / divider;
   }, [totalBotaForaGasto, totalFuelGasto]);
 
   return (
@@ -240,7 +242,7 @@ export default function DashboardView({
           </p>
           <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 font-bold">
             <span>Razão Total Mês / Combustível:</span>
-            <span className="text-fuchsia-600 font-black font-mono">{(relacaoTotalMesCombustivel ?? 0).toFixed(2)}x</span>
+            <span className="text-fuchsia-600 font-black font-mono">{(Number(relacaoTotalMesCombustivel) || 0).toFixed(2)}x</span>
           </div>
         </div>
 
