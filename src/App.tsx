@@ -225,19 +225,29 @@ export default function App() {
 
             const { data: listMotoristas, error: errMotoristas } = await supabase.from('motoristas').select('*');
             if (listMotoristas && !errMotoristas) {
-              setMotoristas(listMotoristas.map((m: any) => m.nome));
+              setMotoristas(listMotoristas.map((m: any) => m.nome || m.name).filter(Boolean));
             }
 
             const { data: listComissoes, error: errComissoes } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
             if (listComissoes && !errComissoes) {
-              setComissoes(listComissoes.map((c: any) => ({
-                id: c.id,
-                motorista: c.motorista,
-                vaziasColocadas: c.vazias_colocadas !== undefined ? c.vazias_colocadas : c.vaziasColocadas,
-                retiradas: c.retiradas,
-                data: c.data,
-                createdAt: c.created_at || c.createdAt
-              })));
+              setComissoes(listComissoes.map((c: any) => {
+                const vaziasColocadas = c.vazias_colocadas !== undefined && c.vazias_colocadas !== null
+                  ? Number(c.vazias_colocadas)
+                  : (c.vaziasColocadas !== undefined && c.vaziasColocadas !== null ? Number(c.vaziasColocadas) : 0);
+                
+                const retiradas = c.retiradas !== undefined && c.retiradas !== null
+                  ? Number(c.retiradas)
+                  : (c.retiradas_qtd !== undefined && c.retiradas_qtd !== null ? Number(c.retiradas_qtd) : 0);
+
+                return {
+                  id: c.id,
+                  motorista: c.motorista || c.driver || c.driverName || c.driver_name || 'Carlos Santana',
+                  vaziasColocadas,
+                  retiradas,
+                  data: c.data,
+                  createdAt: c.created_at || c.createdAt
+                };
+              }));
             }
 
             return;
@@ -324,8 +334,14 @@ export default function App() {
   ]);
 
   // Garage Diesel Tank States
-  const [garageDieselQty, setGarageDieselQty] = useState<number>(5000);
-  const [garageDieselPrice, setGarageDieselPrice] = useState<number>(5.68);
+  const [garageDieselQty, setGarageDieselQty] = useState<number>(() => {
+    const saved = localStorage.getItem('relampago_garage_diesel_qty');
+    return saved ? parseFloat(saved) : 5000;
+  });
+  const [garageDieselPrice, setGarageDieselPrice] = useState<number>(() => {
+    const saved = localStorage.getItem('relampago_garage_diesel_price');
+    return saved ? parseFloat(saved) : 5.68;
+  });
 
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
@@ -688,6 +704,17 @@ export default function App() {
       return v;
     }));
 
+    if (isSupabaseConfigured() && newDisp.vehicleId) {
+      supabase.from('vehicles').update({
+        status: 'In Transit',
+        speed: 62,
+        lat: Math.floor(100 + Math.random() * 150),
+        lng: Math.floor(250 + Math.random() * 600)
+      }).eq('id', newDisp.vehicleId).then(({ error }) => {
+        if (error) console.error("Supabase error updating vehicle status in dispatch:", error);
+      });
+    }
+
     setIsNewDispatchOpen(false);
     handleShowToast(
       "Despacho Autorizado", 
@@ -833,12 +860,12 @@ export default function App() {
     }
 
     // Automatically assign Comissao if this was performed by a driver
-    if (newLan.driverName) {
+    if (newLan.driverName && newLan.driverName !== 'Não Atribuído' && newLan.driverName !== 'Não atribuído' && newLan.driverName.trim() !== '') {
       const existing = comissoes.find(c => c.motorista === newLan.driverName && c.data === newLan.data);
       if (existing) {
         handleUpdateComissao({
           ...existing,
-          retiradas: existing.retiradas + newLan.quantidadeCacambas
+          retiradas: (existing.retiradas || 0) + newLan.quantidadeCacambas
         });
       } else {
         handleAddComissao({
@@ -877,6 +904,17 @@ export default function App() {
         }
         return v;
       }));
+
+      if (isSupabaseConfigured()) {
+        supabase.from('vehicles').update({
+          status: 'In Transit',
+          speed: 55,
+          lat: Math.floor(100 + Math.random() * 150),
+          lng: Math.floor(250 + Math.random() * 600)
+        }).eq('id', newLan.vehicleId).then(({ error }) => {
+          if (error) console.error("Supabase error updating vehicle status in lancamento:", error);
+        });
+      }
     }
 
     setIsNewDispatchOpen(false);
@@ -1019,7 +1057,11 @@ export default function App() {
 
     // If type is GARAGEM, subtract quantity to update stocks (can go negative)
     if (newLog.tipo === 'GARAGEM') {
-      setGarageDieselQty(prev => parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2)));
+      setGarageDieselQty(prev => {
+        const newQty = parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2));
+        localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+        return newQty;
+      });
     }
 
     // Update corresponding vehicle's stats: efficiency, fuelUsed
@@ -1047,6 +1089,28 @@ export default function App() {
       }
       return v;
     }));
+
+    if (isSupabaseConfigured()) {
+      const vObj = vehicles.find(v => v.id === newLog.vehicleId);
+      if (vObj) {
+        const totalFuel = vObj.fuelUsed + newLog.quantidadeLitros;
+        let efficiency = vObj.efficiency;
+        let trend = [...(vObj.trend || [2.5])];
+        if (!newLog.isRetiradaDiversa && mediaKmL !== undefined && mediaKmL > 0) {
+          efficiency = mediaKmL;
+          trend.push(mediaKmL);
+        }
+        const updatedTrend = trend.slice(-5);
+
+        supabase.from('vehicles').update({
+          efficiency,
+          fuel_used: totalFuel,
+          trend: JSON.stringify(updatedTrend)
+        }).eq('id', newLog.vehicleId).then(({ error }) => {
+          if (error) console.error("Supabase error updating vehicle stats in fuel log:", error);
+        });
+      }
+    }
 
     if (newLog.isRetiradaDiversa) {
       handleShowToast(
@@ -1254,6 +1318,8 @@ export default function App() {
               onUpdateGarageDiesel={(qty, price) => {
                 setGarageDieselQty(qty);
                 setGarageDieselPrice(price);
+                localStorage.setItem('relampago_garage_diesel_qty', qty.toString());
+                localStorage.setItem('relampago_garage_diesel_price', price.toString());
               }}
             />
           )}

@@ -114,8 +114,66 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
       return u;
     });
     setUsers(updated);
+
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser) {
+      // 1. Save to local storage for local/offline mock support
+      const savedUsersStr = localStorage.getItem('relampago_system_users');
+      let savedUsers = [];
+      if (savedUsersStr) {
+        try { savedUsers = JSON.parse(savedUsersStr); } catch (e) {}
+      }
+      const existingIdx = savedUsers.findIndex((su: any) => su.email?.toLowerCase().trim() === targetUser.email.toLowerCase().trim());
+      if (existingIdx !== -1) {
+        savedUsers[existingIdx].linkedDriver = driverName || undefined;
+      } else {
+        savedUsers.push({ email: targetUser.email.toLowerCase().trim(), linkedDriver: driverName || undefined });
+      }
+      localStorage.setItem('relampago_system_users', JSON.stringify(savedUsers));
+
+      // 2. Save directly to Supabase user_approvals table if configured
+      if (isSupabaseConfigured()) {
+        supabase
+          .from('user_approvals')
+          .update({ 
+            linked_driver: driverName || null,
+            linkedDriver: driverName || null 
+          })
+          .eq('email', targetUser.email.toLowerCase().trim())
+          .then(({ error }) => {
+            if (error) console.error("Error updating user_approvals linked driver:", error);
+          });
+      }
+    }
+
     onShowNotification(`Vinculação de motorista atualizada com sucesso!`);
   };
+
+  // Load offline saved users attributes on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('relampago_system_users');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setUsers(prev => prev.map(u => {
+            const match = parsed.find(x => x.email?.toLowerCase().trim() === u.email.toLowerCase().trim());
+            if (match) {
+              return {
+                ...u,
+                linkedDriver: match.linkedDriver || u.linkedDriver,
+                role: match.role || u.role,
+                status: match.status || u.status
+              };
+            }
+            return u;
+          }));
+        }
+      } catch (e) {
+        console.error("Error loading offline system users:", e);
+      }
+    }
+  }, []);
 
   // Load dynamic users from Supabase if configured and merge partners
   useEffect(() => {
@@ -138,6 +196,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                 email: cleanedEmail,
                 role: ru.role || 'Operador de Frota',
                 status: ru.status === 'Ativo' ? 'Ativo' : 'Inativo',
+                linkedDriver: ru.linked_driver || ru.linkedDriver || undefined,
                 registrationDate: ru.created_at ? new Date(ru.created_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
               };
               if (existingIdx !== -1) {
@@ -145,7 +204,8 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                 updated[existingIdx] = {
                   ...updated[existingIdx],
                   role: mappedUser.role,
-                  status: mappedUser.status
+                  status: mappedUser.status,
+                  linkedDriver: mappedUser.linkedDriver || updated[existingIdx].linkedDriver
                 };
               } else {
                 updated.push(mappedUser);
