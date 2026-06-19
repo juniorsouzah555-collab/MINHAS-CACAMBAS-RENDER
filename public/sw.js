@@ -35,44 +35,35 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   
-  // Exclude Supabase, external APIs under HTTPS, and background API queries from caching
+  // Exclude Supabase, external APIs under HTTPS, and background API queries
   if (
     url.pathname.startsWith('/api') || 
     url.host.includes('supabase') || 
     url.host.includes('googleapis')
   ) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        // Fallback for navigation if completely offline
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      })
-    );
     return;
   }
 
-  // Cache-first for local static assets and build scripts
+  // Network first: always try network, fall back to cache
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return networkResponse;
-      }).catch(() => {
-        // Fallback to index.html for SPA client-side routes under navigation mode
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+          return new Response('Offline', { status: 503 });
+        });
+      })
   );
 });

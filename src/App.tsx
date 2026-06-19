@@ -1016,7 +1016,7 @@ export default function App() {
     if (!newLog.isRetiradaDiversa && newLog.kmFinal !== undefined && newLog.kmInicial !== undefined) {
       const distance = newLog.kmFinal - newLog.kmInicial;
       mediaKmL = distance > 0 && newLog.quantidadeLitros > 0 
-        ? parseFloat(((distance / newLog.quantidadeLitros) || 0).toFixed(2)) 
+        ? parseFloat(((distance / newLog.quantidadeLitros) ?? 0).toFixed(2)) 
         : 0;
     }
 
@@ -1058,7 +1058,7 @@ export default function App() {
     // If type is GARAGEM, subtract quantity to update stocks (can go negative)
     if (newLog.tipo === 'GARAGEM') {
       setGarageDieselQty(prev => {
-        const newQty = parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2));
+        const newQty = parseFloat(((prev - newLog.quantidadeLitros) ?? 0).toFixed(2));
         localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
         return newQty;
       });
