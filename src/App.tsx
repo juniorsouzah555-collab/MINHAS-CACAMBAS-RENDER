@@ -119,7 +119,7 @@ export default function App() {
           if (isSupabaseConfigured()) {
             console.log("Supabase config detected. Querying Supabase directly...");
             const { data: listVehicles, error: errVehicles } = await supabase.from('vehicles').select('*');
-            if (listVehicles && !errVehicles) {
+            if (listVehicles && listVehicles.length > 0 && !errVehicles) {
               setVehicles(listVehicles.map((v: any) => {
                 let parsedTrend: number[] = [];
                 if (v.trend) {
@@ -160,7 +160,7 @@ export default function App() {
             }
 
             const { data: listBf, error: errBf } = await supabase.from('bota_foras').select('*');
-            if (listBf && !errBf) {
+            if (listBf && listBf.length > 0 && !errBf) {
               setBotaForas(listBf.map((b: any) => ({
                 id: b.id,
                 nome: b.nome,
@@ -173,7 +173,7 @@ export default function App() {
             }
 
             const { data: listLan, error: errLan } = await supabase.from('lancamentos').select('*');
-            if (listLan && !errLan) {
+            if (listLan && listLan.length > 0 && !errLan) {
               setLancamentos(listLan.map((l: any) => ({
                 id: l.id,
                 botaForaId: l.bota_fora_id || l.botaForaId,
@@ -191,7 +191,7 @@ export default function App() {
             }
 
             const { data: listFuel, error: errFuel } = await supabase.from('fuel_logs').select('*');
-            if (listFuel && !errFuel) {
+            if (listFuel && listFuel.length > 0 && !errFuel) {
               setFuelLogs(listFuel.map((f: any) => ({
                 id: f.id,
                 vehicleId: f.vehicle_id || f.vehicleId,
@@ -210,12 +210,12 @@ export default function App() {
             }
 
             const { data: listAlerts, error: errAlerts } = await supabase.from('maintenance_alerts').select('*');
-            if (listAlerts && !errAlerts) {
+            if (listAlerts && listAlerts.length > 0 && !errAlerts) {
               setAlerts(listAlerts);
             }
 
             const { data: listInvoices, error: errInvoices } = await supabase.from('invoices').select('*');
-            if (listInvoices && !errInvoices) {
+            if (listInvoices && listInvoices.length > 0 && !errInvoices) {
               setInvoices(listInvoices.map((i: any) => ({
                 id: i.id,
                 clientName: i.client_name || i.clientName,
@@ -229,7 +229,7 @@ export default function App() {
             }
 
             const { data: listDisp, error: errDisp } = await supabase.from('dispatches').select('*');
-            if (listDisp && !errDisp) {
+            if (listDisp && listDisp.length > 0 && !errDisp) {
               setDispatches(listDisp.map((d: any) => ({
                 id: d.id,
                 vehicleId: d.vehicle_id || d.vehicleId,
@@ -245,12 +245,14 @@ export default function App() {
             }
 
             const { data: listMotoristas, error: errMotoristas } = await supabase.from('motoristas').select('*');
-            if (listMotoristas && !errMotoristas) {
+            if (listMotoristas && listMotoristas.length > 0 && !errMotoristas) {
               setMotoristas(listMotoristas.map((m: any) => m.nome || m.name).filter(Boolean));
+            } else if (errMotoristas) {
+              console.error("Supabase load motoristas error:", errMotoristas);
             }
 
             const { data: listComissoes, error: errComissoes } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
-            if (listComissoes && !errComissoes) {
+            if (listComissoes && listComissoes.length > 0 && !errComissoes) {
               setComissoes(listComissoes.map((c: any) => {
                 const vaziasColocadas = c.vazias_colocadas !== undefined && c.vazias_colocadas !== null
                   ? Number(c.vazias_colocadas)
@@ -269,6 +271,8 @@ export default function App() {
                   createdAt: c.created_at || c.createdAt
                 };
               }));
+            } else if (errComissoes) {
+              console.error("Supabase load comissoes error:", errComissoes);
             }
 
             return;

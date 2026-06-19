@@ -53,8 +53,16 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
+          return networkResponse;
         }
-        return networkResponse;
+        // Non-200 (404 etc.): try cache fallback before returning error
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+          return networkResponse;
+        });
       })
       .catch(() => {
         return caches.match(event.request).then((cached) => {
