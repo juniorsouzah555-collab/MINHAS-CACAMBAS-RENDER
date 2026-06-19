@@ -58,15 +58,11 @@ import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('relampago_auth_active') === 'true';
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
     return localStorage.getItem('relampago_auth_email') || 'jrodrigues138@gmail.com';
   });
-  const [currentUserRole, setCurrentUserRole] = useState<string>(() => {
-    return localStorage.getItem('relampago_auth_role') || 'Administrador Geral';
-  });
+  const [currentUserRole, setCurrentUserRole] = useState<string>('Administrador Geral');
 
   const [currentTab, setCurrentTab] = useState<string>('fleet');
   const [searchTerm, setSearchTerm] = useState<string>('');
