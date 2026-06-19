@@ -133,6 +133,17 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     'Beatriz Albuquerque'
   ]);
 
+  // Lista combinada: motoristas hardcoded + usuários ativos com role Motorista
+  const allAvailableDrivers = useMemo(() => {
+    const set = new Set(motoristas);
+    users.forEach(u => {
+      if (u.role === 'Motorista' && u.status === 'Ativo' && u.name) {
+        set.add(u.name);
+      }
+    });
+    return Array.from(set);
+  }, [motoristas, users]);
+
   const handleLinkDriver = (userId: string, driverName: string) => {
     const updated = users.map(u => {
       if (u.id === userId) {
@@ -857,7 +868,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                     className="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl text-xs font-sans font-bold text-slate-700"
                   >
                     <option value="">-- Sem Vinculação --</option>
-                    {motoristas.map(drv => (
+                    {allAvailableDrivers.map(drv => (
                       <option key={drv} value={drv}>{drv}</option>
                     ))}
                   </select>
@@ -985,7 +996,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
                                   className="bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[10px] text-slate-800 outline-none focus:border-cyan-500 font-bold cursor-pointer max-w-[150px]"
                                 >
                                   <option value="">-- Sem Vinculação --</option>
-                                  {motoristas.map((drv) => (
+                                  {allAvailableDrivers.map((drv) => (
                                     <option key={drv} value={drv}>
                                       {drv}
                                     </option>
