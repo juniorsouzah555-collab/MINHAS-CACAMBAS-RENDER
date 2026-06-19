@@ -8,6 +8,13 @@
       "when": 1781662678337,
       "tag": "0000_chief_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782662678337,
+      "tag": "0001_fix_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -115,6 +115,17 @@ export default function App() {
     return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
   });
 
+  // Persist data to localStorage as fallback on every change
+  useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
+  useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
+  useEffect(() => { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); }, [alerts]);
+  useEffect(() => { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); }, [dispatches]);
+  useEffect(() => { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); }, [botaForas]);
+  useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
+  useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
+  useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+
   // Forçar reativamente usuários de nível Motorista a acessarem unicamente o Portal do Motorista
   useEffect(() => {
     const isDriver = currentUserRole.toLowerCase().includes('motorista') || currentUserEmail === 'motorista@relampago.com';
@@ -131,8 +142,8 @@ export default function App() {
           if (isSupabaseConfigured()) {
             console.log("Supabase config detected. Querying Supabase directly...");
             const { data: listVehicles, error: errVehicles } = await supabase.from('vehicles').select('*');
-            if (listVehicles && listVehicles.length > 0 && !errVehicles) {
-              setVehicles(listVehicles.map((v: any) => {
+            if (!errVehicles) {
+              setVehicles((listVehicles || []).map((v: any) => {
                 let parsedTrend: number[] = [];
                 if (v.trend) {
                   if (typeof v.trend === 'string') {
@@ -167,13 +178,13 @@ export default function App() {
                   initialKm: v.initial_km !== undefined ? v.initial_km : v.initialKm
                 };
               }));
-            } else if (errVehicles) {
+            } else {
               console.error("Supabase load vehicles error:", errVehicles);
             }
 
             const { data: listBf, error: errBf } = await supabase.from('bota_foras').select('*');
-            if (listBf && listBf.length > 0 && !errBf) {
-              setBotaForas(listBf.map((b: any) => ({
+            if (!errBf) {
+              setBotaForas((listBf || []).map((b: any) => ({
                 id: b.id,
                 nome: b.nome,
                 cnpj: b.cnpj,
@@ -185,8 +196,8 @@ export default function App() {
             }
 
             const { data: listLan, error: errLan } = await supabase.from('lancamentos').select('*');
-            if (listLan && listLan.length > 0 && !errLan) {
-              setLancamentos(listLan.map((l: any) => ({
+            if (!errLan) {
+              setLancamentos((listLan || []).map((l: any) => ({
                 id: l.id,
                 botaForaId: l.bota_fora_id || l.botaForaId,
                 botaForaNome: l.bota_fora_nome || l.botaForaNome,
@@ -203,8 +214,8 @@ export default function App() {
             }
 
             const { data: listFuel, error: errFuel } = await supabase.from('fuel_logs').select('*');
-            if (listFuel && listFuel.length > 0 && !errFuel) {
-              setFuelLogs(listFuel.map((f: any) => ({
+            if (!errFuel) {
+              setFuelLogs((listFuel || []).map((f: any) => ({
                 id: f.id,
                 vehicleId: f.vehicle_id || f.vehicleId,
                 quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
@@ -222,13 +233,13 @@ export default function App() {
             }
 
             const { data: listAlerts, error: errAlerts } = await supabase.from('maintenance_alerts').select('*');
-            if (listAlerts && listAlerts.length > 0 && !errAlerts) {
-              setAlerts(listAlerts);
+            if (!errAlerts) {
+              setAlerts(listAlerts || []);
             }
 
             const { data: listInvoices, error: errInvoices } = await supabase.from('invoices').select('*');
-            if (listInvoices && listInvoices.length > 0 && !errInvoices) {
-              setInvoices(listInvoices.map((i: any) => ({
+            if (!errInvoices) {
+              setInvoices((listInvoices || []).map((i: any) => ({
                 id: i.id,
                 clientName: i.client_name || i.clientName,
                 entityCode: i.entity_code || i.entityCode,
@@ -241,8 +252,8 @@ export default function App() {
             }
 
             const { data: listDisp, error: errDisp } = await supabase.from('dispatches').select('*');
-            if (listDisp && listDisp.length > 0 && !errDisp) {
-              setDispatches(listDisp.map((d: any) => ({
+            if (!errDisp) {
+              setDispatches((listDisp || []).map((d: any) => ({
                 id: d.id,
                 vehicleId: d.vehicle_id || d.vehicleId,
                 driverName: d.driver_name || d.driverName,
@@ -257,14 +268,14 @@ export default function App() {
             }
 
             const { data: listMotoristas, error: errMotoristas } = await supabase.from('motoristas').select('*');
-            if (listMotoristas && listMotoristas.length > 0 && !errMotoristas) {
-              setMotoristas(listMotoristas.map((m: any) => m.nome || m.name).filter(Boolean));
-            } else if (errMotoristas) {
+            if (!errMotoristas) {
+              setMotoristas((listMotoristas || []).map((m: any) => m.nome || m.name).filter(Boolean));
+            } else {
               console.error("Supabase load motoristas error:", errMotoristas);
             }
 
             const { data: listComissoes, error: errComissoes } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
-            if (listComissoes && listComissoes.length > 0 && !errComissoes) {
+            if (!errComissoes) {
               setComissoes(listComissoes.map((c: any) => {
                 const vaziasColocadas = c.vazias_colocadas !== undefined && c.vazias_colocadas !== null
                   ? Number(c.vazias_colocadas)

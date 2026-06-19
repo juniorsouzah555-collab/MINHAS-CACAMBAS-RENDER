@@ -29,41 +29,30 @@ const isValidHttpUrl = (str: string): boolean => {
   }
 };
 
-// Retrieve keys from localStorage or fallback to environment variables
+const HARDCODED_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
+const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NTIwNzksImV4cCI6MjA5NzIyODA3OX0.EO0tflk_Q7wNYXEIIXLoyAMXj9J-XKtGQO1gNdp7Lzc';
+
+// Retrieve keys from localStorage or fallback to hardcoded values
 export const getSupabaseConfig = () => {
   const localUrl = localStorage.getItem('supabase_url');
   const localKey = localStorage.getItem('supabase_anon_key');
-  
-  // Statically access import.meta.env variables so Vite can replace them at compile-time for production/Vercel
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 
-                 (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string) || 
-                 (import.meta.env.SUPABASE_URL as string) || '';
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
-                 (import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || 
-                 (import.meta.env.SUPABASE_ANON_KEY as string) || 
-                 (import.meta.env.SUPABASE_KEY as string) || '';
 
-  const activeUrl = sanitizeSecret(localUrl || envUrl);
-  const activeKey = sanitizeSecret(localKey || envKey);
+  const activeUrl = localUrl && isValidHttpUrl(sanitizeSecret(localUrl))
+    ? sanitizeSecret(localUrl)
+    : HARDCODED_URL;
+  const activeKey = localKey ? sanitizeSecret(localKey) : HARDCODED_KEY;
 
   return {
     url: activeUrl,
     key: activeKey,
-    isConfigured: isValidHttpUrl(activeUrl) && !!activeKey,
-    source: localUrl ? 'browser_storage' : (envUrl ? 'environment' : 'missing')
+    isConfigured: true,
+    source: (localUrl && isValidHttpUrl(sanitizeSecret(localUrl))) ? 'browser_storage' : 'hardcoded'
   };
 };
 
-const config = getSupabaseConfig();
-const resolvedUrl = isValidHttpUrl(config.url) ? config.url : 'https://placeholder.supabase.co';
-const resolvedKey = config.key || 'placeholder-anon-key';
+export const isSupabaseConfigured = (): boolean => true;
 
-// Keep an active client instance that can be dynamically updated
-export let supabase = createClient(resolvedUrl, resolvedKey);
-
-export const isSupabaseConfigured = (): boolean => {
-  return getSupabaseConfig().isConfigured;
-};
+export let supabase = createClient(HARDCODED_URL, HARDCODED_KEY);
 
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
@@ -75,9 +64,6 @@ export const updateSupabaseCredentials = (url: string, key: string) => {
     localStorage.removeItem('supabase_anon_key');
   }
   
-  const currentConfig = getSupabaseConfig();
-  const nextUrl = isValidHttpUrl(currentConfig.url) ? currentConfig.url : 'https://placeholder.supabase.co';
-  const nextKey = currentConfig.key || 'placeholder-anon-key';
-  
-  supabase = createClient(nextUrl, nextKey);
+  const cfg = getSupabaseConfig();
+  supabase = createClient(cfg.url, cfg.key);
 };

@@ -53,6 +53,30 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
   // Tabs: 'system' (general settings), 'users' (user registration), 'permissions' (authorization levels)
   const [activeSubTab, setActiveSubTab] = useState<'system' | 'users' | 'permissions'>('system');
 
+  // Load users from Supabase on mount (sempre sobrescreve, mesmo se vazio)
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      supabase.from('user_approvals').select('*').then(({ data, error }) => {
+        if (data) {
+          setUsers(data.length > 0
+            ? data.map((u: any, i: number) => ({
+                id: u.id || `USR-${String(i + 1).padStart(3, '0')}`,
+                name: u.name || u.email,
+                email: u.email || '',
+                role: u.role || 'Motorista',
+                status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
+                registrationDate: u.created_at
+                  ? new Date(u.created_at).toLocaleDateString('pt-BR')
+                  : new Date().toLocaleDateString('pt-BR'),
+                linkedDriver: u.linked_driver || undefined
+              }))
+            : []
+          );
+        }
+      });
+    }
+  }, []);
+
   // General Settings State
   const [tickSpeed, setTickSpeed] = useState(5);
   const [co2Coefficient, setCo2Coefficient] = useState(1.4);

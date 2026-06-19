@@ -108,3 +108,31 @@ export const dispatches = pgTable('dispatches', {
   status: text('status').notNull(), // 'Assigned' | 'In Transit' | 'Completed'
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// Define 'motoristas' table
+export const motoristas = pgTable('motoristas', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Define 'comissoes' table
+export const comissoes = pgTable('comissoes', {
+  id: text('id').primaryKey(),
+  motorista: text('motorista').notNull(),
+  vaziasColocadas: integer('vazias_colocadas'),
+  retiradas: integer('retiradas'),
+  data: text('data').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Define 'user_approvals' table
+export const userApprovals = pgTable('user_approvals', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  role: text('role').default('Operador de Frota'),
+  status: text('status').default('Ativo'),
+  linkedDriver: text('linked_driver'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
