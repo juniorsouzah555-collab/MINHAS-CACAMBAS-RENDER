@@ -33,6 +33,8 @@ import {
 
 interface SettingsViewProps {
   onShowNotification: (msg: string) => void;
+  motoristas: string[];
+  onMotoristasChange: (names: string[]) => void;
 }
 
 interface SystemUser {
@@ -52,7 +54,7 @@ interface RolePermission {
   categories: 'Leitura' | 'Escrita' | 'Crítica';
 }
 
-export default function SettingsView({ onShowNotification }: SettingsViewProps) {
+export default function SettingsView({ onShowNotification, motoristas, onMotoristasChange }: SettingsViewProps) {
   // Tabs: 'system' (general settings), 'users' (user registration), 'permissions' (authorization levels)
   const [activeSubTab, setActiveSubTab] = useState<'system' | 'users' | 'permissions'>('system');
 
@@ -124,16 +126,7 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     }
   ]);
 
-  const [motoristas, setMotoristas] = useState<string[]>([
-    'Carlos Santana',
-    'Marcus Warren',
-    'Emily Watson',
-    'Sophia Loren',
-    'Alexandre Nero',
-    'Beatriz Albuquerque'
-  ]);
-
-  // Lista combinada: motoristas hardcoded + todos os usuários com role Motorista
+  // Lista combinada: motoristas do sistema + todos os usuários com role Motorista
   const allAvailableDrivers = useMemo(() => {
     const set = new Set(motoristas);
     users.forEach(u => {
@@ -524,11 +517,8 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
 
     setUsers(updated);
 
-    if (activatedName) {
-      setMotoristas(prev => {
-        if (prev.includes(activatedName)) return prev;
-        return [...prev, activatedName];
-      });
+    if (activatedName && !motoristas.includes(activatedName)) {
+      onMotoristasChange([...motoristas, activatedName]);
     }
   };
 

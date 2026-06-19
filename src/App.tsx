@@ -1413,7 +1413,11 @@ export default function App() {
           )}
 
           {currentTab === 'settings' && (
-            <SettingsView onShowNotification={(msg) => handleShowToast("Configurações Salvas", msg, "success")} />
+            <SettingsView
+              motoristas={motoristas}
+              onMotoristasChange={(names) => setMotoristas(names)}
+              onShowNotification={(msg) => handleShowToast("Configurações Salvas", msg, "success")}
+            />
           )}
 
           {currentTab === 'help' && (
