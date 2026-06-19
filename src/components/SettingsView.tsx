@@ -133,11 +133,11 @@ export default function SettingsView({ onShowNotification }: SettingsViewProps) 
     'Beatriz Albuquerque'
   ]);
 
-  // Lista combinada: motoristas hardcoded + usuários ativos com role Motorista
+  // Lista combinada: motoristas hardcoded + todos os usuários com role Motorista
   const allAvailableDrivers = useMemo(() => {
     const set = new Set(motoristas);
     users.forEach(u => {
-      if (u.role === 'Motorista' && u.status === 'Ativo' && u.name) {
+      if (u.role === 'Motorista' && u.name) {
         set.add(u.name);
       }
     });
