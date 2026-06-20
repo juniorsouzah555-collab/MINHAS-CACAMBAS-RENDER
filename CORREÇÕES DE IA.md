@@ -105,6 +105,49 @@ Recarregar página → useState(localStorage) → useEffect → Supabase SELECT
                                                     → se erro: mantém localStorage
 ```
 
+### 5. Proxy Serverless para Mutacoes (Junho 2026)
+
+**Problema**: RLS habilitado no Supabase bloqueava INSERT/UPDATE/DELETE direto do frontend (anon key).
+
+**Solucao**: Criar endpoints Vercel serverless em `api/` que usam `SUPABASE_SERVICE_ROLE_KEY` (server-side) para bypassar RLS:
+- `api/proxy.ts` — generico (INSERT, UPDATE, DELETE)
+- `api/fuel-log.ts` — especifico para abastecimentos
+- `api/auth/*.ts` — operacoes de auth (signup, confirm, delete, link-driver)
+
+Helpers no frontend: `proxyInsert()`, `proxyUpdate()`, `proxyDelete()` em `src/lib/supabase.ts`.
+
+### 6. Tela Branca no Mobile (ReferenceError: TDZ)
+
+**Problema**: `getLinkedFromStorage()` era definida com `const` depois de `useState()` que a chamava. No mobile (IOS/Android), o JS Engine era mais rigido com Temporal Dead Zone — `ReferenceError: Cannot access 'getLinkedFromStorage' before initialization`.
+
+**Solucao**: Mover definicao da funcao para ANTES de todos os `useState()` que a referenciam em `DriverPortal.tsx`.
+
+### 7. Delete User — Nao Removia do Auth
+
+**Problema**: `api/auth/delete-user.ts` so deletava da tabela `user_approvals`, mas NAO do `auth.users` do Supabase. O usuario continuava existindo no Auth, entao `signInWithPassword()` ainda funcionava.
+
+**Solucao**: Atualizar endpoint para usar `admin.auth.admin.listUsers()` + `admin.auth.admin.deleteUser(id)` para remover tambem do Auth. Usar `createClient` com service_role key.
+
+### 8. Login — Fallback localStorage Ignorava Exclusao
+
+**Problema**: No fluxo de login, passo 3 (fallback `relampago_invited_drivers`) tentava verificar no Supabase se o usuario existia, mas o `try/catch` com `catch {}` vazio engolia qualquer erro — se a query falhasse (RLS, rede), `deleted` ficava `false` e o login passava.
+
+**Solucao**: 
+- Passo 1: apos `signInWithPassword` bem-sucedido, verificar `user_approvals` — se nao achar registro, fazer `signOut()` e negar acesso.
+- Passo 3: tratar QUALQUER erro na query Supabase como "usuario deletado", removendo do localStorage e negando acesso.
+
+### 9. Coluna `observacao` Ausente no Supabase
+
+**Problema**: `proxyInsert('lancamentos', { ..., observacao: '...' })` falhava porque a coluna `observacao` nao existe na tabela `lancamentos` do Supabase. Erro `PGRST204` — `proxyInsert()` retornava `false` → toast "Sincronizacao Parcial".
+
+**Solucao**: Remover `observacao` do payload enviado ao Supabase. Dados continuam salvos no localStorage. Para adicionar no futuro: criar coluna `observacao text nullable` na tabela `lancamentos` pelo dashboard do Supabase.
+
+### 10. Motorista Deletado Continuava no localStorage
+
+**Problema**: `handleDeleteUser()` em `SettingsView.tsx` removia o usuario de `relampago_system_users` mas NAO de `relampago_invited_drivers`. As credenciais ficavam no localStorage, permitindo login mesmo apos exclusao.
+
+**Solucao**: Adicionar limpeza de `relampago_invited_drivers` no `handleDeleteUser()`. Adicionar `useEffect` no `LoginScreen.tsx` que sincroniza as duas listas no startup.
+
 ## Convenções de Código
 - **Nomes das colunas no Supabase**: snake_case (ex: `fuel_used`, `cost_per_km`)
 - **Nomes das propriedades no React**: camelCase (ex: `fuelUsed`, `costPerKm`)
