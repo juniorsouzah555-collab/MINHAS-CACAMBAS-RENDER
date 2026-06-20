@@ -10,7 +10,7 @@ import {
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, updateUserPasswordByEmail } from '../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
@@ -66,6 +66,30 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         onLoginSuccess(normEmail, role);
         return;
       }
+
+      // Se signInWithPassword falhou, tenta confirmar email + atualizar senha via Admin API
+      // (para usuários convidados antes da autoconfirmação automática)
+      try {
+        const { data: checkUser } = await supabase
+          .from('user_approvals')
+          .select('email')
+          .eq('email', normEmail)
+          .maybeSingle();
+        if (checkUser) {
+          const ok = await updateUserPasswordByEmail(normEmail, password);
+          if (ok) {
+            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+              email: normEmail,
+              password: password,
+            });
+            if (!retryError && retryData?.user) {
+              setIsLoading(false);
+              onLoginSuccess(normEmail, checkUser.role || 'Motorista');
+              return;
+            }
+          }
+        }
+      } catch {}
     }
 
     // 2. Fallback: contas demo fixas

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, updateUserPasswordByEmail } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -294,11 +294,20 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     // Tenta criar no Supabase
     try {
       if (isSupabaseConfigured()) {
-        await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password: tempPassword,
           options: { data: { role: 'Motorista' } }
         });
+
+        // Confirma o email automaticamente via Admin API para login funcionar de qualquer dispositivo
+        if (data?.user?.id) {
+          await confirmUserEmailByEmail(email);
+        } else if (error) {
+          // Se o usuário já existe, tenta confirmar mesmo assim
+          await confirmUserEmailByEmail(email);
+        }
+
         await supabase.from('user_approvals').insert([{
           email,
           name: formattedName,
@@ -486,6 +495,11 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       }
       localStorage.setItem('relampago_invited_drivers', JSON.stringify(list));
     } catch {}
+
+    // Atualiza a senha e confirma o email no Supabase Auth para login funcionar de qualquer dispositivo
+    if (isSupabaseConfigured()) {
+      updateUserPasswordByEmail(email.toLowerCase().trim(), newPassword.trim()).catch(() => {});
+    }
 
     onShowNotification(`Senha de ${name} redefinida com sucesso!`);
   };
