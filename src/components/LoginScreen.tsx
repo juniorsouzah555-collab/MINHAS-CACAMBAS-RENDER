@@ -134,16 +134,35 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    // 3. Fallback: motoristas convidados (verifica localStorage)
+    // 3. Fallback: motoristas convidados (verifica localStorage + Supabase)
     try {
       const raw = localStorage.getItem('relampago_invited_drivers');
       if (raw) {
         const invited: { email: string; password: string; role: string }[] = JSON.parse(raw);
         const match = invited.find(d => d.email === normEmail && d.password === password);
         if (match) {
-          setIsLoading(false);
-          onLoginSuccess(normEmail, match.role);
-          return;
+          // Verifica se o usuario ainda existe no Supabase antes de permitir login
+          let deleted = false;
+          if (isConfigured) {
+            try {
+              const { data: approvalRecord } = await supabase
+                .from('user_approvals')
+                .select('email')
+                .eq('email', normEmail)
+                .maybeSingle();
+              if (!approvalRecord) {
+                deleted = true;
+                // Remove das listas locais
+                const filtered = invited.filter(d => d.email !== normEmail);
+                localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+              }
+            } catch {}
+          }
+          if (!deleted) {
+            setIsLoading(false);
+            onLoginSuccess(normEmail, match.role);
+            return;
+          }
         }
       }
     } catch {}
