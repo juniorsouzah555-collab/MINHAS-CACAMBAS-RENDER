@@ -970,7 +970,7 @@ export default function App() {
   const handleDeleteLancamento = (id: string) => {
     setLancamentos(prev => prev.filter(lan => lan.id !== id));
     if (isSupabaseConfigured()) {
-      proxyDelete('lancamentos', `id=eq.${id}`);
+      proxyDelete('lancamentos', { id });
     }
     handleShowToast("Lançamento Excluído", `O extrato ${id} foi removido do histórico de operações.`, "info");
   };
@@ -1151,7 +1151,7 @@ export default function App() {
           efficiency,
           fuel_used: totalFuel,
           trend: JSON.stringify(updatedTrend)
-        }, `id=eq.${newLog.vehicleId}`);
+        }, { id: newLog.vehicleId });
       }
     }
 
@@ -1174,7 +1174,7 @@ export default function App() {
   const handleDeleteFuelLog = (id: string) => {
     setFuelLogs(prev => prev.filter(f => f.id !== id));
     if (isSupabaseConfigured()) {
-      proxyDelete('fuel_logs', `id=eq.${id}`);
+      proxyDelete('fuel_logs', { id });
     }
     handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
   };
@@ -1192,7 +1192,7 @@ export default function App() {
         driver: updated.driver ?? null,
         tipo: updated.tipo ?? null,
         observacao: updated.observacao ?? null,
-      }, `id=eq.${updated.id}`);
+      }, { id: updated.id });
     }
     handleShowToast("Abastecimento Atualizado", "O registro de abastecimento foi alterado.", "success");
   };

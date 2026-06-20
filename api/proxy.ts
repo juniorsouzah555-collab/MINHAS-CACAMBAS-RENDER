@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -10,46 +13,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!table || !action) return res.status(400).json({ error: 'table and action are required' });
 
   try {
-    const url = `${SUPABASE_URL}/rest/v1/${table}`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'apikey': SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-      'Prefer': 'return=minimal'
-    };
-
-    let response: Response;
+    let result;
 
     switch (action) {
       case 'insert':
-        response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(data)
-        });
+        result = await admin.from(table).insert([data]);
         break;
       case 'update':
         if (!filter) return res.status(400).json({ error: 'filter is required for update' });
-        response = await fetch(`${url}?${filter}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(data)
-        });
+        result = await admin.from(table).update(data).match(JSON.parse(filter));
         break;
       case 'delete':
         if (!filter) return res.status(400).json({ error: 'filter is required for delete' });
-        response = await fetch(`${url}?${filter}`, {
-          method: 'DELETE',
-          headers
-        });
+        result = await admin.from(table).delete().match(JSON.parse(filter));
         break;
       default:
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: text });
+    if (result.error) {
+      return res.status(500).json({ error: result.error.message });
     }
 
     res.json({ ok: true });
