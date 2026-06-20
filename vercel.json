@@ -5,10 +5,5 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "functions": {
-    "api/auth/*.ts": {
-      "runtime": "@vercel/node@3"
-    }
-  }
+  ]
 }
