@@ -5,46 +5,47 @@ const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const r: any = { method: req.method, keySet: KEY.length > 0 };
-
+  const r: any = { keySet: KEY.length > 0 };
   if (!KEY) { r.error = 'no key'; res.json(r); return; }
 
   try {
     const admin = createClient(SUPABASE_URL, KEY);
+    r.supabaseUrl = SUPABASE_URL;
 
-    // Test various table access
-    const tables = ['lancamentos', 'fuel_logs', 'fuel_log', 'lancamento', 'vehicles'];
-    r.tables = {};
-    for (const t of tables) {
-      try {
-        const { error } = await admin.from(t).select('id').limit(1);
-        r.tables[t] = error ? { error: error.message } : { ok: true };
-      } catch (e: any) {
-        r.tables[t] = { catch: e.message };
-      }
-    }
-
-    // Test insert into lancamentos
-    const testId = `TEST-${Date.now()}`;
-    const insertData = {
+    // Full payload that the app sends to /api/fuel-log
+    const testId = `FULL-TEST-${Date.now()}`;
+    const fullPayload = {
       id: testId,
-      bota_fora_id: 'TEST',
-      bota_fora_nome: 'Test',
-      quantidade_cacambas: 1,
-      valor: 1,
+      vehicle_id: 'VH-001',
+      quantidade_litros: 50,
+      km_inicial: 10000,
+      km_final: 10500,
+      valor_pago: 250,
       data: '2026-06-20',
-      status: 'PENDING'
+      driver: 'Test Driver',
+      media_km_l: 10,
+      tipo: 'GASOLINA',
+      is_retirada_diversa: false,
+      lat: -23.5,
+      lng: -46.6
     };
-    const { error: insertLancError } = await admin.from('lancamentos').insert([insertData]);
-    r.insertLancamento = insertLancError ? { error: insertLancError.message, details: insertLancError.details, code: insertLancError.code } : 'ok';
+    r.payload = fullPayload;
 
-    // Clean up
-    if (!insertLancError) {
-      await admin.from('lancamentos').delete().eq('id', testId);
-      r.cleanupLanc = 'ok';
+    const { data, error } = await admin.from('fuel_logs').insert([fullPayload]);
+    if (error) {
+      r.error = error.message;
+      r.details = error.details;
+      r.code = error.code;
+      r.hint = error.hint;
+    } else {
+      r.insertOk = true;
+      // Cleanup
+      await admin.from('fuel_logs').delete().eq('id', testId);
+      r.cleanupOk = true;
     }
   } catch (e: any) {
     r.catch = e.message;
+    r.stack = e.stack?.substring(0, 500);
   }
 
   res.json(r);
