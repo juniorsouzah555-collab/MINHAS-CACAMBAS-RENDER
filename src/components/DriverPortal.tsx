@@ -30,12 +30,14 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry 
+  onRetry,
+  onlineUsers = []
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
+  onlineUsers?: string[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -241,6 +243,21 @@ function DriverLiveMap({
           <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
+
+          {/* Online users badge */}
+          {onlineUsers.length > 0 && (
+            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-semibold text-slate-600 max-w-[180px]">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-black uppercase tracking-wider text-[9px] text-slate-500">Online</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {onlineUsers.map((name) => (
+                  <span key={name} className="bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 text-[9px] font-bold">{name}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -690,6 +707,39 @@ export default function DriverPortal({
     );
   }
 
+  // Online heartbeat via localStorage (seguro, sem WebSocket)
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  useEffect(() => {
+    if (!selectedDriver) return;
+    const beatInterval = setInterval(() => {
+      try { localStorage.setItem('relampago_online_' + selectedDriver, String(Date.now())); } catch {}
+    }, 15000);
+    const checkOnline = () => {
+      try {
+        const now = Date.now();
+        const active: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('relampago_online_')) {
+            const name = key.replace('relampago_online_', '');
+            const ts = parseInt(localStorage.getItem(key) || '0', 10);
+            if (now - ts < 120000) active.push(name);
+          }
+        }
+        setOnlineUsers(active);
+      } catch {}
+    };
+    checkOnline();
+    const checkInterval = setInterval(checkOnline, 15000);
+    // Primeiro heartbeat imediato
+    try { localStorage.setItem('relampago_online_' + selectedDriver, String(Date.now())); } catch {}
+    return () => {
+      clearInterval(beatInterval);
+      clearInterval(checkInterval);
+      try { localStorage.removeItem('relampago_online_' + selectedDriver); } catch {}
+    };
+  }, [selectedDriver]);
+
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
     const activeNames = approvedDriverNames.length > 0 ? approvedDriverNames : motoristas;
@@ -832,6 +882,7 @@ export default function DriverPortal({
             setGeoError(null);
             startWatchingLocation();
           }}
+          onlineUsers={onlineUsers}
         />
       </div>
 
