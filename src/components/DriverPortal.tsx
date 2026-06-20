@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -809,7 +809,7 @@ export default function DriverPortal({
 
         <DriverLiveMap 
           coords={userCoords} 
-          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && approvedDriverNames.includes(v.driver))}
+          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && (approvedDriverNames.length > 0 ? approvedDriverNames : motoristas).includes(v.driver))}
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
