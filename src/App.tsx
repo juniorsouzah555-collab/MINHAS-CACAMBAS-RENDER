@@ -875,8 +875,7 @@ export default function App() {
         status: freshRecord.status,
         created_at: freshRecord.createdAt,
         lat: freshRecord.lat ?? null,
-        lng: freshRecord.lng ?? null,
-        observacao: freshRecord.observacao ?? null
+        lng: freshRecord.lng ?? null
       }).then((ok) => {
         if (!ok) {
           console.error("Proxy error saving lancamento");
