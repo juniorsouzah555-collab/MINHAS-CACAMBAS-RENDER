@@ -173,19 +173,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       }
       localStorage.setItem('relampago_system_users', JSON.stringify(savedUsers));
 
-      // 2. Save directly to Supabase user_approvals table if configured
-      if (isSupabaseConfigured()) {
-        supabase
-          .from('user_approvals')
-          .update({ 
-            linked_driver: driverName || null,
-            linkedDriver: driverName || null 
-          })
-          .eq('email', targetUser.email.toLowerCase().trim())
-          .then(({ error }) => {
-            if (error) console.error("Error updating user_approvals linked driver:", error);
-          });
-      }
+      // linked_driver fica apenas no localStorage (a tabela Supabase não tem essa coluna)
     }
 
     onShowNotification(`Vinculação de motorista atualizada com sucesso!`);
@@ -336,14 +324,14 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
           await confirmUserEmailByEmail(email);
         }
 
-        await supabase.from('user_approvals').insert([{
+        const { error: insertError } = await supabase.from('user_approvals').insert([{
           email,
           name: formattedName,
           role: 'Motorista',
           status: 'Inativo',
-          linked_driver: inviteLinkedDriver || null,
           created_at: new Date().toISOString()
         }]);
+        if (insertError) console.error('Supabase insert user_approvals error:', insertError);
       }
     } catch {
       // ignora falha
