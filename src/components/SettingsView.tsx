@@ -58,25 +58,36 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   // Tabs: 'system' (general settings), 'users' (user registration), 'permissions' (authorization levels)
   const [activeSubTab, setActiveSubTab] = useState<'system' | 'users' | 'permissions'>('system');
 
-  // Load users from Supabase on mount (sempre sobrescreve, mesmo se vazio)
+  // Load users from Supabase on mount (faz merge, não sobrescreve)
   useEffect(() => {
     if (isSupabaseConfigured()) {
       supabase.from('user_approvals').select('*').then(({ data, error }) => {
-        if (data) {
-          setUsers(data.length > 0
-            ? data.map((u: any, i: number) => ({
-                id: u.id || `USR-${String(i + 1).padStart(3, '0')}`,
-                name: u.name || u.email,
-                email: u.email || '',
+        if (data && data.length > 0) {
+          setUsers(prev => {
+            const updated = [...prev];
+            data.forEach((u: any) => {
+              const email = u.email?.toLowerCase().trim();
+              if (!email) return;
+              const existing = updated.findIndex(x => x.email.toLowerCase().trim() === email);
+              const mapped = {
+                id: u.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
+                name: u.name || email.split('@')[0],
+                email,
                 role: u.role || 'Motorista',
                 status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
                 registrationDate: u.created_at
                   ? new Date(u.created_at).toLocaleDateString('pt-BR')
                   : new Date().toLocaleDateString('pt-BR'),
-                linkedDriver: u.linked_driver || undefined
-              }))
-            : []
-          );
+                linkedDriver: u.linked_driver || u.linkedDriver || undefined
+              };
+              if (existing !== -1) {
+                updated[existing] = { ...updated[existing], ...mapped };
+              } else {
+                updated.push(mapped);
+              }
+            });
+            return updated;
+          });
         }
       });
     }
@@ -187,18 +198,35 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          setUsers(prev => prev.map(u => {
-            const match = parsed.find(x => x.email?.toLowerCase().trim() === u.email.toLowerCase().trim());
-            if (match) {
-              return {
-                ...u,
-                linkedDriver: match.linkedDriver || u.linkedDriver,
-                role: match.role || u.role,
-                status: match.status || u.status
-              };
-            }
-            return u;
-          }));
+          setUsers(prev => {
+            const updated = prev.map(u => {
+              const match = parsed.find((x: any) => x.email?.toLowerCase().trim() === u.email.toLowerCase().trim());
+              if (match) {
+                return {
+                  ...u,
+                  linkedDriver: match.linkedDriver || u.linkedDriver,
+                  role: match.role || u.role,
+                  status: match.status || u.status
+                };
+              }
+              return u;
+            });
+            // Adiciona usuários do localStorage que não existem no state (ex: convidados)
+            parsed.forEach((p: any) => {
+              if (p.email && !updated.find(u => u.email.toLowerCase().trim() === p.email.toLowerCase().trim())) {
+                updated.push({
+                  id: p.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
+                  name: p.name || p.email.split('@')[0],
+                  email: p.email.toLowerCase().trim(),
+                  role: p.role || 'Motorista',
+                  status: p.status || 'Inativo',
+                  registrationDate: p.registrationDate || new Date().toLocaleDateString('pt-BR'),
+                  linkedDriver: p.linkedDriver || undefined
+                });
+              }
+            });
+            return updated;
+          });
         }
       } catch (e) {
         console.error("Error loading offline system users:", e);
@@ -331,19 +359,31 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       }
     } catch {}
 
+    const newUserRecord = {
+      id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+      name: formattedName,
+      email,
+      role: 'Motorista' as const,
+      status: 'Inativo' as const,
+      registrationDate: new Date().toLocaleDateString('pt-BR'),
+      linkedDriver: inviteLinkedDriver || undefined
+    };
+
     setInviteGeneratedPassword(tempPassword);
     setInviteSuccessMsg(`Motorista ${email} cadastrado! Senha temporária: ${tempPassword}. O motorista já pode fazer login.`);
     onShowNotification(`Motorista ${email} convidado com sucesso!`);
 
-    setUsers(prev => [...prev, {
-      id: `USR-${Math.floor(100 + Math.random() * 900)}`,
-      name: formattedName,
-      email,
-      role: 'Motorista',
-      status: 'Inativo',
-      registrationDate: new Date().toLocaleDateString('pt-BR'),
-      linkedDriver: inviteLinkedDriver || undefined
-    }]);
+    setUsers(prev => [...prev, newUserRecord]);
+
+    // Persiste no localStorage para não sumir ao recarregar a página
+    try {
+      const raw = localStorage.getItem('relampago_system_users');
+      const list: any[] = raw ? JSON.parse(raw) : [];
+      if (!list.find(x => x.email?.toLowerCase() === email)) {
+        list.push(newUserRecord);
+        localStorage.setItem('relampago_system_users', JSON.stringify(list));
+      }
+    } catch {}
 
     setInviteEmail('');
     setInviteLinkedDriver('');
