@@ -68,9 +68,9 @@ interface FleetViewProps {
   garageDieselPrice: number;
   onUpdateGarageDiesel: (qty: number, price: number) => void;
   garageRefills: GarageRefill[];
-  onAddGarageRefill: (refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => void;
+  onAddGarageRefill: (refill: Omit<GarageRefill, 'id' | 'created_at'>) => void;
   onDeleteGarageRefill?: (id: string) => void;
-  onEditGarageRefill?: (id: string, refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => void;
+  onEditGarageRefill?: (id: string, refill: Omit<GarageRefill, 'id' | 'created_at'>) => void;
 }
 
 export default function FleetView({
@@ -119,6 +119,7 @@ export default function FleetView({
   // Garage refill form
   const [garageRefillLitros, setGarageRefillLitros] = useState<number | ''>('');
   const [garageRefillValor, setGarageRefillValor] = useState<number | ''>('');
+  const [garageRefillPrecoLitro, setGarageRefillPrecoLitro] = useState<number | ''>('');
   const [garageRefillData, setGarageRefillData] = useState(() => new Date().toISOString().split('T')[0]);
   const [showGarageRefillForm, setShowGarageRefillForm] = useState(false);
   const [editingGarageRefillId, setEditingGarageRefillId] = useState<string | null>(null);
@@ -947,7 +948,7 @@ export default function FleetView({
 
             {showGarageRefillForm && (
               <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data</label>
                     <input
@@ -977,30 +978,44 @@ export default function FleetView({
                       placeholder="Ex: 5680"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Preço por Litro (R$/L)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={garageRefillPrecoLitro}
+                      onChange={(e) => setGarageRefillPrecoLitro(parseFloat(e.target.value) || '')}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-purple-500"
+                      placeholder="Ex: 5.68"
+                    />
+                  </div>
                   <button
                     onClick={() => {
-                      if (!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0) return;
+                      if (!garageRefillLitros || !garageRefillValor || !garageRefillPrecoLitro || garageRefillLitros <= 0 || garageRefillValor <= 0 || garageRefillPrecoLitro <= 0) return;
                       if (editingGarageRefillId) {
                         onEditGarageRefill?.(editingGarageRefillId, {
                           data: garageRefillData,
                           quantidade_litros: garageRefillLitros as number,
-                          valor_total: garageRefillValor as number
+                          valor_total: garageRefillValor as number,
+                          preco_por_litro: garageRefillPrecoLitro as number
                         });
                         setEditingGarageRefillId(null);
                       } else {
                         onAddGarageRefill({
                           data: garageRefillData,
                           quantidade_litros: garageRefillLitros as number,
-                          valor_total: garageRefillValor as number
+                          valor_total: garageRefillValor as number,
+                          preco_por_litro: garageRefillPrecoLitro as number
                         });
                       }
                       setGarageRefillLitros('');
                       setGarageRefillValor('');
+                      setGarageRefillPrecoLitro('');
                       setGarageRefillData(new Date().toISOString().split('T')[0]);
                       setShowGarageRefillForm(false);
                     }}
                     className="w-full bg-purple-600 text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-purple-700 cursor-pointer disabled:opacity-50"
-                    disabled={!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0}
+                    disabled={!garageRefillLitros || !garageRefillValor || !garageRefillPrecoLitro || garageRefillLitros <= 0 || garageRefillValor <= 0 || garageRefillPrecoLitro <= 0}
                   >
                     {editingGarageRefillId ? 'Salvar Edição' : 'Registrar Abastecimento'}
                   </button>

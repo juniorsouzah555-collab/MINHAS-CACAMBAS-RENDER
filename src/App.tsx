@@ -318,6 +318,19 @@ export default function App() {
               console.error("Supabase load comissoes error:", errComissoes);
             }
 
+            // Load garage refills from Supabase (se tabela existir)
+            const { data: listGarage, error: errGarage } = await supabase.from('garage_refills').select('*').order('created_at', { ascending: false });
+            if (!errGarage && listGarage && listGarage.length > 0) {
+              setGarageRefills(listGarage.map((g: any) => ({
+                id: g.id,
+                data: g.data,
+                quantidade_litros: g.quantidade_litros,
+                valor_total: g.valor_total,
+                preco_por_litro: g.preco_por_litro,
+                created_at: g.created_at || g.createdAt
+              })));
+            }
+
             return;
           }
 
@@ -402,14 +415,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const handleAddGarageRefill = (refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => {
-    const preco_por_litro = refill.quantidade_litros > 0
-      ? parseFloat((refill.valor_total / refill.quantidade_litros).toFixed(2))
-      : 0;
+  const handleAddGarageRefill = (refill: Omit<GarageRefill, 'id' | 'created_at'>) => {
     const record: GarageRefill = {
       ...refill,
       id: `GR-${Date.now()}`,
-      preco_por_litro,
       created_at: new Date().toISOString()
     };
     setGarageRefills(prev => {
@@ -432,7 +441,7 @@ export default function App() {
     const newQty = garageDieselQty + refill.quantidade_litros;
     setGarageDieselQty(newQty);
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
-    localStorage.setItem('relampago_garage_diesel_price', preco_por_litro.toString());
+    localStorage.setItem('relampago_garage_diesel_price', refill.preco_por_litro.toString());
   };
 
   const handleDeleteGarageRefill = (id: string) => {
@@ -452,13 +461,10 @@ export default function App() {
     }
   };
 
-  const handleEditGarageRefill = (id: string, refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => {
-    const preco_por_litro = refill.quantidade_litros > 0
-      ? parseFloat((refill.valor_total / refill.quantidade_litros).toFixed(2))
-      : 0;
+  const handleEditGarageRefill = (id: string, refill: Omit<GarageRefill, 'id' | 'created_at'>) => {
     const oldRecord = garageRefills.find(r => r.id === id);
     setGarageRefills(prev => {
-      const updated = prev.map(r => r.id === id ? { ...r, ...refill, preco_por_litro } : r);
+      const updated = prev.map(r => r.id === id ? { ...r, ...refill } : r);
       localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
       return updated;
     });
@@ -474,7 +480,7 @@ export default function App() {
         data: refill.data,
         quantidade_litros: refill.quantidade_litros,
         valor_total: refill.valor_total,
-        preco_por_litro
+        preco_por_litro: refill.preco_por_litro
       }, `id=eq.${id}`);
     }
   };
