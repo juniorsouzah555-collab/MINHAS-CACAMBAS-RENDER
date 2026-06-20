@@ -798,7 +798,7 @@ export default function DriverPortal({
 
         <DriverLiveMap 
           coords={userCoords} 
-          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng)}
+          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && motoristas.includes(v.driver))}
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
