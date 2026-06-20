@@ -33,7 +33,6 @@ const isValidHttpUrl = (str: string): boolean => {
 
 const HARDCODED_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
 const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NTIwNzksImV4cCI6MjA5NzIyODA3OX0.EO0tflk_Q7wNYXEIIXLoyAMXj9J-XKtGQO1gNdp7Lzc';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTY1MjA3OSwiZXhwIjoyMDk3MjI4MDc5fQ.uZgF0vW3Q7DpeEqNDgv1ItiwncBwBBaCgpE5CnJ5fIM';
 
 // Retrieve keys from localStorage or fallback to hardcoded values
 export const getSupabaseConfig = () => {
@@ -185,54 +184,6 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
     });
     return res.ok;
   } catch { return false; }
-};
-
-// Heartbeat: atualiza last_seen no metadata do Auth via Admin API direta
-const getUserIdByEmail = async (email: string): Promise<string | null> => {
-  try {
-    const r = await fetch(`${HARDCODED_URL}/auth/v1/admin/users`, {
-      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` }
-    });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const u = (d?.users || []).find((x: any) => x.email?.toLowerCase() === email.toLowerCase());
-    return u?.id || null;
-  } catch { return null; }
-};
-
-export const heartbeat = async (email: string, driverName: string): Promise<boolean> => {
-  try {
-    const userId = await getUserIdByEmail(email);
-    if (!userId) return false;
-    const r = await fetch(`${HARDCODED_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ user_metadata: { last_seen: Date.now(), driver_name: driverName } })
-    });
-    return r.ok;
-  } catch { return false; }
-};
-
-// Retorna nomes dos motoristas com last_seen nos últimos 2 minutos
-const ONLINE_TIMEOUT = 120000;
-export const fetchOnlineUsers = async (): Promise<string[]> => {
-  try {
-    const r = await fetch(`${HARDCODED_URL}/auth/v1/admin/users`, {
-      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` }
-    });
-    if (!r.ok) return [];
-    const d = await r.json();
-    const now = Date.now();
-    const online = (d?.users || [])
-      .filter((u: any) => u?.user_metadata?.last_seen && (now - u.user_metadata.last_seen) < ONLINE_TIMEOUT)
-      .map((u: any) => u?.user_metadata?.driver_name || u.email?.split('@')[0] || '')
-      .filter(Boolean);
-    return [...new Set(online)];
-  } catch { return []; }
 };
 
 // Reinitializes the live client with new credentials
