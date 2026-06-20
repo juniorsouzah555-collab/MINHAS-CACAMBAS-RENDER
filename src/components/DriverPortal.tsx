@@ -353,8 +353,10 @@ export default function DriverPortal({
     if (currentUserEmail === 'motorista@relampago.com') {
       return 'Carlos Santana';
     }
-    const linked = getLinkedFromStorage();
-    if (linked) return linked;
+    if (isDriverUser) {
+      const linked = getLinkedFromStorage();
+      if (linked) return linked;
+    }
     return motoristas[0] || 'Carlos Santana';
   });
 
@@ -694,23 +696,26 @@ export default function DriverPortal({
             </div>
           </div>
           <h2 className="text-lg sm:text-xl font-extrabold tracking-tight font-sans flex items-center gap-2">
-            <span>Olá, {selectedDriver}!</span>
+            <span>Olá, {isDriverUser ? selectedDriver : currentUserEmail.split('@')[0]}!</span>
             <Sparkles className="w-4 h-4 text-emerald-400 fill-emerald-400" />
           </h2>
           <p className="text-[11px] sm:text-xs text-slate-300 leading-normal">
-            Utilize este painel móvel simplificado para registrar as suas atividades em tempo real nas ruas de São Paulo.
+            {isDriverUser
+              ? 'Utilize este painel móvel simplificado para registrar as suas atividades em tempo real nas ruas de São Paulo.'
+              : `Você está visualizando o Portal do Motorista como administrador. Use o simulador abaixo para agir como um motorista específico.`
+            }
           </p>
         </div>
 
         {/* Quick Driver or Vehicle Select to let anyone test seamlessly */}
         <div className="flex flex-row flex-wrap items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 w-full md:w-auto justify-between sm:justify-start">
           {!isDriverUser && (
-            <div className="space-y-1 min-w-[120px] flex-1 sm:flex-initial">
-              <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">Simular Motorista</span>
+            <div className="space-y-1 min-w-[140px] flex-1 sm:flex-initial">
+              <span className="block text-[8px] font-bold text-slate-500 uppercase font-sans">👤 Ações como:</span>
               <select
                 value={selectedDriver}
                 onChange={(e) => setSelectedDriver(e.target.value)}
-                className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full sm:max-w-[150px] font-bold cursor-pointer"
+                className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 w-full sm:max-w-[180px] font-bold cursor-pointer"
               >
                 {motoristas.map(m => (
                   <option key={m} value={m}>{m}</option>
