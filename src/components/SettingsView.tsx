@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, updateUserPasswordByEmail } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, deleteUserByEmail, updateUserPasswordByEmail } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -58,40 +58,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   // Tabs: 'system' (general settings), 'users' (user registration), 'permissions' (authorization levels)
   const [activeSubTab, setActiveSubTab] = useState<'system' | 'users' | 'permissions'>('system');
 
-  // Load users from Supabase on mount (faz merge, não sobrescreve)
-  useEffect(() => {
-    if (isSupabaseConfigured()) {
-      supabase.from('user_approvals').select('*').then(({ data, error }) => {
-        if (data && data.length > 0) {
-          setUsers(prev => {
-            const updated = [...prev];
-            data.forEach((u: any) => {
-              const email = u.email?.toLowerCase().trim();
-              if (!email) return;
-              const existing = updated.findIndex(x => x.email.toLowerCase().trim() === email);
-              const mapped = {
-                id: u.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
-                name: u.name || email.split('@')[0],
-                email,
-                role: u.role || 'Motorista',
-                status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
-                registrationDate: u.created_at
-                  ? new Date(u.created_at).toLocaleDateString('pt-BR')
-                  : new Date().toLocaleDateString('pt-BR'),
-                linkedDriver: u.linked_driver || u.linkedDriver || undefined
-              };
-              if (existing !== -1) {
-                updated[existing] = { ...updated[existing], ...mapped };
-              } else {
-                updated.push(mapped);
-              }
-            });
-            return updated;
-          });
-        }
-      });
-    }
-  }, []);
+
 
   // General Settings State
   const [tickSpeed, setTickSpeed] = useState(5);
@@ -122,6 +89,27 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   useEffect(() => {
     localStorage.setItem('relampago_settings_users', JSON.stringify(users));
   }, [users]);
+
+  // Carrega usuários do Supabase como fonte da verdade (substitui hardcoded defaults)
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      supabase.from('user_approvals').select('*').then(({ data }) => {
+        if (data && data.length > 0) {
+          setUsers(data.map((u: any) => ({
+            id: u.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
+            name: u.name || u.email?.split('@')[0] || 'Usuário',
+            email: (u.email || '').toLowerCase().trim(),
+            role: u.role || 'Motorista',
+            status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
+            registrationDate: u.created_at
+              ? new Date(u.created_at).toLocaleDateString('pt-BR')
+              : new Date().toLocaleDateString('pt-BR'),
+            linkedDriver: undefined
+          })));
+        }
+      });
+    }
+  }, []);
 
   // Lista combinada: motoristas do sistema + todos os usuários com role Motorista
   const allAvailableDrivers = useMemo(() => {
@@ -208,51 +196,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     }
   }, []);
 
-  // Load dynamic users from Supabase if configured and merge partners
-  useEffect(() => {
-    const syncUsersFromSupabase = async () => {
-      if (!isSupabaseConfigured()) return;
-      try {
-        const { data: remoteUsers, error } = await supabase
-          .from('user_approvals')
-          .select('*');
-        
-        if (!error && remoteUsers && remoteUsers.length > 0) {
-          setUsers(prev => {
-            const updated = [...prev];
-            remoteUsers.forEach(ru => {
-              const cleanedEmail = ru.email.toLowerCase().trim();
-              const existingIdx = updated.findIndex(u => u.email.toLowerCase().trim() === cleanedEmail);
-              const mappedUser: SystemUser = {
-                id: ru.id ? `USR-${ru.id}` : `USR-${Math.floor(100 + Math.random() * 900)}`,
-                name: ru.name || cleanedEmail.split('@')[0],
-                email: cleanedEmail,
-                role: ru.role || 'Operador de Frota',
-                status: ru.status === 'Ativo' ? 'Ativo' : 'Inativo',
-                linkedDriver: ru.linked_driver || ru.linkedDriver || undefined,
-                registrationDate: ru.created_at ? new Date(ru.created_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
-              };
-              if (existingIdx !== -1) {
-                // Keep active updates but conserve local ones as base
-                updated[existingIdx] = {
-                  ...updated[existingIdx],
-                  role: mappedUser.role,
-                  status: mappedUser.status,
-                  linkedDriver: mappedUser.linkedDriver || updated[existingIdx].linkedDriver
-                };
-              } else {
-                updated.push(mappedUser);
-              }
-            });
-            return updated;
-          });
-        }
-      } catch (err) {
-        console.warn("Could not load user_approvals dynamically:", err);
-      }
-    };
-    syncUsersFromSupabase();
-  }, []);
+
 
   // Form for New User Registration State
   const [newUserName, setNewUserName] = useState('');
@@ -526,11 +470,9 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_system_users', JSON.stringify(filtered));
           }
         } catch {}
-        // Remove do Supabase se possível
+        // Remove do Supabase via servidor (service_role, sem RLS)
         if (isSupabaseConfigured()) {
-          supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
-            if (error) console.warn("Supabase user_approvals delete failed: ", error);
-          });
+          deleteUserByEmail(targetUser.email.toLowerCase().trim()).catch(() => {});
         }
       }
 

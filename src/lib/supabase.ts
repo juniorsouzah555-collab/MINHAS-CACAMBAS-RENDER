@@ -90,6 +90,18 @@ export const confirmUserEmailByEmail = async (email: string): Promise<boolean> =
   return false;
 };
 
+// Deleta um usuário de user_approvals via servidor (service_role, sem RLS)
+export const deleteUserByEmail = async (email: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/delete-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
 // Cria um usuário já confirmado via servidor (Admin API, sem depender de SMTP)
 export const createInvitedUser = async (email: string, password: string): Promise<{ ok: boolean; userId: string | null }> => {
   try {

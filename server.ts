@@ -501,6 +501,25 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
+// Endpoint: deletar um usuário de user_approvals (usa service_role, sem RLS)
+app.post('/api/auth/delete-user', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/user_approvals?email=eq.${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Prefer': 'return=minimal'
+      }
+    });
+    res.json({ ok: r.ok });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Endpoint: confirmar email por userId (mais confiável, sem lookup)
 app.post('/api/auth/confirm-user', async (req, res) => {
   const { userId } = req.body;
