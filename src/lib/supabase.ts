@@ -152,6 +152,40 @@ export const linkDriverToUser = async (email: string, linkedDriver: string): Pro
   }
 };
 
+// Generic proxy for Supabase operations using service_role key (bypasses RLS)
+export const proxyInsert = async (table: string, data: any): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, action: 'insert', data })
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
+export const proxyUpdate = async (table: string, data: any, filter: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, action: 'update', data, filter })
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
+export const proxyDelete = async (table: string, filter: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, action: 'delete', filter })
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {

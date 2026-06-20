@@ -40,7 +40,7 @@ import {
   INITIAL_LANCAMENTOS
 } from './mockData';
 
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { supabase, isSupabaseConfigured, proxyInsert, proxyUpdate, proxyDelete } from './lib/supabase';
 
 // Component layout pieces
 import Sidebar from './components/Sidebar';
@@ -863,7 +863,7 @@ export default function App() {
     setInvoices(prev => [autoInvoice, ...prev]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('lancamentos').insert([{
+      proxyInsert('lancamentos', {
         id: freshRecord.id,
         bota_fora_id: freshRecord.botaForaId,
         bota_fora_nome: freshRecord.botaForaNome,
@@ -877,9 +877,9 @@ export default function App() {
         lat: freshRecord.lat ?? null,
         lng: freshRecord.lng ?? null,
         observacao: freshRecord.observacao ?? null
-      }]).then(({ error }) => {
-        if (error) {
-          console.error("Supabase error saving lancamento:", error);
+      }).then((ok) => {
+        if (!ok) {
+          console.error("Proxy error saving lancamento");
           handleShowToast("Sincronização Parcial", "Dados salvos localmente, mas falha ao sincronizar com servidor.", "info");
         }
       });
@@ -970,7 +970,7 @@ export default function App() {
   const handleDeleteLancamento = (id: string) => {
     setLancamentos(prev => prev.filter(lan => lan.id !== id));
     if (isSupabaseConfigured()) {
-      supabase.from('lancamentos').delete().eq('id', id).then();
+      proxyDelete('lancamentos', `id=eq.${id}`);
     }
     handleShowToast("Lançamento Excluído", `O extrato ${id} foi removido do histórico de operações.`, "info");
   };
@@ -1070,7 +1070,7 @@ export default function App() {
     setFuelLogs(prev => [freshRecord, ...prev]);
 
     if (isSupabaseConfigured()) {
-      supabase.from('fuel_logs').insert([{
+      proxyInsert('fuel_logs', {
         id: freshRecord.id,
         vehicle_id: freshRecord.vehicleId,
         quantidade_litros: freshRecord.quantidadeLitros,
@@ -1085,9 +1085,9 @@ export default function App() {
         observacao: freshRecord.observacao ?? null,
         lat: freshRecord.lat ?? null,
         lng: freshRecord.lng ?? null
-      }]).then(({ error }) => {
-        if (error) {
-          console.error("Supabase error saving fuel log:", error);
+      }).then((ok) => {
+        if (!ok) {
+          console.error("Proxy error saving fuel log");
           handleShowToast("Sincronização Parcial", "Abastecimento salvo localmente, mas falha ao sincronizar com servidor.", "info");
         }
       });
@@ -1147,13 +1147,11 @@ export default function App() {
         }
         const updatedTrend = trend.slice(-5);
 
-        supabase.from('vehicles').update({
+        proxyUpdate('vehicles', {
           efficiency,
           fuel_used: totalFuel,
           trend: JSON.stringify(updatedTrend)
-        }).eq('id', newLog.vehicleId).then(({ error }) => {
-          if (error) console.error("Supabase error updating vehicle stats in fuel log:", error);
-        });
+        }, `id=eq.${newLog.vehicleId}`);
       }
     }
 
@@ -1176,9 +1174,7 @@ export default function App() {
   const handleDeleteFuelLog = (id: string) => {
     setFuelLogs(prev => prev.filter(f => f.id !== id));
     if (isSupabaseConfigured()) {
-      supabase.from('fuel_logs').delete().eq('id', id).then(({ error }) => {
-        if (error) console.error("Supabase error deleting fuel log:", error);
-      });
+      proxyDelete('fuel_logs', `id=eq.${id}`);
     }
     handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
   };
@@ -1186,7 +1182,7 @@ export default function App() {
   const handleEditFuelLog = (updated: FuelLog) => {
     setFuelLogs(prev => prev.map(f => f.id === updated.id ? updated : f));
     if (isSupabaseConfigured()) {
-      supabase.from('fuel_logs').update({
+      proxyUpdate('fuel_logs', {
         vehicle_id: updated.vehicleId,
         quantidade_litros: updated.quantidadeLitros,
         km_inicial: updated.kmInicial ?? null,
@@ -1196,9 +1192,7 @@ export default function App() {
         driver: updated.driver ?? null,
         tipo: updated.tipo ?? null,
         observacao: updated.observacao ?? null,
-      }).eq('id', updated.id).then(({ error }) => {
-        if (error) console.error("Supabase error updating fuel log:", error);
-      });
+      }, `id=eq.${updated.id}`);
     }
     handleShowToast("Abastecimento Atualizado", "O registro de abastecimento foi alterado.", "success");
   };
