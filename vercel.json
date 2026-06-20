@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npx tsx server.ts",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/auth/*.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  }
+}
