@@ -458,13 +458,33 @@ async function getUserIdByEmail(email: string): Promise<string | null> {
   } catch { return null; }
 }
 
-// Endpoint: confirmar email de um usuário
+// Endpoint: confirmar email de um usuário (por email — faz lookup)
 app.post('/api/auth/confirm-email', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
   try {
     const userId = await getUserIdByEmail(email);
     if (!userId) return res.json({ ok: false, error: 'Usuário não encontrado no Auth' });
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({ email_confirm: true })
+    });
+    res.json({ ok: r.ok });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint: confirmar email por userId (mais confiável, sem lookup)
+app.post('/api/auth/confirm-user', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
+  try {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {

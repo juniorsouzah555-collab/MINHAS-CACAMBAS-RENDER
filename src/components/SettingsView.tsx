@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, updateUserPasswordByEmail } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, updateUserPasswordByEmail } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -302,11 +302,10 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
           options: { data: { role: 'Motorista' } }
         });
 
-        // Confirma o email automaticamente via Admin API para login funcionar de qualquer dispositivo
+        // Confirma o email via servidor (Admin API) para login funcionar de qualquer dispositivo
         if (data?.user?.id) {
-          await confirmUserEmailByEmail(email);
-        } else if (error) {
-          // Se o usuário já existe, tenta confirmar mesmo assim
+          await confirmUserById(data.user.id);
+        } else {
           await confirmUserEmailByEmail(email);
         }
 
@@ -1090,9 +1089,21 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
                               </button>
                             </td>
 
-                            {/* password reset + deleting */}
+                            {/* confirm email + password reset + deleting */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    confirmUserEmailByEmail(u.email).then(ok => {
+                                      onShowNotification(ok ? `Confirmação reenviada para ${u.email}` : `Falha ao confirmar ${u.email}`);
+                                    });
+                                  }}
+                                  className="px-2 py-1 bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg border border-transparent hover:border-emerald-100 transition-colors cursor-pointer"
+                                  title="Reenviar confirmação de email"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleResetPassword(u.email, u.name)}

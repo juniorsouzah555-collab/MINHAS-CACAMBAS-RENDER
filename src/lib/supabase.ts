@@ -74,18 +74,38 @@ export const updateUserPasswordByEmail = async (email: string, newPassword: stri
 
 // Busca um usuário pelo email e confirma seu email via servidor local
 export const confirmUserEmailByEmail = async (email: string): Promise<boolean> => {
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/confirm-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.ok === true;
-  } catch {
-    return false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/confirm-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (!res.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      const data = await res.json();
+      if (data.ok === true) return true;
+    } catch {}
+    await new Promise(r => setTimeout(r, 1000));
   }
+  return false;
+};
+
+// Confirma um usuário pelo ID (mais confiável, sem precisar fazer lookup)
+export const confirmUserById = async (userId: string): Promise<boolean> => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/confirm-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (!res.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      const data = await res.json();
+      if (data.ok === true) return true;
+    } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return false;
 };
 
 // Reinitializes the live client with new credentials
