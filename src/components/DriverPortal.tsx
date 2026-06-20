@@ -692,6 +692,11 @@ export default function DriverPortal({
 
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
+    // Se for motorista, mostra só ele mesmo no mapa
+    if (isDriverUser) {
+      return vehicles.filter(v => v.driver === selectedDriver && v.lat && v.lng);
+    }
+    // Admin: mostra todos os motoristas aprovados + sintéticos
     const activeNames = approvedDriverNames.length > 0 ? approvedDriverNames : motoristas;
     const filtered = vehicles.filter(v => v.driver && v.lat && v.lng && activeNames.includes(v.driver));
     const driversOnMap = new Set(filtered.map(v => v.driver));
