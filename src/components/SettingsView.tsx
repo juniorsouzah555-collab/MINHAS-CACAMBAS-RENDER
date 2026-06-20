@@ -474,6 +474,15 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_system_users', JSON.stringify(filtered));
           }
         } catch {}
+        // Remove do relampago_invited_drivers (localStorage)
+        try {
+          const raw = localStorage.getItem('relampago_invited_drivers');
+          if (raw) {
+            const list = JSON.parse(raw);
+            const filtered = list.filter((x: any) => x.email?.toLowerCase().trim() !== targetUser.email.toLowerCase().trim());
+            localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+          }
+        } catch {}
         // Remove do Supabase via servidor (service_role, sem RLS)
         if (isSupabaseConfigured()) {
           deleteUserByEmail(targetUser.email.toLowerCase().trim()).catch(() => {});
