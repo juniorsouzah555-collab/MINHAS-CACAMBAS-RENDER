@@ -1192,6 +1192,7 @@ export default function App() {
           onAddFuelLog={handleAddFuelLog}
           onAuthorizeDispatch={handleAuthorizeDispatch}
           onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Slide-Up Toast Popup */}
@@ -1376,6 +1377,7 @@ export default function App() {
               onAddFuelLog={handleAddFuelLog}
               onAuthorizeDispatch={handleAuthorizeDispatch}
               onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
+              onLogout={handleLogout}
             />
           )}
 
