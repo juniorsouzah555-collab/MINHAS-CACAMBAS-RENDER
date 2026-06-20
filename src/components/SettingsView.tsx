@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, updateUserPasswordByEmail } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, updateUserPasswordByEmail } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -293,19 +293,12 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
 
     setInviteLoading(true);
 
-    // Tenta criar no Supabase
+    // Tenta criar no Supabase via servidor (Admin API — já confirmado, sem depender de SMTP)
     try {
       if (isSupabaseConfigured()) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password: tempPassword,
-          options: { data: { role: 'Motorista' } }
-        });
-
-        // Confirma o email via servidor (Admin API) para login funcionar de qualquer dispositivo
-        if (data?.user?.id) {
-          await confirmUserById(data.user.id);
-        } else {
+        const { ok, userId } = await createInvitedUser(email, tempPassword);
+        if (!ok && userId === null) {
+          // Se falhou (usuário já existe), tenta só confirmar o email
           await confirmUserEmailByEmail(email);
         }
 

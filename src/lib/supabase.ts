@@ -90,6 +90,22 @@ export const confirmUserEmailByEmail = async (email: string): Promise<boolean> =
   return false;
 };
 
+// Cria um usuário já confirmado via servidor (Admin API, sem depender de SMTP)
+export const createInvitedUser = async (email: string, password: string): Promise<{ ok: boolean; userId: string | null }> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) return { ok: false, userId: null };
+    const data = await res.json();
+    return { ok: data.ok === true, userId: data.userId || null };
+  } catch {
+    return { ok: false, userId: null };
+  }
+};
+
 // Confirma um usuário pelo ID (mais confiável, sem precisar fazer lookup)
 export const confirmUserById = async (userId: string): Promise<boolean> => {
   for (let attempt = 0; attempt < 3; attempt++) {
