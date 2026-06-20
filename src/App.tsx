@@ -1070,25 +1070,29 @@ export default function App() {
     setFuelLogs(prev => [freshRecord, ...prev]);
 
     if (isSupabaseConfigured()) {
-      proxyInsert('fuel_logs', {
-        id: freshRecord.id,
-        vehicle_id: freshRecord.vehicleId,
-        quantidade_litros: freshRecord.quantidadeLitros,
-        km_inicial: freshRecord.kmInicial ?? null,
-        km_final: freshRecord.kmFinal ?? null,
-        valor_pago: freshRecord.valorPago,
-        data: freshRecord.data,
-        driver: freshRecord.driver ?? null,
-        media_km_l: freshRecord.mediaKmL ?? null,
-        tipo: freshRecord.tipo ?? null,
-        is_retirada_diversa: freshRecord.isRetiradaDiversa,
-        observacao: freshRecord.observacao ?? null,
-        lat: freshRecord.lat ?? null,
-        lng: freshRecord.lng ?? null
-      }).then((ok) => {
-        if (!ok) {
-          console.error("Proxy error saving fuel log");
-          handleShowToast("Sincronização Parcial", "Abastecimento salvo localmente, mas falha ao sincronizar com servidor.", "info");
+      fetch('/api/fuel-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: freshRecord.id,
+          vehicle_id: freshRecord.vehicleId,
+          quantidade_litros: freshRecord.quantidadeLitros,
+          km_inicial: freshRecord.kmInicial ?? null,
+          km_final: freshRecord.kmFinal ?? null,
+          valor_pago: freshRecord.valorPago,
+          data: freshRecord.data,
+          driver: freshRecord.driver ?? null,
+          media_km_l: freshRecord.mediaKmL ?? null,
+          tipo: freshRecord.tipo ?? null,
+          is_retirada_diversa: freshRecord.isRetiradaDiversa,
+          lat: freshRecord.lat ?? null,
+          lng: freshRecord.lng ?? null
+        })
+      }).then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          console.error("fuel-log API error:", text);
+          handleShowToast("Erro", `Falha ao sincronizar: ${text}`, "info");
         }
       });
     }
