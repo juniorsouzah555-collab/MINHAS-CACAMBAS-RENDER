@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
   Mail, 
@@ -25,6 +25,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const isConfigured = isSupabaseConfigured();
+
+  // Limpeza: remove de relampago_invited_drivers quem nao esta em relampago_system_users
+  useEffect(() => {
+    try {
+      const invitedRaw = localStorage.getItem('relampago_invited_drivers');
+      const systemRaw = localStorage.getItem('relampago_system_users');
+      if (invitedRaw && systemRaw) {
+        const invited = JSON.parse(invitedRaw);
+        const system = JSON.parse(systemRaw);
+        const systemEmails = new Set(system.map((u: any) => u.email?.toLowerCase().trim()));
+        const filtered = invited.filter((d: any) => systemEmails.has(d.email?.toLowerCase().trim()));
+        if (filtered.length !== invited.length) {
+          localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+        }
+      }
+    } catch {}
+  }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
