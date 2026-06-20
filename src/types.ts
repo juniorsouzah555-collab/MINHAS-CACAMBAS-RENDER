@@ -74,6 +74,15 @@ export interface MaintenanceAlert {
   resolved: boolean;
 }
 
+export interface GarageRefill {
+  id: string;
+  data: string;
+  quantidade_litros: number;
+  valor_total: number;
+  preco_por_litro: number;
+  created_at: string;
+}
+
 export type InvoiceStatus = 'PENDING' | 'OVERDUE' | 'DRAFT' | 'PAID';
 
 export interface Invoice {

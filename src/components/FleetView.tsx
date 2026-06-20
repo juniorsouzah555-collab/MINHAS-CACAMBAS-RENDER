@@ -45,7 +45,7 @@ import {
   Bar,
   Cell
 } from 'recharts';
-import { Vehicle, FuelLog, MaintenanceAlert } from '../types';
+import { Vehicle, FuelLog, MaintenanceAlert, GarageRefill } from '../types';
 
 interface FleetViewProps {
   vehicles: Vehicle[];
@@ -67,6 +67,8 @@ interface FleetViewProps {
   garageDieselQty: number;
   garageDieselPrice: number;
   onUpdateGarageDiesel: (qty: number, price: number) => void;
+  garageRefills: GarageRefill[];
+  onAddGarageRefill: (refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => void;
 }
 
 export default function FleetView({
@@ -88,7 +90,9 @@ export default function FleetView({
   motoristas,
   garageDieselQty,
   garageDieselPrice,
-  onUpdateGarageDiesel
+  onUpdateGarageDiesel,
+  garageRefills,
+  onAddGarageRefill
 }: FleetViewProps) {
   // Navigation tabs: overview, refuels, register
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'refuels' | 'register'>('overview');
@@ -107,6 +111,12 @@ export default function FleetView({
   const [fuelDate, setFuelDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [fuelSource, setFuelSource] = useState<'POSTO' | 'GARAGEM'>('POSTO');
   const [isRetiradaDiversa, setIsRetiradaDiversa] = useState(false);
+
+  // Garage refill form
+  const [garageRefillLitros, setGarageRefillLitros] = useState<number | ''>('');
+  const [garageRefillValor, setGarageRefillValor] = useState<number | ''>('');
+  const [garageRefillData, setGarageRefillData] = useState(() => new Date().toISOString().split('T')[0]);
+  const [showGarageRefillForm, setShowGarageRefillForm] = useState(false);
 
   // Search and date filters for Fuel logs extratos
   const [fuelSearchQuery, setFuelSearchQuery] = useState('');
@@ -913,6 +923,111 @@ export default function FleetView({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* HISTORICO DE ABASTECIMENTO DO TANQUE GARAGEM */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Fuel className="w-5 h-5 text-purple-600" />
+                <h3 className="font-sans font-bold text-base text-slate-900">Tanque Garagem — Abastecimentos</h3>
+              </div>
+              <button
+                onClick={() => setShowGarageRefillForm(!showGarageRefillForm)}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-100 cursor-pointer"
+              >
+                {showGarageRefillForm ? 'Fechar' : <><Plus className="w-3.5 h-3.5" /> Novo Abastecimento</>}
+              </button>
+            </div>
+
+            {showGarageRefillForm && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data</label>
+                    <input
+                      type="date"
+                      value={garageRefillData}
+                      onChange={(e) => setGarageRefillData(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Litros (L)</label>
+                    <input
+                      type="number"
+                      value={garageRefillLitros}
+                      onChange={(e) => setGarageRefillLitros(parseFloat(e.target.value) || '')}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-purple-500"
+                      placeholder="Ex: 1000"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Valor Total (R$)</label>
+                    <input
+                      type="number"
+                      value={garageRefillValor}
+                      onChange={(e) => setGarageRefillValor(parseFloat(e.target.value) || '')}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-purple-500"
+                      placeholder="Ex: 5680"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0) return;
+                      onAddGarageRefill({
+                        data: garageRefillData,
+                        quantidade_litros: garageRefillLitros as number,
+                        valor_total: garageRefillValor as number
+                      });
+                      setGarageRefillLitros('');
+                      setGarageRefillValor('');
+                      setGarageRefillData(new Date().toISOString().split('T')[0]);
+                      setShowGarageRefillForm(false);
+                    }}
+                    className="w-full bg-purple-600 text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-purple-700 cursor-pointer disabled:opacity-50"
+                    disabled={!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0}
+                  >
+                    Registrar Abastecimento
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {garageRefills.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Data</th>
+                      <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Litros</th>
+                      <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Valor Total</th>
+                      <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">R$/L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {garageRefills.map(r => (
+                      <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-2 px-2 font-semibold text-slate-700">{new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                        <td className="py-2 px-2 text-right font-bold text-slate-900">{r.quantidade_litros.toLocaleString()}</td>
+                        <td className="py-2 px-2 text-right font-bold text-emerald-600">R$ {r.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-right font-mono text-slate-500">R$ {r.preco_por_litro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50 font-bold">
+                      <td className="py-2 px-2 text-slate-600">Total</td>
+                      <td className="py-2 px-2 text-right text-slate-900">{garageRefills.reduce((s, r) => s + r.quantidade_litros, 0).toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right text-emerald-700">R$ {garageRefills.reduce((s, r) => s + r.valor_total, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 px-2 text-right text-slate-400">—</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 text-center py-6">Nenhum abastecimento registrado no tanque da garagem.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

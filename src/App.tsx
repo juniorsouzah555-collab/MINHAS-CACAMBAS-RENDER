@@ -26,7 +26,8 @@ import {
   InvoiceStatus,
   BotaFora,
   Lancamento,
-  ComissaoMotorista
+  ComissaoMotorista,
+  GarageRefill
 } from './types';
 import { 
   INITIAL_VEHICLES, 
@@ -396,6 +397,32 @@ export default function App() {
     const saved = localStorage.getItem('relampago_garage_diesel_price');
     return saved ? parseFloat(saved) : 5.68;
   });
+  const [garageRefills, setGarageRefills] = useState<GarageRefill[]>(() => {
+    const saved = localStorage.getItem('relampago_garage_refills');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const handleAddGarageRefill = (refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => {
+    const preco_por_litro = refill.quantidade_litros > 0
+      ? parseFloat((refill.valor_total / refill.quantidade_litros).toFixed(2))
+      : 0;
+    const record: GarageRefill = {
+      ...refill,
+      id: `GR-${Date.now()}`,
+      preco_por_litro,
+      created_at: new Date().toISOString()
+    };
+    setGarageRefills(prev => {
+      const updated = [record, ...prev];
+      localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
+      return updated;
+    });
+    // Increase garage stock
+    const newQty = garageDieselQty + refill.quantidade_litros;
+    setGarageDieselQty(newQty);
+    localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+    localStorage.setItem('relampago_garage_diesel_price', preco_por_litro.toString());
+  };
 
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
@@ -1469,6 +1496,8 @@ export default function App() {
                 localStorage.setItem('relampago_garage_diesel_qty', qty.toString());
                 localStorage.setItem('relampago_garage_diesel_price', price.toString());
               }}
+              garageRefills={garageRefills}
+              onAddGarageRefill={handleAddGarageRefill}
             />
           )}
 
