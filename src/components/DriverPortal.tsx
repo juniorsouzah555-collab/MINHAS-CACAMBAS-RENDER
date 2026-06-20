@@ -338,6 +338,17 @@ export default function DriverPortal({
 
   const [linkedDriverName, setLinkedDriverName] = useState<string | null>(getLinkedFromStorage);
 
+  // Nomes de motoristas aprovados no user_approvals (filtro para o mapa)
+  const [approvedDriverNames, setApprovedDriverNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    supabase.from('user_approvals').select('name, email, role').eq('role', 'Motorista').then(({ data, error }) => {
+      if (!error && data) {
+        setApprovedDriverNames(data.map((u: any) => u.name || u.email?.split('@')[0] || '').filter(Boolean));
+      }
+    });
+  }, []);
+
   // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
   useEffect(() => {
     if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return;
@@ -798,7 +809,7 @@ export default function DriverPortal({
 
         <DriverLiveMap 
           coords={userCoords} 
-          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && motoristas.includes(v.driver))}
+          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && approvedDriverNames.includes(v.driver))}
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
