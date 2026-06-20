@@ -878,7 +878,10 @@ export default function App() {
         lng: freshRecord.lng ?? null,
         observacao: freshRecord.observacao ?? null
       }]).then(({ error }) => {
-        if (error) console.error("Supabase error saving lancamento:", error);
+        if (error) {
+          console.error("Supabase error saving lancamento:", error);
+          handleShowToast("Sincronização Parcial", "Dados salvos localmente, mas falha ao sincronizar com servidor.", "info");
+        }
       });
       supabase.from('invoices').insert([{
         id: autoInvoice.id,
@@ -890,7 +893,10 @@ export default function App() {
         amount: autoInvoice.amount,
         status: autoInvoice.status
       }]).then(({ error }) => {
-        if (error) console.error("Supabase error saving invoice:", error);
+        if (error) {
+          console.error("Supabase error saving invoice:", error);
+          handleShowToast("Sincronização Parcial", "Fatura salva localmente, mas falha ao sincronizar com servidor.", "info");
+        }
       });
     }
 
@@ -1079,7 +1085,10 @@ export default function App() {
         lat: freshRecord.lat ?? null,
         lng: freshRecord.lng ?? null
       }]).then(({ error }) => {
-        if (error) console.error("Supabase error saving fuel log:", error);
+        if (error) {
+          console.error("Supabase error saving fuel log:", error);
+          handleShowToast("Sincronização Parcial", "Abastecimento salvo localmente, mas falha ao sincronizar com servidor.", "info");
+        }
       });
     }
 

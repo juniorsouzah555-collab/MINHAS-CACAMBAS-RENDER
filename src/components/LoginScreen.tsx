@@ -10,7 +10,7 @@ import {
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured, updateUserPasswordByEmail } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, updateUserPasswordByEmail, createInvitedUser } from '../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
@@ -86,6 +86,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               setIsLoading(false);
               onLoginSuccess(normEmail, checkUser.role || 'Motorista');
               return;
+            }
+          } else {
+            const created = await createInvitedUser(normEmail, password);
+            if (created.ok) {
+              const { data: retryData2, error: retryError2 } = await supabase.auth.signInWithPassword({
+                email: normEmail,
+                password: password,
+              });
+              if (!retryError2 && retryData2?.user) {
+                setIsLoading(false);
+                onLoginSuccess(normEmail, checkUser.role || 'Motorista');
+                return;
+              }
             }
           }
         }
