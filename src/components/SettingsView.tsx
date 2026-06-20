@@ -468,7 +468,11 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   };
 
   const handleResetPassword = (email: string, name: string) => {
-    const newPassword = generatePassword();
+    const newPassword = prompt(`Digite a nova senha para ${name} (${email}):`);
+    if (!newPassword || newPassword.trim().length < 4) {
+      onShowNotification('Senha não alterada — mínimo de 4 caracteres.');
+      return;
+    }
 
     // Atualiza no localStorage (fallback para login sem confirmação)
     try {
@@ -476,15 +480,14 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       const list: { email: string; password: string; role: string }[] = raw ? JSON.parse(raw) : [];
       const idx = list.findIndex(d => d.email === email.toLowerCase().trim());
       if (idx !== -1) {
-        list[idx].password = newPassword;
+        list[idx].password = newPassword.trim();
       } else {
-        list.push({ email: email.toLowerCase().trim(), password: newPassword, role: 'Motorista' });
+        list.push({ email: email.toLowerCase().trim(), password: newPassword.trim(), role: 'Motorista' });
       }
       localStorage.setItem('relampago_invited_drivers', JSON.stringify(list));
     } catch {}
 
-    onShowNotification(`Senha de ${name} redefinida! Nova senha: ${newPassword}`);
-    alert(`Nova senha para ${name} (${email}):\n\n${newPassword}\n\nGuarde esta senha e repasse ao usuário.`);
+    onShowNotification(`Senha de ${name} redefinida com sucesso!`);
   };
 
   const handleDeleteUser = (id: string, name: string) => {
