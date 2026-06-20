@@ -151,7 +151,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         const match = invited.find(d => d.email === normEmail && d.password === password);
         if (match) {
           // Verifica se o usuario ainda existe no Supabase antes de permitir login
-          let deleted = false;
           if (isConfigured) {
             try {
               const { data: approvalRecord } = await supabase
@@ -159,19 +158,26 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 .select('email')
                 .eq('email', normEmail)
                 .maybeSingle();
+              // Se erro na query ou usuario nao encontrado, trata como deletado
               if (!approvalRecord) {
-                deleted = true;
-                // Remove das listas locais
                 const filtered = invited.filter(d => d.email !== normEmail);
                 localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+                setIsLoading(false);
+                setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
+                return;
               }
-            } catch {}
+            } catch {
+              // Se query falhar (RLS, rede), assume que usuario foi deletado
+              const filtered = invited.filter(d => d.email !== normEmail);
+              localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+              setIsLoading(false);
+              setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
+              return;
+            }
           }
-          if (!deleted) {
-            setIsLoading(false);
-            onLoginSuccess(normEmail, match.role);
-            return;
-          }
+          setIsLoading(false);
+          onLoginSuccess(normEmail, match.role);
+          return;
         }
       }
     } catch {}
