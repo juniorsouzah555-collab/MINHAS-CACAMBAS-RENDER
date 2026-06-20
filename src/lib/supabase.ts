@@ -136,6 +136,22 @@ export const confirmUserById = async (userId: string): Promise<boolean> => {
   return false;
 };
 
+// Atualiza o linkedDriver no metadata do usuário no Auth (via servidor)
+export const linkDriverToUser = async (email: string, linkedDriver: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/link-driver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, linkedDriver })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.ok === true;
+  } catch {
+    return false;
+  }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {

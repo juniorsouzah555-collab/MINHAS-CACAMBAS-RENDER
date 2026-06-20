@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, deleteUserByEmail, updateUserPasswordByEmail } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, deleteUserByEmail, updateUserPasswordByEmail, linkDriverToUser } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -136,21 +136,22 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
 
     const targetUser = users.find(u => u.id === userId);
     if (targetUser) {
-      // 1. Save to local storage for local/offline mock support
+      const email = targetUser.email.toLowerCase().trim();
+      // Salva no metadata do Auth (Supabase) — acessível de qualquer dispositivo
+      linkDriverToUser(email, driverName);
+      // Salva no localStorage como fallback offline
       const savedUsersStr = localStorage.getItem('relampago_system_users');
-      let savedUsers = [];
+      let savedUsers: any[] = [];
       if (savedUsersStr) {
         try { savedUsers = JSON.parse(savedUsersStr); } catch (e) {}
       }
-      const existingIdx = savedUsers.findIndex((su: any) => su.email?.toLowerCase().trim() === targetUser.email.toLowerCase().trim());
+      const existingIdx = savedUsers.findIndex((su: any) => su.email?.toLowerCase().trim() === email);
       if (existingIdx !== -1) {
         savedUsers[existingIdx].linkedDriver = driverName || undefined;
       } else {
-        savedUsers.push({ email: targetUser.email.toLowerCase().trim(), linkedDriver: driverName || undefined });
+        savedUsers.push({ email, linkedDriver: driverName || undefined });
       }
       localStorage.setItem('relampago_system_users', JSON.stringify(savedUsers));
-
-      // linked_driver fica apenas no localStorage (a tabela Supabase não tem essa coluna)
     }
 
     onShowNotification(`Vinculação de motorista atualizada com sucesso!`);

@@ -17,6 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
+import { supabase } from '../lib/supabase';
 
 // Leaflet Dynamic Map Component
 function DriverLiveMap({ 
@@ -234,6 +235,12 @@ export default function DriverPortal({
     if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') {
       return 'Carlos Santana';
     }
+    // Tenta ler do metadata do Auth (Supabase) — disponível em qualquer dispositivo
+    const { data: { user } } = supabase.auth.getUser();
+    if (user?.user_metadata?.linkedDriver) {
+      return user.user_metadata.linkedDriver;
+    }
+    // Fallback: localStorage
     const savedUsersStr = localStorage.getItem('relampago_system_users');
     if (savedUsersStr) {
       try {
