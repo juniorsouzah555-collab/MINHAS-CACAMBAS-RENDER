@@ -372,38 +372,26 @@ export default function DriverPortal({
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    let active = true;
-    let presenceChannel: any = null;
-    const start = async () => {
-      try {
-        presenceChannel = supabase.channel('online-motoristas');
-        presenceChannel
-          .on('presence', { event: 'sync' }, () => {
-            if (!active) return;
-            try {
-              const state = presenceChannel.presenceState();
-              const names: string[] = [];
-              Object.values(state).forEach((presences: any) => {
-                (presences as any[]).forEach((p: any) => {
-                  if (p.user_name) names.push(p.user_name);
-                });
-              });
-              if (active) setOnlineUsers([...new Set(names)]);
-            } catch {}
-          })
-          .subscribe(async (status: string) => {
-            if (!active) return;
-            if (status === 'SUBSCRIBED') {
-              try { await presenceChannel.track({ user_name: selectedDriver, user_email: currentUserEmail }); } catch {}
-            }
+    const presenceChannel = supabase.channel('online-motoristas');
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const names: string[] = [];
+        Object.values(state).forEach((presences: any) => {
+          (presences as any[]).forEach((p: any) => {
+            if (p.user_name) names.push(p.user_name);
           });
-      } catch {}
-    };
-    start();
+        });
+        setOnlineUsers([...new Set(names)]);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({ user_name: selectedDriver, user_email: currentUserEmail });
+        }
+      });
     return () => {
-      active = false;
-      try { presenceChannel?.untrack(); } catch {}
-      try { supabase.removeChannel(presenceChannel); } catch {}
+      presenceChannel.untrack();
+      supabase.removeChannel(presenceChannel);
     };
   }, [selectedDriver, currentUserEmail]);
 
