@@ -485,16 +485,10 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   };
 
   const toggleUserStatus = (id: string) => {
-    let activatedName = '';
     const updated = users.map(u => {
       if (u.id === id) {
         const nextStatus = u.status === 'Ativo' ? 'Inativo' : 'Ativo';
         onShowNotification(`O status de ${u.name} agora é ${nextStatus}`);
-
-        // Se ativou um motorista, adiciona à lista de motoristas
-        if (nextStatus === 'Ativo' && u.role === 'Motorista') {
-          activatedName = u.name;
-        }
 
         // Update in Supabase
         if (isSupabaseConfigured()) {
@@ -521,10 +515,6 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     });
 
     setUsers(updated);
-
-    if (activatedName && !motoristas.includes(activatedName)) {
-      onMotoristasChange([...motoristas, activatedName]);
-    }
   };
 
   const handleTogglePermission = (permissionId: string) => {
