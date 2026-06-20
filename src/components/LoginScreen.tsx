@@ -72,7 +72,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       try {
         const { data: checkUser } = await supabase
           .from('user_approvals')
-          .select('email')
+          .select('email, role')
           .eq('email', normEmail)
           .maybeSingle();
         if (checkUser) {

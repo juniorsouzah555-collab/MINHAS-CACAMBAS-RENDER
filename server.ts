@@ -2,6 +2,9 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from './src/db/index.ts';
+
+const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTY1MjA3OSwiZXhwIjoyMDk3MjI4MDc5fQ.uZgF0vW3Q7DpeEqNDgv1ItiwncBwBBaCgpE5CnJ5fIM';
 import { 
   vehicles as vehiclesTable, 
   fuelLogs as fuelLogsTable, 
@@ -435,6 +438,65 @@ app.post("/api/dispatches", async (req, res) => {
       status: d.status || 'Assigned',
     });
     res.json({ success: true, dispatch: d });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Auth API endpoints (proxy for Supabase Admin API) ───
+
+// Busca um usuário pelo email na lista de usuários do Supabase Auth
+async function getUserIdByEmail(email: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const user = (data?.users || []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    return user?.id || null;
+  } catch { return null; }
+}
+
+// Endpoint: confirmar email de um usuário
+app.post('/api/auth/confirm-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
+  try {
+    const userId = await getUserIdByEmail(email);
+    if (!userId) return res.json({ ok: false, error: 'Usuário não encontrado no Auth' });
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({ email_confirm: true })
+    });
+    res.json({ ok: r.ok });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint: atualizar senha + confirmar email
+app.post('/api/auth/update-password', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+  try {
+    const userId = await getUserIdByEmail(email);
+    if (!userId) return res.json({ ok: false, error: 'Usuário não encontrado no Auth' });
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({ password, email_confirm: true })
+    });
+    res.json({ ok: r.ok });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

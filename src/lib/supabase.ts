@@ -6,6 +6,8 @@ declare global {
   }
 }
 
+const API_BASE = window.location.origin;
+
 const sanitizeSecret = (str: string): string => {
   if (!str) return '';
   let cleaned = str.trim();
@@ -31,7 +33,6 @@ const isValidHttpUrl = (str: string): boolean => {
 
 const HARDCODED_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
 const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NTIwNzksImV4cCI6MjA5NzIyODA3OX0.EO0tflk_Q7wNYXEIIXLoyAMXj9J-XKtGQO1gNdp7Lzc';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTY1MjA3OSwiZXhwIjoyMDk3MjI4MDc5fQ.uZgF0vW3Q7DpeEqNDgv1ItiwncBwBBaCgpE5CnJ5fIM';
 
 // Retrieve keys from localStorage or fallback to hardcoded values
 export const getSupabaseConfig = () => {
@@ -55,68 +56,33 @@ export const isSupabaseConfigured = (): boolean => true;
 
 export let supabase = createClient(HARDCODED_URL, HARDCODED_KEY);
 
-// Confirma o email de um usuário no Supabase Auth via Admin API (requer service_role key)
-export const confirmUserEmail = async (userId: string): Promise<boolean> => {
-  try {
-    const res = await fetch(`https://rhmgkapdvexzjasvbifd.supabase.co/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ email_confirm: true })
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-};
-
-// Atualiza a senha de um usuário no Supabase Auth via Admin API
-const getUserIdByEmail = async (email: string): Promise<string | null> => {
-  try {
-    const res = await fetch('https://rhmgkapdvexzjasvbifd.supabase.co/auth/v1/admin/users', {
-      method: 'GET',
-      headers: {
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const user = (data?.users || []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
-    return user?.id || null;
-  } catch {
-    return null;
-  }
-};
-
+// Atualiza senha + confirma email via servidor local
 export const updateUserPasswordByEmail = async (email: string, newPassword: string): Promise<boolean> => {
   try {
-    const userId = await getUserIdByEmail(email);
-    if (!userId) return false;
-    const updateRes = await fetch(`https://rhmgkapdvexzjasvbifd.supabase.co/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ password: newPassword, email_confirm: true })
+    const res = await fetch(`${API_BASE}/api/auth/update-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: newPassword })
     });
-    return updateRes.ok;
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.ok === true;
   } catch {
     return false;
   }
 };
 
-// Busca um usuário pelo email e confirma seu email
+// Busca um usuário pelo email e confirma seu email via servidor local
 export const confirmUserEmailByEmail = async (email: string): Promise<boolean> => {
   try {
-    const userId = await getUserIdByEmail(email);
-    if (!userId) return false;
-    return confirmUserEmail(userId);
+    const res = await fetch(`${API_BASE}/api/auth/confirm-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.ok === true;
   } catch {
     return false;
   }
