@@ -8,9 +8,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const admin = createClient(SUPABASE_URL, KEY);
-    const { error } = await admin.from('fuel_logs').insert([req.body]);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ ok: true });
+    const { error, status, statusText } = await admin.from('fuel_logs').insert([req.body]);
+    if (error) return res.status(500).json({ error: error.message, details: error.details, code: error.code });
+    res.json({ ok: true, status, statusText });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

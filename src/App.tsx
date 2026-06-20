@@ -1089,10 +1089,10 @@ export default function App() {
           lng: freshRecord.lng ?? null
         })
       }).then(async r => {
+        const text = await r.text();
+        console.log("fuel-log API response:", r.status, text);
         if (!r.ok) {
-          const text = await r.text();
-          console.error("fuel-log API error:", text);
-          handleShowToast("Erro", `Falha ao sincronizar: ${text}`, "info");
+          handleShowToast("Erro", `API ${r.status}: ${text.substring(0, 100)}`, "info");
         }
       });
     }
