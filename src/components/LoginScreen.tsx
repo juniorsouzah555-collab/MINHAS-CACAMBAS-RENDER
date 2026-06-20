@@ -64,23 +64,32 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       });
 
       if (!error && data?.user) {
-        let role = 'Operador de Frota';
-        if (normEmail === 'jrodrigues138@gmail.com') {
-          role = 'Administrador Geral';
-        } else {
+        // Verifica se o usuario existe no user_approvals (pode ter sido excluido)
+        if (normEmail !== 'jrodrigues138@gmail.com') {
           try {
             const { data: approvalRecord } = await supabase
               .from('user_approvals')
               .select('*')
               .eq('email', normEmail)
               .maybeSingle();
-            if (approvalRecord) {
-              role = approvalRecord.role || role;
+            if (!approvalRecord) {
+              await supabase.auth.signOut();
+              setIsLoading(false);
+              setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
+              return;
             }
-          } catch {}
+            let role = approvalRecord.role || 'Operador de Frota';
+            setIsLoading(false);
+            onLoginSuccess(normEmail, role);
+            return;
+          } catch {
+            setIsLoading(false);
+            setErrorMsg('Erro ao verificar usuario. Tente novamente.');
+            return;
+          }
         }
         setIsLoading(false);
-        onLoginSuccess(normEmail, role);
+        onLoginSuccess(normEmail, 'Administrador Geral');
         return;
       }
 
