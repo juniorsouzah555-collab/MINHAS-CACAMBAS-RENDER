@@ -417,6 +417,17 @@ export default function App() {
       localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
       return updated;
     });
+    // Sync to Supabase (se tabela existir)
+    if (isSupabaseConfigured()) {
+      proxyInsert('garage_refills', {
+        id: record.id,
+        data: record.data,
+        quantidade_litros: record.quantidade_litros,
+        valor_total: record.valor_total,
+        preco_por_litro: record.preco_por_litro,
+        created_at: record.created_at
+      });
+    }
     // Increase garage stock
     const newQty = garageDieselQty + refill.quantidade_litros;
     setGarageDieselQty(newQty);
