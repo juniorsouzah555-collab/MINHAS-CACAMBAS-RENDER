@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, heartbeat, fetchOnlineUsers } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -707,38 +707,20 @@ export default function DriverPortal({
     );
   }
 
-  // Online heartbeat via localStorage (seguro, sem WebSocket)
+  // Online heartbeat via Supabase Auth metadata (compartilhado entre dispositivos)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   useEffect(() => {
     if (!selectedDriver) return;
-    const beatInterval = setInterval(() => {
-      try { localStorage.setItem('relampago_online_' + selectedDriver, String(Date.now())); } catch {}
-    }, 15000);
-    const checkOnline = () => {
-      try {
-        const now = Date.now();
-        const active: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('relampago_online_')) {
-            const name = key.replace('relampago_online_', '');
-            const ts = parseInt(localStorage.getItem(key) || '0', 10);
-            if (now - ts < 120000) active.push(name);
-          }
-        }
-        setOnlineUsers(active);
-      } catch {}
+    const doBeat = () => { heartbeat(currentUserEmail, selectedDriver); };
+    const doCheck = async () => {
+      try { setOnlineUsers(await fetchOnlineUsers()); } catch {}
     };
-    checkOnline();
-    const checkInterval = setInterval(checkOnline, 15000);
-    // Primeiro heartbeat imediato
-    try { localStorage.setItem('relampago_online_' + selectedDriver, String(Date.now())); } catch {}
-    return () => {
-      clearInterval(beatInterval);
-      clearInterval(checkInterval);
-      try { localStorage.removeItem('relampago_online_' + selectedDriver); } catch {}
-    };
-  }, [selectedDriver]);
+    doBeat();
+    doCheck();
+    const beatInterval = setInterval(doBeat, 20000);
+    const checkInterval = setInterval(doCheck, 20000);
+    return () => { clearInterval(beatInterval); clearInterval(checkInterval); };
+  }, [selectedDriver, currentUserEmail]);
 
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {

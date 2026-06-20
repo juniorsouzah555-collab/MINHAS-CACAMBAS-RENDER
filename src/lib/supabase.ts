@@ -186,6 +186,27 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
   } catch { return false; }
 };
 
+// Heartbeat: atualiza last_seen no metadata do Auth (compartilhado entre dispositivos)
+export const heartbeat = async (email: string, driverName: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/heartbeat`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, driverName })
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
+// Retorna nomes dos motoristas com last_seen nos últimos 2 minutos
+export const fetchOnlineUsers = async (): Promise<string[]> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/online-users`);
+    if (!res.ok) return [];
+    const d = await res.json();
+    return d.users || [];
+  } catch { return []; }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {
