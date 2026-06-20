@@ -164,23 +164,23 @@ export const proxyInsert = async (table: string, data: any): Promise<boolean> =>
   } catch { return false; }
 };
 
-export const proxyUpdate = async (table: string, data: any, filter: Record<string, any>): Promise<boolean> => {
+export const proxyUpdate = async (table: string, data: any, filter: string): Promise<boolean> => {
   try {
     const res = await fetch(`${API_BASE}/api/proxy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ table, action: 'update', data, filter: JSON.stringify(filter) })
+      body: JSON.stringify({ table, action: 'update', data, filter })
     });
     return res.ok;
   } catch { return false; }
 };
 
-export const proxyDelete = async (table: string, filter: Record<string, any>): Promise<boolean> => {
+export const proxyDelete = async (table: string, filter: string): Promise<boolean> => {
   try {
     const res = await fetch(`${API_BASE}/api/proxy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ table, action: 'delete', filter: JSON.stringify(filter) })
+      body: JSON.stringify({ table, action: 'delete', filter })
     });
     return res.ok;
   } catch { return false; }
