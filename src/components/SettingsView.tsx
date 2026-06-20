@@ -101,41 +101,27 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   const [cnpj, setCnpj] = useState('02.948.345/0001-05');
   const [defaultTerminal, setDefaultTerminal] = useState('Aterro Central - Setor 4');
 
-  // Interactive Users Database
-  const [users, setUsers] = useState<SystemUser[]>([
-    {
-      id: "USR-001",
-      name: "Alex Rivera",
-      email: "relampagoentulho@gmail.com",
-      role: "Administrador Geral",
-      status: "Ativo",
-      registrationDate: "12/01/2026"
-    },
-    {
-      id: "USR-002",
-      name: "Carlos Augusto Silva",
-      email: "carlos.silva@relampago.com",
-      role: "Diretor de Operações",
-      status: "Ativo",
-      registrationDate: "15/02/2026"
-    },
-    {
-      id: "USR-003",
-      name: "Mariana Souza",
-      email: "financeiro@relampago.com",
-      role: "Financeiro",
-      status: "Ativo",
-      registrationDate: "03/03/2026"
-    },
-    {
-      id: "USR-004",
-      name: "Marcos Pinheiro",
-      email: "marcos@relampago.com",
-      role: "Motorista",
-      status: "Inativo",
-      registrationDate: "10/05/2026"
-    }
-  ]);
+  // Interactive Users Database — carregado do localStorage para persistir exclusões
+  const [users, setUsers] = useState<SystemUser[]>(() => {
+    try {
+      const saved = localStorage.getItem('relampago_settings_users');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      { id: "USR-001", name: "Alex Rivera", email: "relampagoentulho@gmail.com", role: "Administrador Geral", status: "Ativo", registrationDate: "12/01/2026" },
+      { id: "USR-002", name: "Carlos Augusto Silva", email: "carlos.silva@relampago.com", role: "Diretor de Operações", status: "Ativo", registrationDate: "15/02/2026" },
+      { id: "USR-003", name: "Mariana Souza", email: "financeiro@relampago.com", role: "Financeiro", status: "Ativo", registrationDate: "03/03/2026" },
+      { id: "USR-004", name: "Marcos Pinheiro", email: "marcos@relampago.com", role: "Motorista", status: "Inativo", registrationDate: "10/05/2026" }
+    ];
+  });
+
+  // Persiste usuários no localStorage para exclusões sobreviverem a refresh
+  useEffect(() => {
+    localStorage.setItem('relampago_settings_users', JSON.stringify(users));
+  }, [users]);
 
   // Lista combinada: motoristas do sistema + todos os usuários com role Motorista
   const allAvailableDrivers = useMemo(() => {
@@ -538,10 +524,22 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
       const updated = users.filter(u => u.id !== id);
       setUsers(updated);
 
-      if (targetUser && isSupabaseConfigured()) {
-        supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
-          if (error) console.warn("Supabase user_approvals delete failed: ", error);
-        });
+      if (targetUser) {
+        // Remove também do relampago_system_users
+        try {
+          const raw = localStorage.getItem('relampago_system_users');
+          if (raw) {
+            const list = JSON.parse(raw);
+            const filtered = list.filter((x: any) => x.email?.toLowerCase().trim() !== targetUser.email.toLowerCase().trim());
+            localStorage.setItem('relampago_system_users', JSON.stringify(filtered));
+          }
+        } catch {}
+        // Remove do Supabase se possível
+        if (isSupabaseConfigured()) {
+          supabase.from('user_approvals').delete().eq('email', targetUser.email.toLowerCase().trim()).then(({ error }) => {
+            if (error) console.warn("Supabase user_approvals delete failed: ", error);
+          });
+        }
       }
 
       onShowNotification(`Cadastro de ${name} removido do sistema corporativo.`);
