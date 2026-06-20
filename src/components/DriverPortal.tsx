@@ -30,14 +30,12 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry,
-  onlineUsers = []
+  onRetry 
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
-  onlineUsers?: string[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -243,23 +241,6 @@ function DriverLiveMap({
           <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
-
-          {/* Online users badge */}
-          {onlineUsers.length > 0 && (
-            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-semibold text-slate-600 max-w-[180px]">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-black uppercase tracking-wider text-[9px] text-slate-500">Online</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {onlineUsers.map((name, i) => (
-                  <span key={name} className="bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 text-[9px] font-bold">
-                    {name}{i < onlineUsers.length - 1 ? '' : ''}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
@@ -367,33 +348,6 @@ export default function DriverPortal({
       }
     });
   }, []);
-
-  // Presença em tempo real — quem está online
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-    const presenceChannel = supabase.channel('online-motoristas');
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const names: string[] = [];
-        Object.values(state).forEach((presences: any) => {
-          (presences as any[]).forEach((p: any) => {
-            if (p.user_name) names.push(p.user_name);
-          });
-        });
-        setOnlineUsers([...new Set(names)]);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({ user_name: selectedDriver, user_email: currentUserEmail });
-        }
-      });
-    return () => {
-      presenceChannel.untrack();
-      supabase.removeChannel(presenceChannel);
-    };
-  }, [selectedDriver, currentUserEmail]);
 
   // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
   useEffect(() => {
@@ -860,8 +814,7 @@ export default function DriverPortal({
           onRetry={() => {
             setGeoError(null);
             startWatchingLocation();
-          }}
-          onlineUsers={onlineUsers}
+          }} 
         />
       </div>
 
