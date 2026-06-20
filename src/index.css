@@ -85,3 +85,32 @@
   animation: pulseGlow 10s ease-in-out infinite;
 }
 
+/* Leaflet driver name labels on map */
+.driver-label {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  font-family: 'Inter', sans-serif !important;
+  padding: 2px 8px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  white-space: nowrap !important;
+}
+.driver-label::before {
+  border-top-color: rgba(15, 23, 42, 0.85) !important;
+}
+.driver-label--you {
+  background: rgba(5, 150, 105, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+.driver-label--you::before {
+  border-top-color: rgba(5, 150, 105, 0.9) !important;
+}
+.custom-vehicle-icon,
+.custom-user-icon {
+  background: transparent !important;
+  border: none !important;
+}
+

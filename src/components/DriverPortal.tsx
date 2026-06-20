@@ -19,24 +19,32 @@ import {
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
 import { supabase } from '../lib/supabase';
 
-// Leaflet Dynamic Map Component
+// Convert simulated vehicle coordinates to GPS (base: São Paulo)
+const vehicleToGps = (lat: number, lng: number) => ({
+  lat: -23.5505 + (lat || 0) / 5000,
+  lng: -46.6333 + (lng || 0) / 5000
+});
+
+// Leaflet Dynamic Map Component — shows all motoristas + current user
 function DriverLiveMap({ 
   coords, 
+  vehicles,
   error, 
   onRetry 
 }: { 
   coords: { lat: number; lng: number } | null; 
+  vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Dynamic script/css loader
   useEffect(() => {
-    // Check if Leaflet is already loaded
     if ((window as any).L) {
       setIsLeafletLoaded(true);
       return;
@@ -54,36 +62,71 @@ function DriverLiveMap({
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.async = true;
-    script.onload = () => {
-      setIsLeafletLoaded(true);
-    };
+    script.onload = () => setIsLeafletLoaded(true);
     document.body.appendChild(script);
   }, []);
 
-  // Initialize and update the map when leaflet is loaded and coordinates change
+  // Initialize map and markers when leaflet or data changes
   useEffect(() => {
     if (!isLeafletLoaded || !mapContainerRef.current) return;
     const L = (window as any).L;
     if (!L) return;
 
-    if (!coords) return;
+    const hasFakeCoords = vehicles.length > 0;
+    const hasRealCoords = !!coords;
 
-    const { lat, lng } = coords;
+    if (!hasFakeCoords && !hasRealCoords) return;
 
     if (!mapRef.current) {
-      // Create map instance
+      const center = coords ? [coords.lat, coords.lng] : [-23.5505, -46.6333];
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
         attributionControl: false
-      }).setView([lat, lng], 15);
+      }).setView(center as [number, number], 11);
 
-      // Add TileLayer (OpenStreetMap tile)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
       }).addTo(mapRef.current);
+    }
 
-      // Add a HTML div icon to avoid standard marker asset search issues within bundlers
+    // Remove old markers
+    markersRef.current.forEach(m => mapRef.current?.removeLayer(m));
+    markersRef.current = [];
+
+    // Add vehicle/driver markers
+    vehicles.forEach(v => {
+      const gps = vehicleToGps(v.lat, v.lng);
+      const isInTransit = v.status === 'In Transit';
+      const markerColor = isInTransit ? 'bg-emerald-500' : 'bg-slate-400';
+
       const iconHtml = `
+        <div class="relative flex items-center justify-center">
+          <div class="flex h-6 w-6 items-center justify-center rounded-full ${markerColor} border-2 border-white shadow-lg">
+            <div class="h-2 w-2 bg-white rounded-full"></div>
+          </div>
+        </div>
+      `;
+      const icon = L.divIcon({
+        html: iconHtml,
+        className: 'custom-vehicle-icon',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const marker = L.marker([gps.lat, gps.lng], { icon })
+        .addTo(mapRef.current)
+        .bindTooltip(v.driver, {
+          permanent: true,
+          direction: 'top',
+          className: 'driver-label',
+          offset: L.point(0, -14)
+        });
+      markersRef.current.push(marker);
+    });
+
+    // Add current user's real GPS marker
+    if (coords) {
+      const userIconHtml = `
         <div class="relative flex items-center justify-center">
           <div class="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-emerald-400 opacity-75"></div>
           <div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white shadow-lg">
@@ -91,38 +134,61 @@ function DriverLiveMap({
           </div>
         </div>
       `;
-      const customIcon = L.divIcon({
-        html: iconHtml,
-        className: 'custom-driver-icon',
+      const userIcon = L.divIcon({
+        html: userIconHtml,
+        className: 'custom-user-icon',
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
 
-      markerRef.current = L.marker([lat, lng], { icon: customIcon }).addTo(mapRef.current);
-    } else {
-      // Map already exists, update center and marker location
-      mapRef.current.setView([lat, lng], mapRef.current.getZoom());
-      if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
-      }
+      const userMarker = L.marker([coords.lat, coords.lng], { icon: userIcon })
+        .addTo(mapRef.current)
+        .bindTooltip('Você', { permanent: true, direction: 'top', className: 'driver-label driver-label--you' });
+      markersRef.current.push(userMarker);
     }
-  }, [isLeafletLoaded, coords]);
 
-  // Clean map instance on unmount
+    // Fit view to show all markers
+    if (markersRef.current.length > 0) {
+      const group = L.featureGroup(markersRef.current);
+      mapRef.current.fitBounds(group.getBounds().pad(0.15));
+    }
+  }, [isLeafletLoaded, coords, vehicles]);
+
+  // Fullscreen toggle
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await mapContainerRef.current?.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  // Clean map on unmount
   useEffect(() => {
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
-        markerRef.current = null;
+        markersRef.current = [];
       }
     };
   }, []);
 
+  // Determine if we have any data to show
+  const hasAnyCoords = coords !== null || vehicles.length > 0;
+
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-2xl shadow-inner overflow-hidden h-64 relative">
+    <div className="bg-slate-50 border border-slate-200 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '16rem' }}>
       {error ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50 z-10">
           <p className="text-xs font-semibold text-slate-500 mb-3 leading-relaxed">
             ⚠️ {error}
           </p>
@@ -134,22 +200,48 @@ function DriverLiveMap({
             Permitir Acesso à Localização
           </button>
         </div>
-      ) : !coords ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50">
+      ) : !hasAnyCoords ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50 z-10">
           <Navigation className="w-8 h-8 text-slate-300 mb-3" />
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-            Localização não ativada
+            Nenhum motorista conectado
           </p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="px-5 py-2.5 bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-colors shadow-md cursor-pointer"
-          >
-            Solicitar Localização
-          </button>
         </div>
       ) : (
-        <div ref={mapContainerRef} className="w-full h-full z-0" />
+        <>
+          <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+          {/* Fullscreen toggle button */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="absolute top-3 right-3 z-[1000] bg-white/90 hover:bg-white border border-slate-200 rounded-lg p-2 shadow-md transition-all cursor-pointer"
+            title={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700">
+              {isFullscreen ? (
+                <>
+                  <polyline points="4 14 10 14 10 20" />
+                  <polyline points="20 10 14 10 14 4" />
+                  <line x1="14" y1="10" x2="21" y2="3" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              ) : (
+                <>
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              )}
+            </svg>
+          </button>
+
+          {/* Driver count badge */}
+          <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
+            {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
+          </div>
+        </>
       )}
     </div>
   );
@@ -701,6 +793,7 @@ export default function DriverPortal({
 
         <DriverLiveMap 
           coords={userCoords} 
+          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng)}
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
