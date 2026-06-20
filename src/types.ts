@@ -60,6 +60,7 @@ export interface FuelLog {
   isRetiradaDiversa?: boolean;
   lat?: number;
   lng?: number;
+  observacao?: string;
 }
 
 export interface MaintenanceAlert {

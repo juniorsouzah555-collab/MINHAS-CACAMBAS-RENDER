@@ -28,7 +28,10 @@ import {
   Pencil,
   RotateCcw,
   Tag,
-  Coins
+  Coins,
+  Trash2,
+  Save,
+  Edit3
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -51,12 +54,15 @@ interface FleetViewProps {
   fuelTrendData: any[];
   costStructureData: any[];
   searchTerm: string;
+  currentUserRole?: string;
   onStopDispatchVehicle: (vehicleId: string, alertId: string) => void;
   onLogMaintenanceTicket: (id: string, description: string, estimatedCost: number) => void;
   onRefreshData: () => void;
   onAddVehicle: (vehicle: Omit<Vehicle, 'status' | 'efficiency' | 'fuelUsed' | 'costPerKm' | 'trend' | 'isActive' | 'lat' | 'lng' | 'speed'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onAddFuelLog: (log: Omit<FuelLog, 'id' | 'mediaKmL'>) => void;
+  onDeleteFuelLog?: (id: string) => void;
+  onEditFuelLog?: (log: FuelLog) => void;
   motoristas: string[];
   garageDieselQty: number;
   garageDieselPrice: number;
@@ -70,12 +76,15 @@ export default function FleetView({
   fuelTrendData,
   costStructureData,
   searchTerm,
+  currentUserRole,
   onStopDispatchVehicle,
   onLogMaintenanceTicket,
   onRefreshData,
   onAddVehicle,
   onUpdateVehicle,
   onAddFuelLog,
+  onDeleteFuelLog,
+  onEditFuelLog,
   motoristas,
   garageDieselQty,
   garageDieselPrice,
@@ -131,6 +140,20 @@ export default function FleetView({
   const [newVehicleDriver, setNewVehicleDriver] = useState('');
   const [newVehicleType, setNewVehicleType] = useState<'Caminhão' | 'Veículo'>('Caminhão');
   const [newVehicleInitialKm, setNewVehicleInitialKm] = useState<number | ''>('');
+
+  const isAdmin = !currentUserRole?.toLowerCase().includes('motorista') && currentUserRole !== 'motorista@relampago.com';
+
+  // Edit Fuel Log Modal
+  const [editingFuelLog, setEditingFuelLog] = useState<FuelLog | null>(null);
+  const [editFuelVehicleId, setEditFuelVehicleId] = useState('');
+  const [editFuelLitres, setEditFuelLitres] = useState<number | ''>('');
+  const [editFuelKmInicial, setEditFuelKmInicial] = useState<number | ''>('');
+  const [editFuelKmFinal, setEditFuelKmFinal] = useState<number | ''>('');
+  const [editFuelValorPago, setEditFuelValorPago] = useState<number | ''>('');
+  const [editFuelData, setEditFuelData] = useState('');
+  const [editFuelDriver, setEditFuelDriver] = useState('');
+  const [editFuelTipo, setEditFuelTipo] = useState<'POSTO' | 'GARAGEM'>('POSTO');
+  const [editFuelObservacao, setEditFuelObservacao] = useState('');
 
   // Maintenance Logging Modal
   const [maintenanceVehicleId, setMaintenanceVehicleId] = useState<string | null>(null);
@@ -1240,6 +1263,9 @@ export default function FleetView({
                       <th className="px-5 py-3 font-sans font-bold text-slate-600 text-xs border-b border-slate-150 uppercase tracking-wider text-right">LITROS &amp; DISTÂNCIA</th>
                       <th className="px-5 py-3 font-sans font-bold text-slate-600 text-xs border-b border-slate-150 uppercase tracking-wider text-right">CUSTO TOTAL</th>
                       <th className="px-5 py-3 font-sans font-bold text-slate-600 text-xs border-b border-slate-150 uppercase tracking-wider text-right">EFICIÊNCIA</th>
+                      {isAdmin && (
+                        <th className="px-5 py-3 font-sans font-bold text-slate-600 text-xs border-b border-slate-150 uppercase tracking-wider text-center">AÇÕES</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -1303,6 +1329,43 @@ export default function FleetView({
                               </span>
                             )}
                           </td>
+                          {isAdmin && (
+                            <td className="px-3 py-3.5 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingFuelLog(log);
+                                    setEditFuelVehicleId(log.vehicleId);
+                                    setEditFuelLitres(log.quantidadeLitros);
+                                    setEditFuelKmInicial(log.kmInicial ?? '');
+                                    setEditFuelKmFinal(log.kmFinal ?? '');
+                                    setEditFuelValorPago(log.valorPago);
+                                    setEditFuelData(log.data);
+                                    setEditFuelDriver(log.driver || '');
+                                    setEditFuelTipo(log.tipo || 'POSTO');
+                                    setEditFuelObservacao(log.observacao || '');
+                                  }}
+                                  className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-colors cursor-pointer"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm('Excluir este registro de abastecimento?')) {
+                                      onDeleteFuelLog?.(log.id);
+                                    }
+                                  }}
+                                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-transparent hover:border-rose-100 transition-colors cursor-pointer"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1552,6 +1615,134 @@ export default function FleetView({
                   className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-4 py-1.5 rounded"
                 >
                   Confirmar Envio
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Fuel Log Modal */}
+      {editingFuelLog && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <Fuel className="w-5 h-5 text-indigo-600" />
+                <h4 className="font-sans font-bold text-sm">Editar Abastecimento</h4>
+              </div>
+              <button onClick={() => setEditingFuelLog(null)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                onEditFuelLog?.({
+                  ...editingFuelLog,
+                  vehicleId: editFuelVehicleId,
+                  quantidadeLitros: Number(editFuelLitres) || 0,
+                  kmInicial: editFuelKmInicial === '' ? undefined : Number(editFuelKmInicial),
+                  kmFinal: editFuelKmFinal === '' ? undefined : Number(editFuelKmFinal),
+                  valorPago: Number(editFuelValorPago) || 0,
+                  data: editFuelData,
+                  driver: editFuelDriver || undefined,
+                  tipo: editFuelTipo,
+                  observacao: editFuelObservacao || undefined,
+                });
+                setEditingFuelLog(null);
+              }}
+              className="p-5 space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Veículo</label>
+                  <input
+                    required
+                    value={editFuelVehicleId}
+                    onChange={(e) => setEditFuelVehicleId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Motorista</label>
+                  <input
+                    value={editFuelDriver}
+                    onChange={(e) => setEditFuelDriver(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Litros</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    value={editFuelLitres}
+                    onChange={(e) => setEditFuelLitres(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Valor Pago (R$)</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    value={editFuelValorPago}
+                    onChange={(e) => setEditFuelValorPago(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data</label>
+                  <input
+                    required
+                    type="date"
+                    value={editFuelData}
+                    onChange={(e) => setEditFuelData(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
+                  <select
+                    value={editFuelTipo}
+                    onChange={(e) => setEditFuelTipo(e.target.value as 'POSTO' | 'GARAGEM')}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="POSTO">Posto</option>
+                    <option value="GARAGEM">Garagem</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Observação</label>
+                <textarea
+                  value={editFuelObservacao}
+                  onChange={(e) => setEditFuelObservacao(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500 min-h-[50px]"
+                  placeholder="Observação sobre o abastecimento..."
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingFuelLog(null)}
+                  className="font-bold text-xs px-3.5 py-1.5 border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-1.5 rounded flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Salvar
                 </button>
               </div>
             </form>

@@ -1082,6 +1082,7 @@ export default function App() {
         media_km_l: freshRecord.mediaKmL ?? null,
         tipo: freshRecord.tipo ?? null,
         is_retirada_diversa: freshRecord.isRetiradaDiversa,
+        observacao: freshRecord.observacao ?? null,
         lat: freshRecord.lat ?? null,
         lng: freshRecord.lng ?? null
       }]).then(({ error }) => {
@@ -1170,6 +1171,36 @@ export default function App() {
         "success"
       );
     }
+  };
+
+  const handleDeleteFuelLog = (id: string) => {
+    setFuelLogs(prev => prev.filter(f => f.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('fuel_logs').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error("Supabase error deleting fuel log:", error);
+      });
+    }
+    handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
+  };
+
+  const handleEditFuelLog = (updated: FuelLog) => {
+    setFuelLogs(prev => prev.map(f => f.id === updated.id ? updated : f));
+    if (isSupabaseConfigured()) {
+      supabase.from('fuel_logs').update({
+        vehicle_id: updated.vehicleId,
+        quantidade_litros: updated.quantidadeLitros,
+        km_inicial: updated.kmInicial ?? null,
+        km_final: updated.kmFinal ?? null,
+        valor_pago: updated.valorPago,
+        data: updated.data,
+        driver: updated.driver ?? null,
+        tipo: updated.tipo ?? null,
+        observacao: updated.observacao ?? null,
+      }).eq('id', updated.id).then(({ error }) => {
+        if (error) console.error("Supabase error updating fuel log:", error);
+      });
+    }
+    handleShowToast("Abastecimento Atualizado", "O registro de abastecimento foi alterado.", "success");
   };
 
   // Quick mark read unread metrics
@@ -1405,12 +1436,15 @@ export default function App() {
               fuelTrendData={fuelTrend}
               costStructureData={costStructure}
               searchTerm={searchTerm}
+              currentUserRole={currentUserRole}
               onStopDispatchVehicle={handleStopDispatchVehicle}
               onLogMaintenanceTicket={handleLogMaintenanceTicket}
               onRefreshData={handleRefreshData}
               onAddVehicle={handleAddVehicle}
               onUpdateVehicle={handleUpdateVehicle}
               onAddFuelLog={handleAddFuelLog}
+              onDeleteFuelLog={handleDeleteFuelLog}
+              onEditFuelLog={handleEditFuelLog}
               motoristas={motoristas}
               garageDieselQty={garageDieselQty}
               garageDieselPrice={garageDieselPrice}
