@@ -134,6 +134,24 @@ export default function App() {
     }
   }, [currentUserRole, currentUserEmail, currentTab]);
 
+  // Limpeza automatica: remove de relampago_invited_drivers quem nao está mais em relampago_system_users
+  useEffect(() => {
+    try {
+      const invitedRaw = localStorage.getItem('relampago_invited_drivers');
+      const systemRaw = localStorage.getItem('relampago_system_users');
+      if (invitedRaw && systemRaw) {
+        const invited = JSON.parse(invitedRaw);
+        const system = JSON.parse(systemRaw);
+        const systemEmails = new Set(system.map((u: any) => u.email?.toLowerCase().trim()));
+        const filtered = invited.filter((d: any) => systemEmails.has(d.email?.toLowerCase().trim()));
+        if (filtered.length !== invited.length) {
+          localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
+          console.log('Limpeza automatica:', invited.length - filtered.length, 'motorista(s) removido(s) de relampago_invited_drivers');
+        }
+      }
+    } catch {}
+  }, []);
+
   // Load data from Cloud SQL / Supabase when authenticated
   useEffect(() => {
     if (isAuthenticated) {
