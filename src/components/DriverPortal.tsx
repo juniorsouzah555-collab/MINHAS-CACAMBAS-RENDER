@@ -30,12 +30,14 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry 
+  onRetry,
+  onlineUsers = []
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
+  onlineUsers?: string[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -241,6 +243,21 @@ function DriverLiveMap({
           <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
+
+          {/* Online users badge */}
+          {onlineUsers.length > 0 && (
+            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-semibold text-slate-600 max-w-[180px]">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-black uppercase tracking-wider text-[9px] text-slate-500">Online</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {onlineUsers.map((name) => (
+                  <span key={name} className="bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 text-[9px] font-bold">{name}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -358,6 +375,63 @@ export default function DriverPortal({
       }
     }).catch(() => {});
   }, [currentUserEmail]);
+
+  // Presença via localStorage + BroadcastChannel (sem WebSocket)
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const ONLINE_KEY = 'relampago_online_users';
+  const ONLINE_TIMEOUT = 120000;
+  const HEARTBEAT_MS = 15000;
+  const bcRef = useRef<BroadcastChannel | null>(null);
+
+  const getOnlineMap = (): Record<string, number> => {
+    try { return JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}'); } catch { return {}; }
+  };
+
+  useEffect(() => {
+    if (!selectedDriver) return;
+    const update = () => {
+      try {
+        const map = getOnlineMap();
+        map[selectedDriver] = Date.now();
+        localStorage.setItem(ONLINE_KEY, JSON.stringify(map));
+        bcRef.current?.postMessage({ type: 'heartbeat', driver: selectedDriver });
+      } catch {}
+    };
+    try {
+      bcRef.current = new BroadcastChannel('relampago_online');
+      bcRef.current.onmessage = () => {};
+    } catch {}
+    update();
+    const interval = setInterval(update, HEARTBEAT_MS);
+    const handleUnload = () => {
+      try {
+        const map = getOnlineMap();
+        delete map[selectedDriver];
+        localStorage.setItem(ONLINE_KEY, JSON.stringify(map));
+        bcRef.current?.postMessage({ type: 'leave', driver: selectedDriver });
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+      handleUnload();
+      try { bcRef.current?.close(); } catch {}
+    };
+  }, [selectedDriver]);
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        const map = getOnlineMap();
+        const now = Date.now();
+        setOnlineUsers(Object.entries(map).filter(([, ts]) => now - ts < ONLINE_TIMEOUT).map(([n]) => n));
+      } catch {}
+    };
+    check();
+    const interval = setInterval(check, HEARTBEAT_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   // Determine active driver name
   const [selectedDriver, setSelectedDriver] = useState<string>(() => {
@@ -814,7 +888,8 @@ export default function DriverPortal({
           onRetry={() => {
             setGeoError(null);
             startWatchingLocation();
-          }} 
+          }}
+          onlineUsers={onlineUsers}
         />
       </div>
 
