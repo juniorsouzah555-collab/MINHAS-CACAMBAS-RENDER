@@ -467,6 +467,26 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     onShowNotification(`Usuário ${newUserName} adicionado com sucesso no cargo ${newUserRole}!`);
   };
 
+  const handleResetPassword = (email: string, name: string) => {
+    const newPassword = generatePassword();
+
+    // Atualiza no localStorage (fallback para login sem confirmação)
+    try {
+      const raw = localStorage.getItem('relampago_invited_drivers');
+      const list: { email: string; password: string; role: string }[] = raw ? JSON.parse(raw) : [];
+      const idx = list.findIndex(d => d.email === email.toLowerCase().trim());
+      if (idx !== -1) {
+        list[idx].password = newPassword;
+      } else {
+        list.push({ email: email.toLowerCase().trim(), password: newPassword, role: 'Motorista' });
+      }
+      localStorage.setItem('relampago_invited_drivers', JSON.stringify(list));
+    } catch {}
+
+    onShowNotification(`Senha de ${name} redefinida! Nova senha: ${newPassword}`);
+    alert(`Nova senha para ${name} (${email}):\n\n${newPassword}\n\nGuarde esta senha e repasse ao usuário.`);
+  };
+
   const handleDeleteUser = (id: string, name: string) => {
     const targetUser = users.find(u => u.id === id);
     if (confirm(`Deseja realmente excluir o cadastro de ${name}?`)) {
@@ -1027,19 +1047,29 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
                               </button>
                             </td>
 
-                            {/* deleting */}
+                            {/* password reset + deleting */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
-                              <button
-                                type="button"
-                                disabled={u.role === 'Administrador Geral'}
-                                onClick={() => handleDeleteUser(u.id, u.name)}
-                                className={`px-2 py-1 bg-transparent hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border border-transparent hover:border-rose-100 transition-colors ${
-                                  u.role === 'Administrador Geral' ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
-                                }`}
-                                title={u.role === 'Administrador Geral' ? "Impossível excluir o administrador raiz" : "Excluir Cadastro"}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetPassword(u.email, u.name)}
+                                  className="px-2 py-1 bg-transparent hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg border border-transparent hover:border-amber-100 transition-colors cursor-pointer"
+                                  title="Redefinir senha"
+                                >
+                                  <Key className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={u.role === 'Administrador Geral'}
+                                  onClick={() => handleDeleteUser(u.id, u.name)}
+                                  className={`px-2 py-1 bg-transparent hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border border-transparent hover:border-rose-100 transition-colors ${
+                                    u.role === 'Administrador Geral' ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+                                  }`}
+                                  title={u.role === 'Administrador Geral' ? "Impossível excluir o administrador raiz" : "Excluir Cadastro"}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
