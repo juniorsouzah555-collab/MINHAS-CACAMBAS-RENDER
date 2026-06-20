@@ -231,42 +231,38 @@ export default function DriverPortal({
 }: DriverPortalProps) {
   const isDriverUser = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('driver') || currentUserEmail === 'motorista@relampago.com';
 
-  const getLinkedDriverName = () => {
-    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') {
-      return 'Carlos Santana';
-    }
-    // Tenta ler do metadata do Auth (Supabase) — disponível em qualquer dispositivo
-    const { data: { user } } = supabase.auth.getUser();
-    if (user?.user_metadata?.linkedDriver) {
-      return user.user_metadata.linkedDriver;
-    }
-    // Fallback: localStorage
-    const savedUsersStr = localStorage.getItem('relampago_system_users');
-    if (savedUsersStr) {
-      try {
-        const savedUsers = JSON.parse(savedUsersStr);
-        const matchedUser = savedUsers.find((u: any) => u.email.toLowerCase() === currentUserEmail.toLowerCase());
-        if (matchedUser && matchedUser.linkedDriver) {
-          return matchedUser.linkedDriver;
-        }
-      } catch (e) {
-        console.error(e);
+  const [linkedDriverName, setLinkedDriverName] = useState<string | null>(getLinkedFromStorage);
+
+  // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
+  useEffect(() => {
+    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.linkedDriver) {
+        setLinkedDriverName(user.user_metadata.linkedDriver);
       }
-    }
+    }).catch(() => {});
+  }, [currentUserEmail]);
+
+  const getLinkedFromStorage = (): string | null => {
+    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
+    try {
+      const raw = localStorage.getItem('relampago_system_users');
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const match = saved.find((u: any) => u.email?.toLowerCase() === currentUserEmail.toLowerCase());
+        if (match?.linkedDriver) return match.linkedDriver;
+      }
+    } catch {}
     return null;
   };
-
-  const linkedDriverName = getLinkedDriverName();
 
   // Determine active driver name
   const [selectedDriver, setSelectedDriver] = useState<string>(() => {
     if (currentUserEmail === 'motorista@relampago.com') {
-      return 'Carlos Santana'; // Default driver linked to this demo account
+      return 'Carlos Santana';
     }
-    const linked = getLinkedDriverName();
-    if (linked) {
-      return linked;
-    }
+    const linked = getLinkedFromStorage();
+    if (linked) return linked;
     return motoristas[0] || 'Carlos Santana';
   });
 
