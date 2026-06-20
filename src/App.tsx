@@ -435,6 +435,50 @@ export default function App() {
     localStorage.setItem('relampago_garage_diesel_price', preco_por_litro.toString());
   };
 
+  const handleDeleteGarageRefill = (id: string) => {
+    const target = garageRefills.find(r => r.id === id);
+    if (!target) return;
+    setGarageRefills(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
+      return updated;
+    });
+    // Subtract from garage stock
+    const newQty = Math.max(0, garageDieselQty - target.quantidade_litros);
+    setGarageDieselQty(newQty);
+    localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+    if (isSupabaseConfigured()) {
+      proxyDelete('garage_refills', `id=eq.${id}`);
+    }
+  };
+
+  const handleEditGarageRefill = (id: string, refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => {
+    const preco_por_litro = refill.quantidade_litros > 0
+      ? parseFloat((refill.valor_total / refill.quantidade_litros).toFixed(2))
+      : 0;
+    const oldRecord = garageRefills.find(r => r.id === id);
+    setGarageRefills(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...refill, preco_por_litro } : r);
+      localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
+      return updated;
+    });
+    // Adjust garage stock
+    if (oldRecord) {
+      const diff = refill.quantidade_litros - oldRecord.quantidade_litros;
+      const newQty = Math.max(0, garageDieselQty + diff);
+      setGarageDieselQty(newQty);
+      localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+    }
+    if (isSupabaseConfigured()) {
+      proxyUpdate('garage_refills', {
+        data: refill.data,
+        quantidade_litros: refill.quantidade_litros,
+        valor_total: refill.valor_total,
+        preco_por_litro
+      }, `id=eq.${id}`);
+    }
+  };
+
   const handleAddMotorista = (name: string) => {
     setMotoristas(prev => [...prev, name]);
     if (isSupabaseConfigured()) {
@@ -1509,6 +1553,8 @@ export default function App() {
               }}
               garageRefills={garageRefills}
               onAddGarageRefill={handleAddGarageRefill}
+              onDeleteGarageRefill={handleDeleteGarageRefill}
+              onEditGarageRefill={handleEditGarageRefill}
             />
           )}
 

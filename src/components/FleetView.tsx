@@ -69,6 +69,8 @@ interface FleetViewProps {
   onUpdateGarageDiesel: (qty: number, price: number) => void;
   garageRefills: GarageRefill[];
   onAddGarageRefill: (refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => void;
+  onDeleteGarageRefill?: (id: string) => void;
+  onEditGarageRefill?: (id: string, refill: Omit<GarageRefill, 'id' | 'preco_por_litro' | 'created_at'>) => void;
 }
 
 export default function FleetView({
@@ -92,7 +94,9 @@ export default function FleetView({
   garageDieselPrice,
   onUpdateGarageDiesel,
   garageRefills,
-  onAddGarageRefill
+  onAddGarageRefill,
+  onDeleteGarageRefill,
+  onEditGarageRefill
 }: FleetViewProps) {
   // Navigation tabs: overview, refuels, register
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'refuels' | 'register'>('overview');
@@ -117,6 +121,7 @@ export default function FleetView({
   const [garageRefillValor, setGarageRefillValor] = useState<number | ''>('');
   const [garageRefillData, setGarageRefillData] = useState(() => new Date().toISOString().split('T')[0]);
   const [showGarageRefillForm, setShowGarageRefillForm] = useState(false);
+  const [editingGarageRefillId, setEditingGarageRefillId] = useState<string | null>(null);
 
   // Search and date filters for Fuel logs extratos
   const [fuelSearchQuery, setFuelSearchQuery] = useState('');
@@ -975,11 +980,20 @@ export default function FleetView({
                   <button
                     onClick={() => {
                       if (!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0) return;
-                      onAddGarageRefill({
-                        data: garageRefillData,
-                        quantidade_litros: garageRefillLitros as number,
-                        valor_total: garageRefillValor as number
-                      });
+                      if (editingGarageRefillId) {
+                        onEditGarageRefill?.(editingGarageRefillId, {
+                          data: garageRefillData,
+                          quantidade_litros: garageRefillLitros as number,
+                          valor_total: garageRefillValor as number
+                        });
+                        setEditingGarageRefillId(null);
+                      } else {
+                        onAddGarageRefill({
+                          data: garageRefillData,
+                          quantidade_litros: garageRefillLitros as number,
+                          valor_total: garageRefillValor as number
+                        });
+                      }
                       setGarageRefillLitros('');
                       setGarageRefillValor('');
                       setGarageRefillData(new Date().toISOString().split('T')[0]);
@@ -988,7 +1002,7 @@ export default function FleetView({
                     className="w-full bg-purple-600 text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-purple-700 cursor-pointer disabled:opacity-50"
                     disabled={!garageRefillLitros || !garageRefillValor || garageRefillLitros <= 0 || garageRefillValor <= 0}
                   >
-                    Registrar Abastecimento
+                    {editingGarageRefillId ? 'Salvar Edição' : 'Registrar Abastecimento'}
                   </button>
                 </div>
               </div>
@@ -1003,6 +1017,7 @@ export default function FleetView({
                       <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Litros</th>
                       <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Valor Total</th>
                       <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">R$/L</th>
+                      <th className="text-right py-2 px-2 font-bold text-slate-400 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1012,6 +1027,34 @@ export default function FleetView({
                         <td className="py-2 px-2 text-right font-bold text-slate-900">{r.quantidade_litros.toLocaleString()}</td>
                         <td className="py-2 px-2 text-right font-bold text-emerald-600">R$ {r.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2 text-right font-mono text-slate-500">R$ {r.preco_por_litro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingGarageRefillId(r.id);
+                                setGarageRefillData(r.data);
+                                setGarageRefillLitros(r.quantidade_litros);
+                                setGarageRefillValor(r.valor_total);
+                                setShowGarageRefillForm(true);
+                              }}
+                              className="p-1 text-slate-400 hover:text-blue-600 cursor-pointer"
+                              title="Editar"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Excluir abastecimento de ${r.quantidade_litros}L em ${new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR')}?`)) {
+                                  onDeleteGarageRefill?.(r.id);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
