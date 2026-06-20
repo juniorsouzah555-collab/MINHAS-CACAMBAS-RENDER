@@ -690,6 +690,23 @@ export default function DriverPortal({
     );
   }
 
+  // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
+  const mapVehicles = (() => {
+    const activeNames = approvedDriverNames.length > 0 ? approvedDriverNames : motoristas;
+    const filtered = vehicles.filter(v => v.driver && v.lat && v.lng && activeNames.includes(v.driver));
+    const driversOnMap = new Set(filtered.map(v => v.driver));
+    activeNames.forEach((name, i) => {
+      if (!driversOnMap.has(name)) {
+        filtered.push({
+          id: `syn-${i}`, driver: name, lat: 0.15 + i * 0.04, lng: 0.15 + i * 0.04,
+          status: 'Available', speed: 0, efficiency: 0, fuelUsed: 0, costPerKm: 0,
+          trend: [], isActive: true
+        } as Vehicle);
+      }
+    });
+    return filtered;
+  })();
+
   return (
     <div id="driver-app-console" className="space-y-4 sm:space-y-6">
       
@@ -809,12 +826,12 @@ export default function DriverPortal({
 
         <DriverLiveMap 
           coords={userCoords} 
-          vehicles={vehicles.filter(v => v.driver && v.lat && v.lng && (approvedDriverNames.length > 0 ? approvedDriverNames : motoristas).includes(v.driver))}
+          vehicles={mapVehicles}
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
             startWatchingLocation();
-          }} 
+          }}
         />
       </div>
 
