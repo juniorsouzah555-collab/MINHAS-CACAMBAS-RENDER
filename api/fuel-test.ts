@@ -12,14 +12,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const admin = createClient(SUPABASE_URL, KEY);
 
-    if (req.method === 'POST' && req.body) {
-      const { error } = await admin.from('fuel_logs').insert([req.body]);
-      r.insertResult = error ? { error: error.message, details: error.details, code: error.code } : 'ok';
+    // Test various table access
+    const tables = ['lancamentos', 'fuel_logs', 'fuel_log', 'lancamento', 'vehicles'];
+    r.tables = {};
+    for (const t of tables) {
+      try {
+        const { error } = await admin.from(t).select('id').limit(1);
+        r.tables[t] = error ? { error: error.message } : { ok: true };
+      } catch (e: any) {
+        r.tables[t] = { catch: e.message };
+      }
     }
 
-    // Test: try selecting
-    const { data, error } = await admin.from('fuel_logs').select('id').limit(1);
-    r.selectResult = error ? { error: error.message } : { count: data?.length };
+    // Test insert into lancamentos
+    const testId = `TEST-${Date.now()}`;
+    const insertData = {
+      id: testId,
+      bota_fora_id: 'TEST',
+      bota_fora_nome: 'Test',
+      quantidade_cacambas: 1,
+      valor: 1,
+      data: '2026-06-20',
+      status: 'PENDING'
+    };
+    const { error: insertLancError } = await admin.from('lancamentos').insert([insertData]);
+    r.insertLancamento = insertLancError ? { error: insertLancError.message, details: insertLancError.details, code: insertLancError.code } : 'ok';
+
+    // Clean up
+    if (!insertLancError) {
+      await admin.from('lancamentos').delete().eq('id', testId);
+      r.cleanupLanc = 'ok';
+    }
   } catch (e: any) {
     r.catch = e.message;
   }
