@@ -231,18 +231,6 @@ export default function DriverPortal({
 }: DriverPortalProps) {
   const isDriverUser = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('driver') || currentUserEmail === 'motorista@relampago.com';
 
-  const [linkedDriverName, setLinkedDriverName] = useState<string | null>(getLinkedFromStorage);
-
-  // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
-  useEffect(() => {
-    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return;
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.linkedDriver) {
-        setLinkedDriverName(user.user_metadata.linkedDriver);
-      }
-    }).catch(() => {});
-  }, [currentUserEmail]);
-
   const getLinkedFromStorage = (): string | null => {
     if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
     try {
@@ -255,6 +243,18 @@ export default function DriverPortal({
     } catch {}
     return null;
   };
+
+  const [linkedDriverName, setLinkedDriverName] = useState<string | null>(getLinkedFromStorage);
+
+  // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
+  useEffect(() => {
+    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.linkedDriver) {
+        setLinkedDriverName(user.user_metadata.linkedDriver);
+      }
+    }).catch(() => {});
+  }, [currentUserEmail]);
 
   // Determine active driver name
   const [selectedDriver, setSelectedDriver] = useState<string>(() => {
