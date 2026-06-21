@@ -186,6 +186,18 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
   } catch { return false; }
 };
 
+// Heartbeat via REST (anon key)
+export const sendHeartbeat = async (email: string): Promise<void> => {
+  try { await supabase.from('user_approvals').update({ last_seen: Date.now() }).eq('email', email); } catch {}
+};
+export const getOnlineUsers = async (): Promise<string[]> => {
+  try {
+    const cutoff = Date.now() - 120000;
+    const { data } = await supabase.from('user_approvals').select('name').gte('last_seen', cutoff);
+    return (data || []).map((u: any) => u.name).filter(Boolean);
+  } catch { return []; }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {

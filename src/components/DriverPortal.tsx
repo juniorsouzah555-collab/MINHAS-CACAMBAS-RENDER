@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -30,12 +30,14 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry
+  onRetry,
+  onlineUsers = []
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
+  onlineUsers?: string[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -241,6 +243,19 @@ function DriverLiveMap({
           <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
+
+          {/* Online users badge */}
+          {onlineUsers.length > 0 && (
+            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-semibold text-slate-600 max-w-[180px]">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-black uppercase tracking-wider text-[9px] text-slate-500">Online</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {onlineUsers.map((n) => (<span key={n} className="bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 text-[9px] font-bold">{n}</span>))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -690,6 +705,18 @@ export default function DriverPortal({
     );
   }
 
+  // Online badge via REST
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  useEffect(() => {
+    if (!currentUserEmail) return;
+    sendHeartbeat(currentUserEmail);
+    const i1 = setInterval(() => sendHeartbeat(currentUserEmail), 20000);
+    const check = async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} };
+    check();
+    const i2 = setInterval(check, 20000);
+    return () => { clearInterval(i1); clearInterval(i2); };
+  }, [currentUserEmail]);
+
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
     // Se for motorista, mostra só ele mesmo no mapa
@@ -837,6 +864,7 @@ export default function DriverPortal({
             setGeoError(null);
             startWatchingLocation();
           }}
+          onlineUsers={onlineUsers}
         />
       </div>
 
