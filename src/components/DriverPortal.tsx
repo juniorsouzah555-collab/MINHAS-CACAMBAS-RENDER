@@ -488,10 +488,13 @@ export default function DriverPortal({
     return () => clearInterval(id);
   }, [currentUserEmail]);
 
-  // Online badge (consulta única no mount, sem intervalo)
+  // Online badge (polling a cada 15s)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   useEffect(() => {
-    (async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} })();
+    const poll = async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => clearInterval(id);
   }, []);
 
   // Local actions logger stream — persisted to localStorage
