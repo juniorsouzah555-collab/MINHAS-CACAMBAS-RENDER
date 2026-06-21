@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase, isSupabaseConfigured, sendHeartbeat } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -481,6 +481,12 @@ export default function DriverPortal({
     const id = setInterval(() => sendHeartbeat(currentUserEmail), 30000);
     return () => clearInterval(id);
   }, [currentUserEmail]);
+
+  // Consulta online users (sem badge ainda)
+  const [onlineUsers] = useState<string[]>([]);
+  useEffect(() => {
+    (async () => { try { const o = await getOnlineUsers(); console.log('onlineUsers', o); } catch {} })();
+  }, []);
 
   // Local actions logger stream — persisted to localStorage
   const [localAuditHistory, setLocalAuditHistory] = useState<AuditEntry[]>(() => {
