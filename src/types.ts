@@ -61,6 +61,7 @@ export interface FuelLog {
   lat?: number;
   lng?: number;
   observacao?: string;
+  fotoNota?: string;
 }
 
 export interface MaintenanceAlert {

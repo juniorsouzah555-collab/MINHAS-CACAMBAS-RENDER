@@ -1191,7 +1191,8 @@ export default function App() {
           tipo: freshRecord.tipo ?? null,
           is_retirada_diversa: freshRecord.isRetiradaDiversa,
           lat: freshRecord.lat ?? null,
-          lng: freshRecord.lng ?? null
+          lng: freshRecord.lng ?? null,
+          foto_nota: freshRecord.fotoNota ?? null
         })
       }).then(async r => {
         const text = await r.text();
@@ -1318,7 +1319,7 @@ export default function App() {
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
     return (
-      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100/40 min-h-screen text-slate-800 font-sans antialiased">
         <DriverPortal
           vehicles={vehicles}
           botaForas={botaForas}

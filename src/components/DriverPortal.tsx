@@ -6,13 +6,13 @@ import {
   Calendar, 
   MapPin, 
   CheckCircle2, 
-  Plus, 
-  Minus, 
   Activity, 
   Clock, 
   ShieldCheck,
   Building,
   Navigation,
+  Camera,
+  Trash2,
   FileText,
   LogOut
 } from 'lucide-react';
@@ -190,7 +190,7 @@ function DriverLiveMap({
   const hasAnyCoords = coords !== null || vehicles.length > 0;
 
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '16rem' }}>
+    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '16rem' }}>
       {error ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50 z-10">
           <p className="text-xs font-semibold text-slate-500 mb-3 leading-relaxed">
@@ -219,7 +219,7 @@ function DriverLiveMap({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="absolute top-3 right-3 z-[1000] bg-white/90 hover:bg-white border border-slate-200 rounded-lg p-2 shadow-md transition-all cursor-pointer"
+            className="absolute top-3 right-3 z-[1000] bg-white/90 hover:bg-white border border-blue-200/60 rounded-lg p-2 shadow-md transition-all cursor-pointer"
             title={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700">
@@ -242,12 +242,12 @@ function DriverLiveMap({
           </button>
 
           {/* Driver count badge */}
-          <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
+          <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
 
           {/* Online users badge */}
-          {onlineUsers.length > 0 && <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">Online: {onlineUsers.map(u => u.name).join(', ')}</div>}
+          {onlineUsers.length > 0 && <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">Online: {onlineUsers.map(u => u.name).join(', ')}</div>}
 
         </>
       )}
@@ -408,6 +408,12 @@ export default function DriverPortal({
   const [dischargeDate, setDischargeDate] = useState(getTodayDateStr());
   const [customDischargePrice, setCustomDischargePrice] = useState<string>('200');
   const [dischargeObservacao, setDischargeObservacao] = useState('');
+  const [formStep, setFormStep] = useState(0);
+
+  // Reseta o passo ao trocar de aba do formulário
+  useEffect(() => {
+    setFormStep(0);
+  }, [activeForm]);
 
   // Sincroniza o valor padrão do descarte ao alterar o bota-fora selecionado
   useEffect(() => {
@@ -423,25 +429,43 @@ export default function DriverPortal({
   const [fuelPrice, setFuelPrice] = useState<string>('680');
   const [currentKm, setCurrentKm] = useState<string>('');
   const [fuelObservacao, setFuelObservacao] = useState('');
+  const [fuelFotoNota, setFuelFotoNota] = useState<string | null>(null);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setFuelFotoNota(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveFoto = () => {
+    setFuelFotoNota(null);
+    if (fotoInputRef.current) fotoInputRef.current.value = '';
+  };
 
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [locationPermissionAsked, setLocationPermissionAsked] = useState(false);
 
-  // Request & Watch location
-  const startWatchingLocation = () => {
+  // Pede localização quando o usuário clica no botão
+  const askLocation = () => {
     if (!navigator.geolocation) {
       setGeoError("Este navegador não suporta a API de Geolocalização.");
+      setLocationPermissionAsked(true);
       return;
     }
 
-    const watchId = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
         setGeoError(null);
+        setLocationPermissionAsked(true);
       },
       (error) => {
         console.warn("Erro ao obter geolocalização:", error);
@@ -459,6 +483,7 @@ export default function DriverPortal({
             setGeoError("Ocorreu um erro desconhecido ao obter a geolocalização.");
             break;
         }
+        setLocationPermissionAsked(true);
       },
       {
         enableHighAccuracy: true,
@@ -466,19 +491,23 @@ export default function DriverPortal({
         maximumAge: 0
       }
     );
-
-    return watchId;
   };
 
-  // Auto-request location permission on mount — mostra o popup nativo do navegador
+  // Watch position continuamente (depois de autorizado)
   useEffect(() => {
-    const watchId = startWatchingLocation();
-    return () => {
-      if (watchId !== undefined) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, []);
+    if (!navigator.geolocation || !userCoords) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [userCoords]);
 
   // Heartbeat com intervalo (usa ref para evitar reiniciar o timer)
   const coordsRef = useRef(userCoords);
@@ -644,13 +673,14 @@ export default function DriverPortal({
       isRetiradaDiversa: false,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
+      fotoNota: fuelFotoNota || undefined,
     });
 
     // Audit trace
     const newAuditAction: AuditEntry = {
       id: `AUD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       action: 'Abastecimento Controlado',
-      description: `${inputLiters} Litros de Diesel • ${fuelStationType === 'GARAGEM' ? 'Bomba da Garagem' : 'Posto Externo'}`,
+      description: `${inputLiters} Litros de Diesel • ${fuelStationType === 'GARAGEM' ? 'Bomba da Garagem' : 'Posto Externo'}${fuelFotoNota ? ' • 📸 Com foto da nota' : ''}`,
       time: formatTimestamp(now),
       timestamp: now.toISOString(),
       details: `KM final digitado: ${currentKm || 'Não fornecido'} • R$ ${(inputPrice ?? 0).toFixed(2)} pagos`,
@@ -671,6 +701,8 @@ export default function DriverPortal({
     setFuelPrice('680');
     setCurrentKm('');
     setFuelObservacao('');
+    setFuelFotoNota(null);
+    if (fotoInputRef.current) fotoInputRef.current.value = '';
   };
 
   if (isDriverUser && !linkedDriverName) {
@@ -751,6 +783,119 @@ export default function DriverPortal({
     return filtered;
   })();
 
+  // Tela de permissão de localização (antes de mostrar o portal)
+  if (isDriverUser && !locationPermissionAsked) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-slate-100 shadow-2xl relative overflow-hidden font-sans">
+        <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 p-0.5 border border-emerald-500/20 mb-6">
+          <Navigation className="w-8 h-8 text-emerald-500 animate-pulse" />
+        </div>
+        
+        <h3 className="text-xl font-extrabold text-white tracking-tight leading-snug mb-3">
+          Autorizar Localização
+        </h3>
+        
+        <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto mb-6">
+          Este aplicativo precisa da sua localização para registrar as coordenadas GPS das descargas e abastecimentos, além de mostrar sua posição em tempo real no mapa.
+        </p>
+        
+        <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 text-left space-y-2 mb-6">
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+            <span>Por que preciso disso?</span>
+          </div>
+          <ul className="text-[11px] text-slate-300 space-y-2 font-medium">
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Registrar coordenadas exatas de cada descarga</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Mostrar sua posição em tempo real no mapa</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Comprovação geográfica das atividades realizadas</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={askLocation}
+            className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
+          >
+            Permitir Acesso à Localização
+          </button>
+          <button
+            type="button"
+            onClick={() => setLocationPermissionAsked(true)}
+            className="w-full py-2.5 bg-transparent hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 cursor-pointer"
+          >
+            Pular, vou definir manualmente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de erro de localização (se negou ou deu erro)
+  if (isDriverUser && geoError) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-slate-100 shadow-2xl relative overflow-hidden font-sans">
+        <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 p-0.5 border border-amber-500/20 mb-6">
+          <MapPin className="w-8 h-8 text-amber-500" />
+        </div>
+        
+        <h3 className="text-xl font-extrabold text-white tracking-tight leading-snug mb-3">
+          Localização Não Autorizada
+        </h3>
+        
+        <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto mb-6">
+          {geoError}
+        </p>
+        
+        <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 text-left space-y-2 mb-6">
+          <ul className="text-[11px] text-slate-300 space-y-2 font-medium">
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              <span>No Chrome: Configurações &rarr; Privacidade &rarr; Localização</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              <span>No celular: Ajustes &rarr; Apps &rarr; Navegador &rarr; Localização</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Após ativar, clique no botão abaixo para tentar novamente</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => { setGeoError(null); setLocationPermissionAsked(false); }}
+            className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
+          >
+            Tentar Novamente
+          </button>
+          <button
+            type="button"
+            onClick={() => setGeoError(null)}
+            className="w-full py-2.5 bg-transparent hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 cursor-pointer"
+          >
+            Continuar sem localização
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="driver-app-console" className="space-y-4 sm:space-y-6">
       
@@ -824,7 +969,7 @@ export default function DriverPortal({
       {/* Grid of counters indicating today's active achievements */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
-        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+        <div className="bg-white border border-blue-200/60 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
             <Building className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
@@ -835,7 +980,7 @@ export default function DriverPortal({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
+        <div className="bg-white border border-blue-200/60 p-3 sm:p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-2 sm:gap-4 text-center sm:text-left">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 shrink-0">
             <Fuel className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
@@ -848,25 +993,578 @@ export default function DriverPortal({
 
       </div>
 
-      {/* Rastreamento de Geolocalização por Satélite */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="space-y-1">
-            <h3 className="font-sans font-bold text-sm text-slate-800 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-500 animate-bounce" />
-              <span>Rastreamento Operacional GNSS (Tempo Real)</span>
-            </h3>
-            <p className="text-[11px] text-slate-500 leading-normal">
-              Roteamento do condutor monitorado centralmente com coordenadas geodésicas de precisão em tempo real.
-            </p>
-          </div>
-          {userCoords && typeof userCoords.lat === 'number' && typeof userCoords.lng === 'number' && (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-250 px-3 py-1.5 rounded-xl text-[10px] text-emerald-700 font-extrabold font-mono shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>LAT: {(userCoords.lat ?? 0).toFixed(6)} | LNG: {(userCoords.lng ?? 0).toFixed(6)}</span>
+      {/* Lançamentos / Atividades de Rua Hoje */}
+      <div className="relative bg-gradient-to-br from-white via-blue-50 to-blue-100/60 border-2 border-emerald-100/80 rounded-3xl p-5 sm:p-7 shadow-lg shadow-emerald-900/5 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-teal-500/5 blur-3xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h3 className="font-sans font-extrabold text-base sm:text-lg text-slate-900 flex items-center gap-2.5">
+                <span className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2 rounded-xl shadow-md shadow-emerald-500/20">
+                  <Clock className="w-4 h-4 text-white" />
+                </span>
+                <span>Atividades de Rua Hoje</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 font-medium ml-[3.25rem] -mt-0.5">Registro de operações realizadas</p>
             </div>
+            <span className="text-[10px] bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold px-3 py-1.5 rounded-full shadow-sm">
+              {localAuditHistory.length} registro{localAuditHistory.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+        {/* Audit List of actions typed by the driver */}
+        <div className="space-y-3 max-h-[320px] overflow-y-auto scrollbar-thin pr-1">
+          {localAuditHistory.map((item, idx) => (
+            <div 
+              key={item.id} 
+              className={`p-3.5 rounded-xl border border-slate-100 text-xs transition-all hover:bg-slate-50 relative ${
+                idx === 0 ? 'bg-emerald-50/20 border-emerald-500/20' : 'bg-white'
+              }`}
+            >
+              <div className="flex justify-between items-start gap-2 mb-1.5">
+                <span className="font-black text-slate-800 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  {item.action}
+                </span>
+                <span className="text-[9px] text-slate-450 font-mono bg-slate-100 px-1 py-0.5 rounded">
+                  {item.timestamp ? new Date(item.timestamp).toLocaleDateString('pt-BR') + ' ' + item.time : item.time}
+                </span>
+              </div>
+              <p className="text-slate-600 font-medium mb-1.5 leading-relaxed">{item.description}</p>
+              
+              {item.observacao && (
+                <div className="mb-2 text-[10px] bg-blue-50 border border-blue-100 rounded-lg p-2 text-blue-700 font-medium">
+                  📝 {item.observacao}
+                </div>
+              )}
+              
+              {typeof item.lat === 'number' && typeof item.lng === 'number' && (
+                <div className="mt-1.5 mb-2 text-[10px] bg-slate-50 border border-slate-150 rounded-lg p-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 text-slate-500 font-semibold font-mono">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                    <span>GPS: {(item.lat ?? 0).toFixed(6)}, {(item.lng ?? 0).toFixed(6)}</span>
+                  </div>
+                  <a 
+                    href={`https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}#map=17/${item.lat}/${item.lng}`} 
+                    target="_blank" 
+                    rel="noreferrer referrer" 
+                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5 shrink-0"
+                  >
+                    Ver no Mapa ↗
+                  </a>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-[10px] text-slate-450 border-t border-slate-100 pt-1.5 mt-1.5 font-sans">
+                <span>{item.details}</span>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Sincronizado</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      </div>
+
+      {/* Formulário de Atividades - largura total */}
+      <div className="relative bg-gradient-to-br from-white via-blue-50 to-blue-100/60 border-2 border-emerald-100/80 rounded-3xl p-5 sm:p-7 shadow-lg shadow-emerald-900/5 overflow-hidden">
+        {/* Decorative bg elements */}
+        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-teal-500/5 blur-3xl pointer-events-none" />
+        
+        <div className="relative">
+          <h3 className="font-sans font-extrabold text-base sm:text-lg text-slate-900 mb-1 flex items-center gap-2.5">
+            <span className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2 rounded-xl shadow-md shadow-emerald-500/20">
+              <Activity className="w-4 h-4 text-white" />
+            </span>
+            <span>Registrar Atividade</span>
+          </h3>
+          <p className="text-[11px] text-slate-400 font-medium ml-[3.25rem] mb-5 -mt-1">
+            Preencha os passos abaixo para registrar uma nova operação
+          </p>
+
+          {/* Quick Select Buttons between actions forms */}
+          <div className="grid grid-cols-2 gap-2 mb-6">
+            <button
+              type="button"
+              onClick={() => setActiveForm('discharges')}
+              className={`relative py-3 px-2 sm:px-4 rounded-2xl border-2 text-[11px] sm:text-xs font-black tracking-wide flex flex-col items-center gap-2 transition-all text-center cursor-pointer overflow-hidden ${
+                activeForm === 'discharges' 
+                  ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/25 scale-[1.02]'
+                  : 'bg-white border-blue-200/60 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700'
+              }`}
+            >
+              {activeForm === 'discharges' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
+              <Building className={`w-5 h-5 ${activeForm === 'discharges' ? 'text-emerald-200' : ''}`} />
+              <span>Descarregar Aterro</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveForm('refueling')}
+              className={`relative py-3 px-2 sm:px-4 rounded-2xl border-2 text-[11px] sm:text-xs font-black tracking-wide flex flex-col items-center gap-2 transition-all text-center cursor-pointer overflow-hidden ${
+                activeForm === 'refueling' 
+                  ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/25 scale-[1.02]'
+                  : 'bg-white border-blue-200/60 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700'
+              }`}
+            >
+              {activeForm === 'refueling' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
+              <Fuel className={`w-5 h-5 ${activeForm === 'refueling' ? 'text-emerald-200' : ''}`} />
+              <span>Abastecimento</span>
+            </button>
+          </div>
+
+          {/* Render form 1: Discharges (Descarte bota-fora) - Passo a passo */}
+          {activeForm === 'discharges' && (
+            <form onSubmit={handleDischargeSubmit} className="space-y-5">
+              {/* Indicador de Progresso */}
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  {['Descarte', 'Qtd', 'Valor', 'Data', 'Obs'].map((label, i) => (
+                    <div key={label} className="flex flex-col items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${
+                        formStep >= i
+                          ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-110'
+                          : 'bg-slate-100 border-slate-300 text-slate-400'
+                      }`}>
+                        {formStep > i ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span className={`text-[9px] font-bold mt-1.5 uppercase tracking-wider ${
+                        formStep >= i ? 'text-emerald-600' : 'text-slate-400'
+                      }`}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Barra de progresso conectando os círculos */}
+                <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-200 -z-10 mx-4">
+                  <div className="h-full bg-emerald-500 transition-all duration-500 rounded-full" style={{ width: `${(formStep / 4) * 100}%` }} />
+                </div>
+              </div>
+
+              {/* Card do Passo Atual */}
+              <div className="bg-white border border-blue-200/60 rounded-2xl p-5 sm:p-6 shadow-sm shadow-emerald-900/5">
+                {/* Passo 1: Ponto de Descarte */}
+                {formStep === 0 && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-black">1</span>
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Ponto de Descarte</label>
+                        <p className="text-[10px] text-slate-400">Selecione o bota-fora de destino</p>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 z-10">
+                        <MapPin className="w-5 h-5" />
+                      </span>
+                      <select
+                        value={selectedBotaForaId}
+                        onChange={(e) => setSelectedBotaForaId(e.target.value)}
+                        className="w-full pl-12 pr-5 py-4 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-emerald-200 rounded-2xl text-base text-slate-800 font-bold outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer appearance-none transition-all hover:border-emerald-300"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 1rem center',
+                          backgroundSize: '1rem'
+                        }}
+                      >
+                        {botaForas.map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.nome} {b.valorPadraoDescarte ? `(R$ ${b.valorPadraoDescarte}/cç)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Passo 2: Quantidade (lista clicável 1-5) */}
+                {formStep === 1 && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-black">2</span>
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantidade de Caçambas</label>
+                        <p className="text-[10px] text-slate-400">Escolha quantas caçambas foram descarregadas</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2.5">
+                      {[1, 2, 3, 4, 5].map((qty) => (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => setDischargeQty(qty)}
+                          className={`relative py-5 rounded-2xl border-2 text-2xl font-black transition-all duration-200 cursor-pointer ${
+                            dischargeQty === qty
+                              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/30 scale-110 -translate-y-1'
+                              : 'bg-white border-blue-200/60 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5 active:scale-95'
+                          }`}
+                        >
+                          {qty}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-center">
+                      <span className="inline-block px-4 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold text-emerald-700">
+                        {dischargeQty} caçamba{dischargeQty > 1 ? 's' : ''} selecionada{dischargeQty > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Passo 3: Valor Cobrado */}
+                {formStep === 2 && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-black">3</span>
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Valor Cobrado</label>
+                        <p className="text-[10px] text-slate-400">Custo por caçamba para faturamento</p>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-lg z-10">
+                        R$
+                      </span>
+                      <input
+                        type="number"
+                        value={customDischargePrice}
+                        onChange={(e) => setCustomDischargePrice(e.target.value)}
+                        placeholder="200"
+                        className="w-full pl-16 pr-5 py-5 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-emerald-200 rounded-2xl text-2xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-black tracking-tight transition-all hover:border-emerald-300"
+                      />
+                    </div>
+                    {/* Live cost estimator */}
+                    <div className="mt-3 p-4 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg shadow-emerald-500/20">
+                      <div className="flex justify-between items-center text-white">
+                        <div>
+                          <span className="text-[11px] text-emerald-100 font-bold uppercase tracking-wider">Total da Descarga</span>
+                          <p className="text-[10px] text-emerald-200 mt-0.5">{dischargeQty} caçamba{dischargeQty > 1 ? 's' : ''} × R$ {parseFloat(customDischargePrice) || 0}</p>
+                        </div>
+                        <strong className="text-2xl font-black text-white drop-shadow-sm">
+                          R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) || 0).toFixed(2)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Passo 4: Data */}
+                {formStep === 3 && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-black">4</span>
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Data da Descarga</label>
+                        <p className="text-[10px] text-slate-400">Quando a descarga foi realizada</p>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 z-10">
+                        <Calendar className="w-5 h-5" />
+                      </span>
+                      <input
+                        type="date"
+                        value={dischargeDate}
+                        onChange={(e) => setDischargeDate(e.target.value)}
+                        className="w-full pl-12 pr-5 py-4 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-emerald-200 rounded-2xl text-lg text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold transition-all hover:border-emerald-300"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Passo 5: Observação + Submit */}
+                {formStep === 4 && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-black">5</span>
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Observação</label>
+                        <p className="text-[10px] text-slate-400">Informações adicionais (opcional)</p>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-4 text-emerald-500 z-10">
+                        <FileText className="w-5 h-5" />
+                      </span>
+                      <textarea
+                        value={dischargeObservacao}
+                        onChange={(e) => setDischargeObservacao(e.target.value)}
+                        placeholder="Ex: Caçamba danificada, cliente ausente..."
+                        rows={3}
+                        className="w-full pl-12 pr-5 py-4 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-emerald-200 rounded-2xl text-base text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 resize-none transition-all hover:border-emerald-300"
+                      />
+                    </div>
+
+                    {/* Resumo antes de confirmar */}
+                    <div className="mt-4 p-5 bg-gradient-to-br from-slate-50 to-slate-100/80 border border-blue-200/60 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="font-black text-sm text-slate-700 uppercase tracking-wide">Resumo da Descarga</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Ponto</span>
+                          <span className="font-bold text-slate-800">{botaForas.find(b => b.id === selectedBotaForaId)?.nome || '-'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Qtd</span>
+                          <span className="font-bold text-slate-800">{dischargeQty} caçamba{dischargeQty > 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Valor</span>
+                          <span className="font-bold text-emerald-600 text-lg -mt-1">R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Data</span>
+                          <span className="font-bold text-slate-800">{dischargeDate}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Navegação entre passos */}
+              <div className="flex items-center justify-between gap-3">
+                {formStep > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFormStep(prev => prev - 1)}
+                    className="group inline-flex items-center gap-2 px-5 py-3 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 rounded-2xl border-2 border-blue-200/60 hover:border-slate-300 text-xs font-black tracking-wide transition-all cursor-pointer shadow-sm"
+                  >
+                    <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                    Voltar
+                  </button>
+                ) : (
+                  <div />
+                )}
+                
+                {formStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFormStep(prev => prev + 1)}
+                    className="group inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                  >
+                    Próximo
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="group inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/45 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Confirmar &amp; Faturar</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
+          {/* Render form 2: Refueling (Abastecimento) */}
+          {activeForm === 'refueling' && (
+            <form onSubmit={handleFuelSubmit} className="space-y-5">
+              <div className="bg-white border border-blue-200/60 rounded-2xl p-5 sm:p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-black">
+                    <Fuel className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Origem do Diesel</span>
+                    <p className="text-[10px] text-slate-400">Selecione a origem do abastecimento</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFuelStationType('POSTO');
+                      setFuelPrice('680');
+                    }}
+                    className={`relative py-4 px-3 rounded-2xl border-2 text-xs font-black tracking-wide transition-all text-center cursor-pointer ${
+                      fuelStationType === 'POSTO'
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-500/20 scale-[1.02]'
+                        : 'bg-white border-blue-200/60 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50'
+                    }`}
+                  >
+                    ⛽ Posto Externo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFuelStationType('GARAGEM');
+                      setFuelPrice('0');
+                    }}
+                    className={`relative py-4 px-3 rounded-2xl border-2 text-xs font-black tracking-wide transition-all text-center cursor-pointer ${
+                      fuelStationType === 'GARAGEM'
+                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 border-amber-400 text-white shadow-lg shadow-amber-500/20 scale-[1.02]'
+                        : 'bg-white border-blue-200/60 text-slate-600 hover:border-amber-300 hover:bg-amber-50'
+                    }`}
+                  >
+                    🏢 Bomba Garagem
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white border border-blue-200/60 rounded-2xl p-5 shadow-sm">
+                  <label className="block text-xs font-black uppercase text-slate-500 tracking-wider mb-1">Quantidade (Litros)</label>
+                  <p className="text-[10px] text-slate-400 mb-3">Volume abastecido</p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-lg">L</span>
+                    <input
+                      type="number"
+                      required
+                      value={liters}
+                      onChange={(e) => setLiters(e.target.value)}
+                      placeholder="150"
+                      className="w-full pl-10 pr-4 py-3 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-blue-200/60 rounded-xl text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold transition-all hover:border-emerald-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white border border-blue-200/60 rounded-2xl p-5 shadow-sm">
+                  <label className="block text-xs font-black uppercase text-slate-500 tracking-wider mb-1">Valor Pago (R$)</label>
+                  <p className="text-[10px] text-slate-400 mb-3">Custo total do abastecimento</p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-lg">R$</span>
+                    <input
+                      type="number"
+                      required
+                      disabled={fuelStationType === 'GARAGEM'}
+                      value={fuelStationType === 'GARAGEM' ? '0' : fuelPrice}
+                      onChange={(e) => setFuelPrice(e.target.value)}
+                      placeholder="850"
+                      className="w-full pl-14 pr-4 py-3 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-blue-200/60 rounded-xl text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold transition-all hover:border-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-blue-200/60 rounded-2xl p-5 shadow-sm">
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-500 tracking-wider">Odômetro (KM Atual)</label>
+                    <p className="text-[10px] text-slate-400">Quilometragem do veículo</p>
+                  </div>
+                  <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-3 py-1.5 rounded-full font-mono">Último: {activeVehicle?.initialKm || 120500} KM</span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Navigation className="w-5 h-5" />
+                  </span>
+                  <input
+                    type="number"
+                    value={currentKm}
+                    onChange={(e) => setCurrentKm(e.target.value)}
+                    placeholder={activeVehicle ? String(activeVehicle.initialKm ? activeVehicle.initialKm + 150 : 120650) : "120680"}
+                    className="w-full pl-12 pr-4 py-3 bg-gradient-to-r from-blue-100/30 to-white border-2 border-blue-200/60 rounded-xl text-lg text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold font-mono tracking-wide transition-all hover:border-emerald-300"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white border border-blue-200/60 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Camera className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Foto da Nota</span>
+                </div>
+                <input
+                  ref={fotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFotoCapture}
+                  className="hidden"
+                />
+                {fuelFotoNota ? (
+                  <div className="relative">
+                    <img
+                      src={fuelFotoNota}
+                      alt="Nota fiscal"
+                      className="w-full h-48 object-cover rounded-xl border-2 border-blue-200/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveFoto}
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fotoInputRef.current?.click()}
+                    className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-emerald-400 hover:text-emerald-600 transition-all cursor-pointer bg-gradient-to-r from-blue-100/30 to-white"
+                  >
+                    <Camera className="w-8 h-8" />
+                    <span className="text-xs font-bold">Tirar Foto da Nota</span>
+                    <span className="text-[10px] text-slate-400">Aponte a câmera para o comprovante</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="group w-full inline-flex items-center justify-center gap-2.5 px-7 py-4 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/45 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <Fuel className="w-5 h-5" />
+                <span>Gravar Abastecimento</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+              </button>
+            </form>
           )}
         </div>
+      </div>
+
+      {/* Guidelines info card for dispatch safety */}
+      <div className="relative p-5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-start gap-4 overflow-hidden">
+        <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-sm">
+          <ShieldCheck className="w-5 h-5 text-white" />
+        </div>
+        <div className="text-[12px] text-white/90 space-y-1 leading-relaxed">
+          <strong className="block font-black text-white uppercase tracking-wider text-xs">DICA OPERACIONAL</strong>
+          <p className="text-white/80">
+            Ao registrar qualquer atividade, os dados são sincronizados automaticamente com o sistema central, atualizando comissões, faturas e médias de consumo em tempo real.
+          </p>
+        </div>
+      </div>
+
+      {/* Mapa - movido para o final */}
+      <div className="relative bg-gradient-to-br from-white via-blue-50 to-blue-100/60 border-2 border-emerald-100/80 rounded-3xl p-5 sm:p-7 shadow-lg shadow-emerald-900/5 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-teal-500/5 blur-3xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="font-sans font-extrabold text-base sm:text-lg text-slate-900 flex items-center gap-2.5">
+                <span className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2 rounded-xl shadow-md shadow-emerald-500/20">
+                  <MapPin className="w-4 h-4 text-white" />
+                </span>
+                <span>Rastreamento GNSS</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 font-medium ml-[3.25rem] -mt-0.5">
+                Coordenadas geodésicas em tempo real
+              </p>
+            </div>
+            {userCoords && typeof userCoords.lat === 'number' && typeof userCoords.lng === 'number' && (
+              <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2 rounded-xl text-[10px] text-white font-extrabold font-mono shadow-md shrink-0 ml-[3.25rem] sm:ml-0">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span>{(userCoords.lat ?? 0).toFixed(6)} | {(userCoords.lng ?? 0).toFixed(6)}</span>
+              </div>
+            )}
+          </div>
 
         <DriverLiveMap 
           coords={userCoords} 
@@ -874,368 +1572,14 @@ export default function DriverPortal({
           error={geoError} 
           onRetry={() => {
             setGeoError(null);
-            startWatchingLocation();
+            askLocation();
           }}
           onlineUsers={onlineUsers}
           isDriverUser={isDriverUser}
         />
       </div>
 
-      {/* Main Layout containing task entry forms and live logs */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Side: Modular and clean Touch actions form */}
-        <div className="lg:col-span-7 space-y-4">
-          
-          <div className="bg-white border border-slate-250 rounded-2xl p-4 sm:p-6 shadow-sm">
-            <h3 className="font-sans font-bold text-sm text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Activity className="w-4 h-4 text-emerald-600 animate-pulse" />
-              <span>Registrar Nova Atividade de Trabalho</span>
-            </h3>
-
-            {/* Quick Select Buttons between actions forms */}
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-6">
-              <button
-                type="button"
-                onClick={() => setActiveForm('discharges')}
-                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
-                  activeForm === 'discharges' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
-                    : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Building className="w-4 h-4" />
-                <span>Descarregar Aterro</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveForm('refueling')}
-                className={`py-2 px-1.5 sm:px-3 rounded-xl border text-[10px] sm:text-[11px] font-black tracking-wide flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
-                  activeForm === 'refueling' 
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow shadow-emerald-500/20 shadow-md' 
-                    : 'bg-slate-50 border-slate-250 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Fuel className="w-4 h-4" />
-                <span>Abastecimento</span>
-              </button>
-            </div>
-
-            {/* Render form 1: Discharges (Descarte bota-fora) */}
-            {activeForm === 'discharges' && (
-              <form onSubmit={handleDischargeSubmit} className="space-y-4 animate-in fade-in duration-200">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Ponto de Descarte (Bota-Fora)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <MapPin className="w-4 h-4" />
-                    </span>
-                    <select
-                      value={selectedBotaForaId}
-                      onChange={(e) => setSelectedBotaForaId(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 cursor-pointer"
-                    >
-                      {botaForas.map(b => (
-                        <option key={b.id} value={b.id}>
-                          {b.nome} {b.valorPadraoDescarte ? `(R$ ${b.valorPadraoDescarte}/cç)` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Quantidade Descarregada</label>
-                  <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl max-w-[160px] p-1 justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setDischargeQty(prev => Math.max(1, prev - 1))}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-600 border border-slate-200 cursor-pointer shadow-sm hover:bg-slate-50"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="text-sm font-extrabold text-slate-850">{dischargeQty}</span>
-                    <button
-                      type="button"
-                      onClick={() => setDischargeQty(prev => prev + 1)}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-600 border border-slate-200 cursor-pointer shadow-sm hover:bg-slate-50"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Valor Cobrado / Custo por Caçamba (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-slate-450 font-bold text-xs">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      value={customDischargePrice}
-                      onChange={(e) => setCustomDischargePrice(e.target.value)}
-                      placeholder="Ex: 200"
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 font-semibold"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Data da Descarga</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="date"
-                      value={dischargeDate}
-                      onChange={(e) => setDischargeDate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Observação (opcional)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <FileText className="w-4 h-4" />
-                    </span>
-                    <textarea
-                      value={dischargeObservacao}
-                      onChange={(e) => setDischargeObservacao(e.target.value)}
-                      placeholder="Ex: Caçamba danificada, cliente ausente..."
-                      rows={2}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Live cost estimator to let drivers know */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
-                  <span className="text-slate-505 font-medium">Estimativa do Faturamento de Descarte:</span>
-                  <strong className="text-slate-850 font-extrabold text-sm text-emerald-600 font-mono">
-                    R$ {(((parseFloat(customDischargePrice) || 0) * dischargeQty) || 0).toFixed(2)}
-                  </strong>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-505 to-teal-600 hover:from-emerald-450 hover:to-teal-555 text-white py-3 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                >
-                  <Building className="w-4 h-4 text-white" />
-                  <span>Confirmar Descarga &amp; Gerar Fatura</span>
-                </button>
-              </form>
-            )}
-
-            {/* Render form 2: Refueling (Abastecimento) */}
-            {activeForm === 'refueling' && (
-              <form onSubmit={handleFuelSubmit} className="space-y-4 animate-in fade-in duration-200">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Origem do Diesel</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFuelStationType('POSTO');
-                        setFuelPrice('680');
-                      }}
-                      className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center cursor-pointer ${
-                        fuelStationType === 'POSTO'
-                          ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-extrabold'
-                          : 'bg-white border-slate-200 text-slate-500'
-                      }`}
-                    >
-                      ⛽ Posto Licenciado (Externo)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFuelStationType('GARAGEM');
-                        setFuelPrice('0');
-                      }}
-                      className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center cursor-pointer ${
-                        fuelStationType === 'GARAGEM'
-                          ? 'bg-amber-50 border-amber-500 text-amber-700 font-extrabold'
-                          : 'bg-white border-slate-200 text-slate-500'
-                      }`}
-                    >
-                      🏢 Bomba da Garagem (Interno)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Quantidade (Litros)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-xs text-slate-400 font-bold">L</span>
-                      <input
-                        type="number"
-                        required
-                        value={liters}
-                        onChange={(e) => setLiters(e.target.value)}
-                        placeholder="Ex: 150"
-                        className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Preço / Valor Pago (R$)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-xs text-slate-400 font-bold">R$</span>
-                      <input
-                        type="number"
-                        required
-                        disabled={fuelStationType === 'GARAGEM'}
-                        value={fuelStationType === 'GARAGEM' ? '0' : fuelPrice}
-                        onChange={(e) => setFuelPrice(e.target.value)}
-                        placeholder="Ex: 850"
-                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-250 border-slate-200 rounded-xl text-xs text-slate-800 outline-none font-bold disabled:opacity-55"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Odômetro do Veículo (KM Atual)</label>
-                    <span className="text-[9px] text-slate-450 font-mono">Último KM registrado: {activeVehicle?.initialKm || 120500} KM</span>
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <Navigation className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="number"
-                      value={currentKm}
-                      onChange={(e) => setCurrentKm(e.target.value)}
-                      placeholder={activeVehicle ? String(activeVehicle.initialKm ? activeVehicle.initialKm + 150 : 120650) : "Ex: 120680"}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none font-bold font-mono tracking-wide"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider">Observação (opcional)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <FileText className="w-4 h-4" />
-                    </span>
-                    <textarea
-                      value={fuelObservacao}
-                      onChange={(e) => setFuelObservacao(e.target.value)}
-                      placeholder="Ex: Nota fiscal danificada, bomba com problema..."
-                      rows={2}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-555 text-white py-3 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                >
-                  <Fuel className="w-4 h-4 text-white" />
-                  <span>Gravar Abastecimento &amp; Subtrair Estoque</span>
-                </button>
-              </form>
-            )}
-
-          </div>
-
-          {/* Guidelines info card for dispatch safety */}
-          <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-3.5">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="text-[11px] text-emerald-800 space-y-1 leading-relaxed">
-              <strong className="block font-black text-emerald-900 uppercase tracking-wide">DICA:</strong>
-              <p>
-                Ao registrar qualquer atividade, os dados são sincronizados automaticamente com o sistema central, atualizando comissões, faturas e médias de consumo em tempo real.
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Side: Log of transactions already registered today */}
-        <div className="lg:col-span-5 space-y-4">
-          
-          <div className="bg-white border border-slate-250 rounded-2xl p-6 shadow-sm flex flex-col h-full min-h-[480px]">
-            
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-              <h3 className="font-sans font-bold text-sm text-slate-800 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" />
-                <span>Atividades de Rua Hoje</span>
-              </h3>
-              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full uppercase">
-                {localAuditHistory.length} registros
-              </span>
-            </div>
-
-            {/* Audit List of actions typed by the driver */}
-            <div className="space-y-3 flex-1 overflow-y-auto max-h-[420px] scrollbar-thin pr-1">
-              {localAuditHistory.map((item, idx) => (
-                <div 
-                  key={item.id} 
-                  className={`p-3.5 rounded-xl border border-slate-100 text-xs transition-all hover:bg-slate-50 relative ${
-                    idx === 0 ? 'bg-emerald-50/20 border-emerald-500/20' : 'bg-white'
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2 mb-1.5">
-                    <span className="font-black text-slate-800 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      {item.action}
-                    </span>
-                    <span className="text-[9px] text-slate-450 font-mono bg-slate-100 px-1 py-0.5 rounded">
-                      {item.timestamp ? new Date(item.timestamp).toLocaleDateString('pt-BR') + ' ' + item.time : item.time}
-                    </span>
-                  </div>
-                  <p className="text-slate-600 font-medium mb-1.5 leading-relaxed">{item.description}</p>
-                  
-                  {item.observacao && (
-                    <div className="mb-2 text-[10px] bg-blue-50 border border-blue-100 rounded-lg p-2 text-blue-700 font-medium">
-                      📝 {item.observacao}
-                    </div>
-                  )}
-                  
-                  {typeof item.lat === 'number' && typeof item.lng === 'number' && (
-                    <div className="mt-1.5 mb-2 text-[10px] bg-slate-50 border border-slate-150 rounded-lg p-2 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-slate-500 font-semibold font-mono">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-                        <span>GPS: {(item.lat ?? 0).toFixed(6)}, {(item.lng ?? 0).toFixed(6)}</span>
-                      </div>
-                      <a 
-                        href={`https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}#map=17/${item.lat}/${item.lng}`} 
-                        target="_blank" 
-                        rel="noreferrer referrer" 
-                        className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5 shrink-0"
-                      >
-                        Ver no Mapa ↗
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-[10px] text-slate-450 border-t border-slate-100 pt-1.5 mt-1.5 font-sans">
-                    <span>{item.details}</span>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Sincronizado</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
+    </div>
     </div>
   );
 }
