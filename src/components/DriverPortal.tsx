@@ -30,13 +30,17 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry
+  onRetry,
+  onlineUsers = []
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
+  onlineUsers: string[];
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void onlineUsers;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -853,6 +857,7 @@ export default function DriverPortal({
             setGeoError(null);
             startWatchingLocation();
           }}
+          onlineUsers={onlineUsers}
         />
       </div>
 
