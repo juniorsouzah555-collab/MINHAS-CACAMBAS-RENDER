@@ -448,7 +448,18 @@ export default function DriverPortal({
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [locationPermissionAsked, setLocationPermissionAsked] = useState(false);
+  const [locationPermissionAsked, setLocationPermissionAskedState] = useState(() => {
+    return localStorage.getItem('relampago_loc_asked') === 'true';
+  });
+
+  const setLocationPermissionAsked = (val: boolean) => {
+    setLocationPermissionAskedState(val);
+    if (val) {
+      localStorage.setItem('relampago_loc_asked', 'true');
+    } else {
+      localStorage.removeItem('relampago_loc_asked');
+    }
+  };
 
   // Pede localização quando o usuário clica no botão
   const askLocation = () => {
