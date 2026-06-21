@@ -246,6 +246,8 @@ function DriverLiveMap({
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
 
+          {/* Online users badge */}
+          {onlineUsers.length > 0 && <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">Online: {onlineUsers.join(', ')}</div>}
 
         </>
       )}
@@ -486,10 +488,10 @@ export default function DriverPortal({
     return () => clearInterval(id);
   }, [currentUserEmail]);
 
-  // Consulta online users (sem badge ainda)
-  const [onlineUsers] = useState<string[]>([]);
+  // Online badge (consulta única no mount, sem intervalo)
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   useEffect(() => {
-    (async () => { try { const o = await getOnlineUsers(); console.log('onlineUsers', o); } catch {} })();
+    (async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} })();
   }, []);
 
   // Local actions logger stream — persisted to localStorage
