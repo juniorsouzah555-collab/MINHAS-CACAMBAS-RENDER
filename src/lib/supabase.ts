@@ -187,14 +187,18 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
 };
 
 // Heartbeat via REST (anon key)
-export const sendHeartbeat = async (email: string): Promise<void> => {
-  try { await supabase.from('user_approvals').update({ last_seen: Date.now() }).eq('email', email); } catch {}
+export const sendHeartbeat = async (email: string, lat?: number, lng?: number): Promise<void> => {
+  try {
+    const payload: any = { last_seen: Date.now() };
+    if (lat !== undefined && lng !== undefined) { payload.last_lat = lat; payload.last_lng = lng; }
+    await supabase.from('user_approvals').update(payload).eq('email', email);
+  } catch {}
 };
-export const getOnlineUsers = async (): Promise<string[]> => {
+export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng: number }[]> => {
   try {
     const cutoff = Date.now() - 120000;
-    const { data } = await supabase.from('user_approvals').select('name').gte('last_seen', cutoff);
-    return (data || []).map((u: any) => u.name).filter(Boolean);
+    const { data } = await supabase.from('user_approvals').select('name, last_lat, last_lng').gte('last_seen', cutoff);
+    return (data || []).filter((u: any) => u.name).map((u: any) => ({ name: u.name, lat: u.last_lat || 0, lng: u.last_lng || 0 }));
   } catch { return []; }
 };
 

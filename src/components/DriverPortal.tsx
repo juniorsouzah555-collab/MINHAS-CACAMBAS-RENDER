@@ -38,7 +38,7 @@ function DriverLiveMap({
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
-  onlineUsers: string[];
+  onlineUsers: { name: string; lat: number; lng: number }[];
   isDriverUser: boolean;
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -247,7 +247,7 @@ function DriverLiveMap({
           </div>
 
           {/* Online users badge */}
-          {onlineUsers.length > 0 && <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">Online: {onlineUsers.join(', ')}</div>}
+          {onlineUsers.length > 0 && <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">Online: {onlineUsers.map(u => u.name).join(', ')}</div>}
 
         </>
       )}
@@ -480,16 +480,22 @@ export default function DriverPortal({
     };
   }, []);
 
-  // Heartbeat com intervalo
+  // Heartbeat com intervalo (usa ref para evitar reiniciar o timer)
+  const coordsRef = useRef(userCoords);
+  coordsRef.current = userCoords;
   useEffect(() => {
     if (!currentUserEmail) return;
-    sendHeartbeat(currentUserEmail);
-    const id = setInterval(() => sendHeartbeat(currentUserEmail), 30000);
+    const beat = () => {
+      const c = coordsRef.current;
+      sendHeartbeat(currentUserEmail, c?.lat, c?.lng);
+    };
+    beat();
+    const id = setInterval(beat, 30000);
     return () => clearInterval(id);
   }, [currentUserEmail]);
 
   // Online badge (polling a cada 15s)
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<{ name: string; lat: number; lng: number }[]>([]);
   useEffect(() => {
     const poll = async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} };
     poll();
@@ -725,10 +731,14 @@ export default function DriverPortal({
     const activeNames = approvedDriverNames.length > 0 ? approvedDriverNames : motoristas;
     const filtered = vehicles.filter(v => v.driver && v.lat && v.lng && activeNames.includes(v.driver));
     const driversOnMap = new Set(filtered.map(v => v.driver));
+    const onlineMap = new Map(onlineUsers.map(u => [u.name, u]));
     activeNames.forEach((name, i) => {
       if (!driversOnMap.has(name)) {
+        const o = onlineMap.get(name);
         filtered.push({
-          id: `syn-${i}`, driver: name, lat: 0.15 + i * 0.04, lng: 0.15 + i * 0.04,
+          id: `syn-${i}`, driver: name,
+          lat: o && o.lat ? o.lat : 0.15 + i * 0.04,
+          lng: o && o.lng ? o.lng : 0.15 + i * 0.04,
           status: 'Available', speed: 0, efficiency: 0, fuelUsed: 0, costPerKm: 0,
           trend: [], isActive: true
         } as Vehicle);
