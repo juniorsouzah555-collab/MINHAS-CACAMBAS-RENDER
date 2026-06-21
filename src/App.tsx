@@ -1022,7 +1022,7 @@ export default function App() {
     setInvoices(prev => [autoInvoice, ...prev]);
 
     if (isSupabaseConfigured()) {
-      proxyInsert('lancamentos', {
+      supabase.from('lancamentos').insert([{
         id: freshRecord.id,
         bota_fora_id: freshRecord.botaForaId,
         bota_fora_nome: freshRecord.botaForaNome,
@@ -1034,12 +1034,10 @@ export default function App() {
         status: freshRecord.status,
         created_at: freshRecord.createdAt,
         lat: freshRecord.lat ?? null,
-        lng: freshRecord.lng ?? null
-      }).then((ok) => {
-        if (!ok) {
-          console.error("Proxy error saving lancamento");
-          handleShowToast("Sincronização Parcial", "Dados salvos localmente, mas falha ao sincronizar com servidor.", "info");
-        }
+        lng: freshRecord.lng ?? null,
+        observacao: freshRecord.observacao ?? null
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase insert lancamento error:", error);
       });
       supabase.from('invoices').insert([{
         id: autoInvoice.id,
@@ -1228,31 +1226,23 @@ export default function App() {
     setFuelLogs(prev => [freshRecord, ...prev]);
 
     if (isSupabaseConfigured()) {
-      fetch('/api/fuel-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: freshRecord.id,
-          vehicle_id: freshRecord.vehicleId,
-          quantidade_litros: freshRecord.quantidadeLitros,
-          km_inicial: freshRecord.kmInicial ?? null,
-          km_final: freshRecord.kmFinal ?? null,
-          valor_pago: freshRecord.valorPago,
-          data: freshRecord.data,
-          driver: freshRecord.driver ?? null,
-          media_km_l: freshRecord.mediaKmL ?? null,
-          tipo: freshRecord.tipo ?? null,
-          is_retirada_diversa: freshRecord.isRetiradaDiversa,
-          lat: freshRecord.lat ?? null,
-          lng: freshRecord.lng ?? null,
-          foto_nota: freshRecord.fotoNota ?? null
-        })
-      }).then(async r => {
-        const text = await r.text();
-        console.log("fuel-log API response:", r.status, text);
-        if (!r.ok) {
-          handleShowToast("Erro", `API ${r.status}: ${text.substring(0, 100)}`, "info");
-        }
+      supabase.from('fuel_logs').insert([{
+        id: freshRecord.id,
+        vehicle_id: freshRecord.vehicleId,
+        quantidade_litros: freshRecord.quantidadeLitros,
+        km_inicial: freshRecord.kmInicial ?? null,
+        km_final: freshRecord.kmFinal ?? null,
+        valor_pago: freshRecord.valorPago,
+        data: freshRecord.data,
+        driver: freshRecord.driver ?? null,
+        media_km_l: freshRecord.mediaKmL ?? null,
+        tipo: freshRecord.tipo ?? null,
+        is_retirada_diversa: freshRecord.isRetiradaDiversa,
+        lat: freshRecord.lat ?? null,
+        lng: freshRecord.lng ?? null,
+        foto_nota: freshRecord.fotoNota ?? null
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase insert fuel_log error:", error);
       });
     }
 
