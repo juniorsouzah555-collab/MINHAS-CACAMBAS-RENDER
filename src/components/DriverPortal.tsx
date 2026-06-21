@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase, isSupabaseConfigured, getOnlineUsers, sendHeartbeat } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -30,14 +30,12 @@ function DriverLiveMap({
   coords, 
   vehicles,
   error, 
-  onRetry,
-  onlineUsers = []
+  onRetry
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
-  onlineUsers: string[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -244,12 +242,7 @@ function DriverLiveMap({
             {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
           </div>
 
-          {/* Online users badge */}
-          {onlineUsers.length > 0 && (
-            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">
-              Online: {onlineUsers.join(', ')}
-            </div>
-          )}
+
         </>
       )}
     </div>
@@ -699,9 +692,6 @@ export default function DriverPortal({
     );
   }
 
-  // Online badge (sem consulta, só estático para teste)
-  const [onlineUsers] = useState<string[]>([]);
-
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
     // Se for motorista, mostra só ele mesmo no mapa
@@ -849,7 +839,6 @@ export default function DriverPortal({
             setGeoError(null);
             startWatchingLocation();
           }}
-          onlineUsers={onlineUsers}
         />
       </div>
 
