@@ -31,16 +31,16 @@ function DriverLiveMap({
   vehicles,
   error, 
   onRetry,
-  onlineUsers = []
+  onlineUsers = [],
+  isDriverUser = false
 }: { 
   coords: { lat: number; lng: number } | null; 
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
   onlineUsers: string[];
+  isDriverUser: boolean;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void onlineUsers;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -128,8 +128,8 @@ function DriverLiveMap({
       markersRef.current.push(marker);
     });
 
-    // Add current user's real GPS marker
-    if (coords) {
+    // Add current user's real GPS marker (only for drivers, not admin)
+    if (coords && isDriverUser) {
       const userIconHtml = `
         <div class="relative flex items-center justify-center">
           <div class="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-emerald-400 opacity-75"></div>
@@ -863,6 +863,7 @@ export default function DriverPortal({
             startWatchingLocation();
           }}
           onlineUsers={onlineUsers}
+          isDriverUser={isDriverUser}
         />
       </div>
 
