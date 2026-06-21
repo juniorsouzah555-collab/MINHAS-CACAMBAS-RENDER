@@ -705,17 +705,12 @@ export default function DriverPortal({
     );
   }
 
-  // Online badge via REST
+  // Online badge via REST (apenas consulta, sem setInterval)
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   useEffect(() => {
-    if (!currentUserEmail) return;
-    sendHeartbeat(currentUserEmail);
-    const i1 = setInterval(() => sendHeartbeat(currentUserEmail), 20000);
     const check = async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} };
     check();
-    const i2 = setInterval(check, 20000);
-    return () => { clearInterval(i1); clearInterval(i2); };
-  }, [currentUserEmail]);
+  }, []);
 
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
