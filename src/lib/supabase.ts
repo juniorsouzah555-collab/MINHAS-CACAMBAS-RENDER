@@ -191,15 +191,19 @@ export const sendHeartbeat = async (email: string, lat?: number, lng?: number): 
   try {
     const payload: any = { last_seen: Date.now() };
     if (lat !== undefined && lng !== undefined) { payload.last_lat = lat; payload.last_lng = lng; }
-    await supabase.from('user_approvals').update(payload).eq('email', email);
-  } catch {}
+    console.log('[HB] sending', payload, 'for', email);
+    const { error } = await supabase.from('user_approvals').update(payload).eq('email', email);
+    if (error) console.error('[HB] error', error);
+  } catch (e) { console.error('[HB] catch', e); }
 };
 export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng: number }[]> => {
   try {
     const cutoff = Date.now() - 120000;
-    const { data } = await supabase.from('user_approvals').select('name, last_lat, last_lng').gte('last_seen', cutoff);
+    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng').gte('last_seen', cutoff);
+    if (error) console.error('[OU] error', error);
+    console.log('[OU] data', data);
     return (data || []).filter((u: any) => u.name).map((u: any) => ({ name: u.name, lat: u.last_lat || 0, lng: u.last_lng || 0 }));
-  } catch { return []; }
+  } catch (e) { console.error('[OU] catch', e); return []; }
 };
 
 // Reinitializes the live client with new credentials

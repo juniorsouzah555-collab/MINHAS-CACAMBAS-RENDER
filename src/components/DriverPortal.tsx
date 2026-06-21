@@ -497,7 +497,7 @@ export default function DriverPortal({
   // Online badge (polling a cada 15s)
   const [onlineUsers, setOnlineUsers] = useState<{ name: string; lat: number; lng: number }[]>([]);
   useEffect(() => {
-    const poll = async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} };
+    const poll = async () => { try { const r = await getOnlineUsers(); console.log('[Poll] onlineUsers', r); setOnlineUsers(r); } catch {} };
     poll();
     const id = setInterval(poll, 15000);
     return () => clearInterval(id);
@@ -732,13 +732,17 @@ export default function DriverPortal({
     const filtered = vehicles.filter(v => v.driver && v.lat && v.lng && activeNames.includes(v.driver));
     const driversOnMap = new Set(filtered.map(v => v.driver));
     const onlineMap = new Map(onlineUsers.map(u => [u.name, u]));
+    console.log('[MV] onlineMap', [...onlineMap.entries()], 'activeNames', activeNames);
     activeNames.forEach((name, i) => {
       if (!driversOnMap.has(name)) {
         const o = onlineMap.get(name);
+        const useLat = o && o.lat ? o.lat : 0.15 + i * 0.04;
+        const useLng = o && o.lng ? o.lng : 0.15 + i * 0.04;
+        console.log('[MV] synth for', name, 'online=', o, 'lat=', useLat, 'lng=', useLng);
         filtered.push({
           id: `syn-${i}`, driver: name,
-          lat: o && o.lat ? o.lat : 0.15 + i * 0.04,
-          lng: o && o.lng ? o.lng : 0.15 + i * 0.04,
+          lat: useLat,
+          lng: useLng,
           status: 'Available', speed: 0, efficiency: 0, fuelUsed: 0, costPerKm: 0,
           trend: [], isActive: true
         } as Vehicle);
