@@ -474,9 +474,12 @@ export default function DriverPortal({
     };
   }, []);
 
-  // Heartbeat único no mount (sem intervalo, sem badge)
+  // Heartbeat com intervalo
   useEffect(() => {
-    if (currentUserEmail) { sendHeartbeat(currentUserEmail); }
+    if (!currentUserEmail) return;
+    sendHeartbeat(currentUserEmail);
+    const id = setInterval(() => sendHeartbeat(currentUserEmail), 30000);
+    return () => clearInterval(id);
   }, [currentUserEmail]);
 
   // Local actions logger stream — persisted to localStorage
