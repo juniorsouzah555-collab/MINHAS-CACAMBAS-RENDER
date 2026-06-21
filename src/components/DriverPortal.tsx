@@ -246,14 +246,8 @@ function DriverLiveMap({
 
           {/* Online users badge */}
           {onlineUsers.length > 0 && (
-            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-semibold text-slate-600 max-w-[180px]">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-black uppercase tracking-wider text-[9px] text-slate-500">Online</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {onlineUsers.map((n) => (<span key={n} className="bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 text-[9px] font-bold">{n}</span>))}
-              </div>
+            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-slate-200 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">
+              Online: {onlineUsers.join(', ')}
             </div>
           )}
         </>
@@ -705,11 +699,8 @@ export default function DriverPortal({
     );
   }
 
-  // Online badge via REST (apenas consulta, sem setInterval)
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-  useEffect(() => {
-    (async () => { try { setOnlineUsers(await getOnlineUsers()); } catch {} })();
-  }, []);
+  // Online badge (sem consulta, só estático para teste)
+  const [onlineUsers] = useState<string[]>([]);
 
   // Prepara lista de veículos + marcadores sintéticos para motoristas sem veículo
   const mapVehicles = (() => {
