@@ -285,6 +285,7 @@ interface AuditEntry {
   lat?: number;
   lng?: number;
   observacao?: string;
+  fotoNota?: string;
 }
 
 const AUDIT_STORAGE_KEY = 'relampago_driver_audit_log';
@@ -299,7 +300,8 @@ function loadAuditLog(): AuditEntry[] {
 
 function saveAuditLog(entries: AuditEntry[]) {
   try {
-    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(entries));
+    const safe = entries.map(({ fotoNota, ...rest }) => rest);
+    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(safe));
   } catch {}
 }
 
@@ -557,6 +559,8 @@ export default function DriverPortal({
       synchronized: true
     }];
   });
+
+  const [previewFoto, setPreviewFoto] = useState<string | null>(null);
 
   // Persist audit log on every change
   useEffect(() => {
@@ -1047,6 +1051,27 @@ export default function DriverPortal({
               {item.observacao && (
                 <div className="mb-2 text-[10px] bg-blue-50 border border-blue-100 rounded-lg p-2 text-blue-700 font-medium">
                   📝 {item.observacao}
+                </div>
+              )}
+
+              {item.fotoNota && (
+                <div className="mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFoto(item.fotoNota!)}
+                    className="w-full relative overflow-hidden rounded-xl border border-slate-200 cursor-pointer group"
+                  >
+                    <img
+                      src={item.fotoNota}
+                      alt="Nota fiscal"
+                      className="w-full h-28 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                      <span className="text-white font-bold text-xs bg-black/40 px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all">
+                        🔍 Visualizar
+                      </span>
+                    </div>
+                  </button>
                 </div>
               )}
               
@@ -1592,5 +1617,23 @@ export default function DriverPortal({
 
     </div>
     </div>
+
+      {previewFoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setPreviewFoto(null)}
+        >
+          <div className="relative max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setPreviewFoto(null)}
+              className="absolute top-3 right-3 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+            <img src={previewFoto} alt="Nota fiscal" className="w-full h-auto max-h-[80vh] object-contain" />
+          </div>
+        </div>
+      )}
   );
 }
