@@ -389,6 +389,59 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  // Polling a cada 15s para sincronizar dados entre motorista (mobile) e admin (web)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    const poll = async () => {
+      if (!active) return;
+      try {
+        if (isSupabaseConfigured()) {
+          const { data: listLan } = await supabase.from('lancamentos').select('*');
+          if (active && listLan) {
+            setLancamentos(listLan.map((l: any) => ({
+              id: l.id,
+              botaForaId: l.bota_fora_id || l.botaForaId,
+              botaForaNome: l.bota_fora_nome || l.botaForaNome,
+              quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
+              valor: l.valor,
+              data: l.data,
+              driverName: l.driver_name || l.driverName,
+              vehicleId: l.vehicle_id || l.vehicleId,
+              status: l.status,
+              createdAt: l.created_at || l.createdAt,
+              lat: l.lat,
+              lng: l.lng,
+              observacao: l.observacao || l.observation
+            })));
+          }
+          const { data: listFuel } = await supabase.from('fuel_logs').select('*');
+          if (active && listFuel) {
+            setFuelLogs(listFuel.map((f: any) => ({
+              id: f.id,
+              vehicleId: f.vehicle_id || f.vehicleId,
+              quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
+              kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
+              kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
+              valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
+              data: f.data,
+              driver: f.driver,
+              mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
+              tipo: f.tipo,
+              isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
+              lat: f.lat,
+              lng: f.lng
+            })));
+          }
+        }
+      } catch (e) {
+        console.warn("Polling error:", e);
+      }
+    };
+    const interval = setInterval(poll, 15000);
+    return () => { active = false; clearInterval(interval); };
+  }, [isAuthenticated]);
+
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
   useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
   useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
