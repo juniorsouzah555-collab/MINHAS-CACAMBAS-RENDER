@@ -411,11 +411,23 @@ export default function DriverPortal({
   const [customDischargePrice, setCustomDischargePrice] = useState<string>('200');
   const [dischargeObservacao, setDischargeObservacao] = useState('');
   const [formStep, setFormStep] = useState(0);
+  // Evita que um toque duplo/rápido no botão "Próximo" do último passo intermediário
+  // acabe acertando o botão "Confirmar & Faturar" que aparece na mesma posição assim
+  // que o passo avança, registrando o descarte sem o usuário perceber.
+  const [confirmReady, setConfirmReady] = useState(false);
 
   // Reseta o passo ao trocar de aba do formulário
   useEffect(() => {
     setFormStep(0);
   }, [activeForm]);
+
+  useEffect(() => {
+    setConfirmReady(false);
+    if (formStep === 4) {
+      const t = setTimeout(() => setConfirmReady(true), 500);
+      return () => clearTimeout(t);
+    }
+  }, [formStep]);
 
   // Sincroniza o valor padrão do descarte ao alterar o bota-fora selecionado
   useEffect(() => {
@@ -600,6 +612,13 @@ export default function DriverPortal({
     // A sincronização só deve ocorrer no último passo, via "Confirmar & Faturar".
     if (formStep < 4) {
       setFormStep(prev => Math.min(prev + 1, 4));
+      return;
+    }
+
+    // Trava extra: ignora um toque que acerte o botão "Confirmar & Faturar"
+    // nos primeiros instantes após ele aparecer (efeito de duplo-toque acidental
+    // ao avançar do passo anterior).
+    if (!confirmReady) {
       return;
     }
 
@@ -1404,7 +1423,8 @@ export default function DriverPortal({
                 ) : (
                   <button
                     type="submit"
-                    className="group inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/45 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                    disabled={!confirmReady}
+                    className={`group inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black tracking-wide transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/45 hover:-translate-y-0.5 active:translate-y-0 ${confirmReady ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                   >
                     <Building className="w-4 h-4" />
                     <span>Confirmar &amp; Faturar</span>
