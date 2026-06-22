@@ -434,11 +434,25 @@ export default function App() {
             })));
           }
         }
+        // Fallback: load from Express API (shared in-memory DB)
+        const [lanRes, fuelRes] = await Promise.all([
+          fetch("/api/lancamentos").catch(() => null),
+          fetch("/api/fuel-logs").catch(() => null)
+        ]);
+        if (active && lanRes?.ok) {
+          const data = await lanRes.json();
+          if (data && data.length > 0) setLancamentos(data);
+        }
+        if (active && fuelRes?.ok) {
+          const data = await fuelRes.json();
+          if (data && data.length > 0) setFuelLogs(data);
+        }
       } catch (e) {
         console.warn("Polling error:", e);
       }
     };
     const interval = setInterval(poll, 15000);
+    poll(); // run immediately too
     return () => { active = false; clearInterval(interval); };
   }, [isAuthenticated]);
 
@@ -1055,6 +1069,13 @@ export default function App() {
         }
       });
     }
+
+    // Save to Express API (shared in-memory DB for same-server clients)
+    fetch("/api/lancamentos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(freshRecord)
+    }).catch(err => console.error("Error saving Lancamento to Express API:", err));
 
     // Automatically assign Comissao if this was performed by a driver
     if (newLan.driverName && newLan.driverName !== 'Não Atribuído' && newLan.driverName !== 'Não atribuído' && newLan.driverName.trim() !== '') {
