@@ -663,13 +663,17 @@ export default function DriverPortal({
     setLocalAuditHistory(prev => [newAuditAction, ...prev]);
 
     onShowToast(
-      "Descarte Registrado", 
-      `Dumping de ${dischargeQty} caçambas gravado no aterro "${selectedBotaFora.nome}" com custo total de R$ ${(totalCost ?? 0).toFixed(2)}.`, 
+      "Descarte Registrado",
+      `Dumping de ${dischargeQty} caçambas gravado no aterro "${selectedBotaFora.nome}" com custo total de R$ ${(totalCost ?? 0).toFixed(2)}.`,
       "success"
     );
 
     setDischargeQty(1);
     setDischargeObservacao('');
+    // Volta o wizard pro passo inicial: um novo registro só pode ocorrer
+    // refazendo o fluxo, evitando cliques repetidos no botão de confirmar
+    // gerarem lançamentos duplicados do mesmo descarte.
+    setFormStep(0);
   };
 
   // Handle Fuel refueling submission
