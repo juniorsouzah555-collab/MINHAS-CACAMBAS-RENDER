@@ -206,6 +206,20 @@ export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng
   } catch (e) { console.error('[OU] catch', e); return []; }
 };
 
+// Faz upload da foto da nota fiscal pro Supabase Storage e retorna a URL pública.
+// Substitui o antigo formato (base64 direto na coluna foto_nota), que era o maior
+// gerador de egress no polling de sincronização.
+export const uploadFuelReceipt = async (file: File): Promise<string | null> => {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('fuel-receipts').upload(path, file, { contentType: file.type });
+    if (error) { console.error('Upload foto_nota error:', error); return null; }
+    const { data } = supabase.storage.from('fuel-receipts').getPublicUrl(path);
+    return data.publicUrl;
+  } catch (e) { console.error('Upload foto_nota catch:', e); return null; }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {

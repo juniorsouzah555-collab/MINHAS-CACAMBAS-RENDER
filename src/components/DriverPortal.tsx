@@ -17,7 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
-import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers, uploadFuelReceipt } from '../lib/supabase';
 
 // Convert simulated vehicle coordinates to GPS (base: São Paulo)
 const vehicleToGps = (lat: number, lng: number) => ({
@@ -444,11 +444,13 @@ export default function DriverPortal({
   const [currentKm, setCurrentKm] = useState<string>('');
   const [fuelObservacao, setFuelObservacao] = useState('');
   const [fuelFotoNota, setFuelFotoNota] = useState<string | null>(null);
+  const [fuelFotoFile, setFuelFotoFile] = useState<File | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const handleFotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFuelFotoFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setFuelFotoNota(reader.result as string);
     reader.readAsDataURL(file);
@@ -456,6 +458,7 @@ export default function DriverPortal({
 
   const handleRemoveFoto = () => {
     setFuelFotoNota(null);
+    setFuelFotoFile(null);
     if (fotoInputRef.current) fotoInputRef.current.value = '';
   };
 
@@ -677,7 +680,7 @@ export default function DriverPortal({
   };
 
   // Handle Fuel refueling submission
-  const handleFuelSubmit = (e: React.FormEvent) => {
+  const handleFuelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const inputLiters = parseFloat(liters);
@@ -706,6 +709,17 @@ export default function DriverPortal({
 
     const now = new Date();
 
+    // Sobe a foto pro Supabase Storage em vez de mandar base64 pela tabela
+    // (base64 na tabela era o maior gerador de egress no polling de sincronização).
+    // Se o upload falhar, o abastecimento ainda é registrado, só sem a foto.
+    let uploadedFotoUrl: string | undefined;
+    if (fuelFotoFile) {
+      uploadedFotoUrl = (await uploadFuelReceipt(fuelFotoFile)) || undefined;
+      if (!uploadedFotoUrl) {
+        onShowToast("Foto não enviada", "O abastecimento foi gravado, mas a foto da nota não pôde ser enviada.", "warning");
+      }
+    }
+
     // Trigger parent state fuel logger
     onAddFuelLog({
       vehicleId: selectedVehicleId,
@@ -719,7 +733,7 @@ export default function DriverPortal({
       isRetiradaDiversa: false,
       lat: userCoords?.lat || undefined,
       lng: userCoords?.lng || undefined,
-      fotoNota: fuelFotoNota || undefined,
+      fotoNota: uploadedFotoUrl,
     });
 
     // Audit trace
@@ -748,6 +762,7 @@ export default function DriverPortal({
     setCurrentKm('');
     setFuelObservacao('');
     setFuelFotoNota(null);
+    setFuelFotoFile(null);
     if (fotoInputRef.current) fotoInputRef.current.value = '';
   };
 

@@ -391,7 +391,7 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  // Polling a cada 15s para sincronizar dados entre motorista (mobile) e admin (web)
+  // Polling a cada 60s para sincronizar dados entre motorista (mobile) e admin (web)
   useEffect(() => {
     if (!isAuthenticated) return;
     let active = true;
@@ -422,9 +422,14 @@ export default function App() {
               return merged;
             });
           }
-          const { data: listFuel } = await supabase.from('fuel_logs').select('*');
+          // Nota: foto_nota (base64 da nota fiscal) é excluída do select do polling de
+          // propósito — é o maior gerador de egress do Supabase. Fotos novas vão pro
+          // Storage (ver uploadFuelReceipt); o valor local de fotoNota é preservado
+          // abaixo a partir do estado anterior em vez de vir do servidor.
+          const { data: listFuel } = await supabase.from('fuel_logs').select('id, vehicle_id, quantidade_litros, km_inicial, km_final, valor_pago, data, driver, media_km_l, tipo, is_retirada_diversa, lat, lng, observacao');
           if (active && listFuel) {
             setFuelLogs(prev => {
+              const prevById = new Map(prev.map((p: any) => [p.id, p]));
               const serverIds = new Set(listFuel.map((f: any) => f.id));
               const merged = listFuel.map((f: any) => ({
                 id: f.id,
@@ -441,7 +446,7 @@ export default function App() {
                 lat: f.lat,
                 lng: f.lng,
                 observacao: f.observacao,
-                fotoNota: f.foto_nota || f.fotoNota
+                fotoNota: prevById.get(f.id)?.fotoNota
               }));
               prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
               return merged;
@@ -526,7 +531,7 @@ export default function App() {
         console.warn("Polling error:", e);
       }
     };
-    const interval = setInterval(poll, 15000);
+    const interval = setInterval(poll, 60000);
     poll(); // run immediately too
     return () => { active = false; clearInterval(interval); };
   }, [isAuthenticated]);
