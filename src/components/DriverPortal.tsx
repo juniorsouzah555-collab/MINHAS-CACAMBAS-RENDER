@@ -912,6 +912,7 @@ export default function DriverPortal({
   }
 
   return (
+    <>
     <div id="driver-app-console" className="space-y-4 sm:space-y-6">
       
       {/* Dynamic Header Section for smartphone styling view */}
@@ -1635,5 +1636,6 @@ export default function DriverPortal({
           </div>
         </div>
       )}
+    </>
   );
 }

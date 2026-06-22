@@ -433,6 +433,17 @@ export default function App() {
               lng: f.lng
             })));
           }
+          const { data: listCom } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
+          if (active && listCom) {
+            setComissoes(listCom.map((c: any) => ({
+              id: c.id,
+              motorista: c.motorista || c.driver || 'Carlos Santana',
+              vaziasColocadas: Number(c.vazias_colocadas ?? c.vaziasColocadas ?? 0),
+              retiradas: Number(c.retiradas ?? 0),
+              data: c.data,
+              createdAt: c.created_at || c.createdAt
+            })));
+          }
         }
         // Fallback: load from Express API (shared in-memory DB)
         const [lanRes, fuelRes] = await Promise.all([
