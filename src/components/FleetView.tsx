@@ -31,7 +31,8 @@ import {
   Coins,
   Trash2,
   Save,
-  Edit3
+  Edit3,
+  Image as ImageIcon
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -170,6 +171,9 @@ export default function FleetView({
   const [editFuelDriver, setEditFuelDriver] = useState('');
   const [editFuelTipo, setEditFuelTipo] = useState<'POSTO' | 'GARAGEM'>('POSTO');
   const [editFuelObservacao, setEditFuelObservacao] = useState('');
+
+  // Photo lightbox preview for fuel log receipts
+  const [previewFotoNota, setPreviewFotoNota] = useState<string | null>(null);
 
   // Maintenance Logging Modal
   const [maintenanceVehicleId, setMaintenanceVehicleId] = useState<string | null>(null);
@@ -1505,6 +1509,16 @@ export default function FleetView({
                           {isAdmin && (
                             <td className="px-3 py-3.5 text-center">
                               <div className="flex items-center justify-center gap-1">
+                                {log.fotoNota && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewFotoNota(log.fotoNota!)}
+                                    className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-lg border border-transparent hover:border-emerald-100 transition-colors cursor-pointer"
+                                    title="Ver foto da nota fiscal"
+                                  >
+                                    <ImageIcon className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1919,6 +1933,25 @@ export default function FleetView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox: foto da nota fiscal do abastecimento */}
+      {previewFotoNota && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4"
+          onClick={() => setPreviewFotoNota(null)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewFotoNota(null)}
+              className="absolute -top-10 right-0 text-white hover:text-slate-300 cursor-pointer"
+              title="Fechar"
+            >
+              <X className="w-7 h-7" />
+            </button>
+            <img src={previewFotoNota} alt="Nota fiscal" className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl" />
           </div>
         </div>
       )}

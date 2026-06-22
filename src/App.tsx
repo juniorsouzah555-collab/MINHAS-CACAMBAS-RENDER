@@ -248,7 +248,9 @@ export default function App() {
                 tipo: f.tipo,
                 isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
                 lat: f.lat,
-                lng: f.lng
+                lng: f.lng,
+                observacao: f.observacao,
+                fotoNota: f.foto_nota || f.fotoNota
               })));
             }
 
@@ -437,7 +439,9 @@ export default function App() {
                 tipo: f.tipo,
                 isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
                 lat: f.lat,
-                lng: f.lng
+                lng: f.lng,
+                observacao: f.observacao,
+                fotoNota: f.foto_nota || f.fotoNota
               }));
               prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
               return merged;
@@ -509,7 +513,9 @@ export default function App() {
                 tipo: f.tipo,
                 isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
                 lat: f.lat,
-                lng: f.lng
+                lng: f.lng,
+                observacao: f.observacao,
+                fotoNota: f.foto_nota || f.fotoNota
               }));
               prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
               return merged;
