@@ -595,6 +595,14 @@ export default function DriverPortal({
   const handleDischargeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Impede submissão implícita do navegador (ex: Enter no campo de Data,
+    // que é o único campo do passo e não tem botão de submit visível ainda).
+    // A sincronização só deve ocorrer no último passo, via "Confirmar & Faturar".
+    if (formStep < 4) {
+      setFormStep(prev => Math.min(prev + 1, 4));
+      return;
+    }
+
     const selectedBotaFora = botaForas.find(b => b.id === selectedBotaForaId);
     if (!selectedBotaFora) {
       onShowToast("Erro", "Bota-Fora inválido selecionado.", "warning");
