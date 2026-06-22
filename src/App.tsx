@@ -391,149 +391,92 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  // Polling a cada 60s para sincronizar dados entre motorista (mobile) e admin (web)
+  // Sincronização em tempo real via Supabase Realtime (postgres_changes) entre
+  // motorista (mobile) e admin (web). Substitui o polling antigo (que reconsultava
+  // as tabelas inteiras a cada 60s) por um WebSocket que só recebe as mudanças.
+  // Toda escrita local (handleAddLancamento, handleAddFuelLog, etc.) já atualiza o
+  // estado otimisticamente, então os eventos recebidos aqui podem ser "eco" da
+  // própria escrita do cliente — por isso usamos upsert por id (idempotente) em
+  // vez de um simples append.
   useEffect(() => {
-    if (!isAuthenticated) return;
-    let active = true;
-    const poll = async () => {
-      if (!active) return;
-      try {
-        if (isSupabaseConfigured()) {
-          const { data: listLan } = await supabase.from('lancamentos').select('*');
-          if (active && listLan) {
-            setLancamentos(prev => {
-              const serverIds = new Set(listLan.map((l: any) => l.id));
-              const merged = listLan.map((l: any) => ({
-                id: l.id,
-                botaForaId: l.bota_fora_id || l.botaForaId,
-                botaForaNome: l.bota_fora_nome || l.botaForaNome,
-                quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
-                valor: l.valor,
-                data: l.data,
-                driverName: l.driver_name || l.driverName,
-                vehicleId: l.vehicle_id || l.vehicleId,
-                status: l.status,
-                createdAt: l.created_at || l.createdAt,
-                lat: l.lat,
-                lng: l.lng,
-                observacao: l.observacao || l.observation
-              }));
-              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
-              return merged;
-            });
-          }
-          // Nota: foto_nota (base64 da nota fiscal) é excluída do select do polling de
-          // propósito — é o maior gerador de egress do Supabase. Fotos novas vão pro
-          // Storage (ver uploadFuelReceipt); o valor local de fotoNota é preservado
-          // abaixo a partir do estado anterior em vez de vir do servidor.
-          const { data: listFuel } = await supabase.from('fuel_logs').select('id, vehicle_id, quantidade_litros, km_inicial, km_final, valor_pago, data, driver, media_km_l, tipo, is_retirada_diversa, lat, lng, observacao');
-          if (active && listFuel) {
-            setFuelLogs(prev => {
-              const prevById = new Map(prev.map((p: any) => [p.id, p]));
-              const serverIds = new Set(listFuel.map((f: any) => f.id));
-              const merged = listFuel.map((f: any) => ({
-                id: f.id,
-                vehicleId: f.vehicle_id || f.vehicleId,
-                quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
-                kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
-                kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
-                valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
-                data: f.data,
-                driver: f.driver,
-                mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
-                tipo: f.tipo,
-                isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
-                lat: f.lat,
-                lng: f.lng,
-                observacao: f.observacao,
-                fotoNota: prevById.get(f.id)?.fotoNota
-              }));
-              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
-              return merged;
-            });
-          }
-          const { data: listCom } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
-          if (active && listCom) {
-            setComissoes(prev => {
-              const serverIds = new Set(listCom.map((c: any) => c.id));
-              const merged = listCom.map((c: any) => ({
-                id: c.id,
-                motorista: c.motorista || c.driver || 'Carlos Santana',
-                vaziasColocadas: Number(c.vazias_colocadas ?? c.vaziasColocadas ?? 0),
-                retiradas: Number(c.retiradas ?? 0),
-                data: c.data,
-                createdAt: c.created_at || c.createdAt
-              }));
-              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
-              return merged;
-            });
-          }
-          return;
-        }
-        // Fallback: load from Express API (shared in-memory DB)
-        const [lanRes, fuelRes] = await Promise.all([
-          fetch("/api/lancamentos").catch(() => null),
-          fetch("/api/fuel-logs").catch(() => null)
-        ]);
-        if (active && lanRes?.ok) {
-          const data = await lanRes.json();
-          if (data && data.length > 0) {
-            setLancamentos(prev => {
-              const serverIds = new Set(data.map((l: any) => l.id));
-              const merged = data.map((l: any) => ({
-                id: l.id,
-                botaForaId: l.bota_fora_id || l.botaForaId,
-                botaForaNome: l.bota_fora_nome || l.botaForaNome,
-                quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
-                valor: l.valor,
-                data: l.data,
-                driverName: l.driver_name || l.driverName,
-                vehicleId: l.vehicle_id || l.vehicleId,
-                status: l.status,
-                createdAt: l.created_at || l.createdAt,
-                lat: l.lat,
-                lng: l.lng,
-                observacao: l.observacao || l.observation
-              }));
-              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
-              return merged;
-            });
-          }
-        }
-        if (active && fuelRes?.ok) {
-          const data = await fuelRes.json();
-          if (data && data.length > 0) {
-            setFuelLogs(prev => {
-              const serverIds = new Set(data.map((f: any) => f.id));
-              const merged = data.map((f: any) => ({
-                id: f.id,
-                vehicleId: f.vehicle_id || f.vehicleId,
-                quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
-                kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
-                kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
-                valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
-                data: f.data,
-                driver: f.driver,
-                mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
-                tipo: f.tipo,
-                isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
-                lat: f.lat,
-                lng: f.lng,
-                observacao: f.observacao,
-                fotoNota: f.foto_nota || f.fotoNota
-              }));
-              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
-              return merged;
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Polling error:", e);
-      }
-    };
-    const interval = setInterval(poll, 60000);
-    poll(); // run immediately too
-    return () => { active = false; clearInterval(interval); };
+    if (!isAuthenticated || !isSupabaseConfigured()) return;
+
+    const mapLancamento = (l: any) => ({
+      id: l.id,
+      botaForaId: l.bota_fora_id,
+      botaForaNome: l.bota_fora_nome,
+      quantidadeCacambas: l.quantidade_cacambas,
+      valor: l.valor,
+      data: l.data,
+      driverName: l.driver_name,
+      vehicleId: l.vehicle_id,
+      status: l.status,
+      createdAt: l.created_at,
+      lat: l.lat,
+      lng: l.lng,
+      observacao: l.observacao
+    });
+    const mapFuelLog = (f: any) => ({
+      id: f.id,
+      vehicleId: f.vehicle_id,
+      quantidadeLitros: f.quantidade_litros,
+      kmInicial: f.km_inicial,
+      kmFinal: f.km_final,
+      valorPago: f.valor_pago,
+      data: f.data,
+      driver: f.driver,
+      mediaKmL: f.media_km_l,
+      tipo: f.tipo,
+      isRetiradaDiversa: f.is_retirada_diversa,
+      lat: f.lat,
+      lng: f.lng,
+      observacao: f.observacao,
+      fotoNota: f.foto_nota
+    });
+    const mapComissao = (c: any) => ({
+      id: c.id,
+      motorista: c.motorista || c.driver || 'Carlos Santana',
+      vaziasColocadas: Number(c.vazias_colocadas ?? 0),
+      retiradas: Number(c.retiradas ?? 0),
+      data: c.data,
+      createdAt: c.created_at
+    });
+
+    const upsertById = (setter: Function) => (mapped: any) =>
+      setter((prev: any[]) => {
+        const idx = prev.findIndex(p => p.id === mapped.id);
+        if (idx === -1) return [mapped, ...prev];
+        const copy = [...prev];
+        copy[idx] = mapped;
+        return copy;
+      });
+    const removeById = (setter: Function) => (id: string) =>
+      setter((prev: any[]) => prev.filter(p => p.id !== id));
+
+    const upsertLan = upsertById(setLancamentos);
+    const removeLan = removeById(setLancamentos);
+    const upsertFuel = upsertById(setFuelLogs);
+    const removeFuel = removeById(setFuelLogs);
+    const upsertCom = upsertById(setComissoes);
+    const removeCom = removeById(setComissoes);
+
+    const channel = supabase
+      .channel('app-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeLan(payload.old.id);
+        else upsertLan(mapLancamento(payload.new));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fuel_logs' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeFuel(payload.old.id);
+        else upsertFuel(mapFuelLog(payload.new));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comissoes' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeCom(payload.old.id);
+        else upsertCom(mapComissao(payload.new));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [isAuthenticated]);
 
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
