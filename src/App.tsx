@@ -532,15 +532,22 @@ export default function App() {
   }, [isAuthenticated]);
 
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
-  useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
-  useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
-  useEffect(() => { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); }, [alerts]);
-  useEffect(() => { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); }, [dispatches]);
-  useEffect(() => { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); }, [botaForas]);
-  useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
-  useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
-  useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+  useEffect(() => { try { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); } catch (e) { console.warn('Persist vehicles failed:', e); } }, [vehicles]);
+  useEffect(() => {
+    try {
+      // fotoNota (foto da nota fiscal em base64) fica só no Supabase — é pesado
+      // demais para o localStorage e estourava a cota, quebrando o app (tela branca).
+      const slim = fuelLogs.map(({ fotoNota, ...rest }) => rest);
+      localStorage.setItem('relampago_fuel_logs', JSON.stringify(slim));
+    } catch (e) { console.warn('Persist fuelLogs failed:', e); }
+  }, [fuelLogs]);
+  useEffect(() => { try { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); } catch (e) { console.warn('Persist alerts failed:', e); } }, [alerts]);
+  useEffect(() => { try { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); } catch (e) { console.warn('Persist invoices failed:', e); } }, [invoices]);
+  useEffect(() => { try { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); } catch (e) { console.warn('Persist dispatches failed:', e); } }, [dispatches]);
+  useEffect(() => { try { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); } catch (e) { console.warn('Persist botaForas failed:', e); } }, [botaForas]);
+  useEffect(() => { try { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); } catch (e) { console.warn('Persist lancamentos failed:', e); } }, [lancamentos]);
+  useEffect(() => { try { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); } catch (e) { console.warn('Persist comissoes failed:', e); } }, [comissoes]);
+  useEffect(() => { try { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); } catch (e) { console.warn('Persist motoristas failed:', e); } }, [motoristas]);
   useEffect(() => { if (isAuthenticated) localStorage.setItem('relampago_auth_tab', currentTab); }, [currentTab, isAuthenticated]);
 
   // Garage Diesel Tank States
