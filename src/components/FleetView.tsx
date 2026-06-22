@@ -132,23 +132,27 @@ export default function FleetView({
 
   // Settle filtered Fuel Logs list
   const filteredFuelLogs = useMemo(() => {
-    return fuelLogs.filter(log => {
-      const q = fuelSearchQuery.toLowerCase().trim();
-      const matchSearch = !q || 
-        log.vehicleId.toLowerCase().includes(q) || 
-        (log.driver && log.driver.toLowerCase().includes(q));
-      
-      let matchDate = true;
-      if (fuelFilterStartDate && fuelFilterEndDate) {
-        matchDate = log.data >= fuelFilterStartDate && log.data <= fuelFilterEndDate;
-      } else if (fuelFilterStartDate) {
-        matchDate = log.data >= fuelFilterStartDate;
-      } else if (fuelFilterEndDate) {
-        matchDate = log.data <= fuelFilterEndDate;
-      }
-      
-      return matchSearch && matchDate;
-    });
+    return fuelLogs
+      .filter(log => {
+        const q = fuelSearchQuery.toLowerCase().trim();
+        const matchSearch = !q ||
+          log.vehicleId.toLowerCase().includes(q) ||
+          (log.driver && log.driver.toLowerCase().includes(q));
+
+        let matchDate = true;
+        if (fuelFilterStartDate && fuelFilterEndDate) {
+          matchDate = log.data >= fuelFilterStartDate && log.data <= fuelFilterEndDate;
+        } else if (fuelFilterStartDate) {
+          matchDate = log.data >= fuelFilterStartDate;
+        } else if (fuelFilterEndDate) {
+          matchDate = log.data <= fuelFilterEndDate;
+        }
+
+        return matchSearch && matchDate;
+      })
+      // Mais recentes primeiro: ids novos são gerados com Date.now() (AB-<epoch>),
+      // então ordenar por id decrescente equivale a ordenar por criação decrescente.
+      .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   }, [fuelLogs, fuelSearchQuery, fuelFilterStartDate, fuelFilterEndDate]);
 
   // Sub-tab 3: Register/Edit Vehicle Form fields
