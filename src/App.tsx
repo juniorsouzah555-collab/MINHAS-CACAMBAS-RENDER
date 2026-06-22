@@ -111,9 +111,9 @@ export default function App() {
   const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
     try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
     return [
-      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2526-06-16T08:30:00Z' },
-      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2526-06-15T09:12:00Z' },
-      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2526-06-12T11:05:00Z' }
+      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2026-06-16T08:30:00Z' },
+      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
+      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
     ];
   });
 
@@ -399,51 +399,67 @@ export default function App() {
         if (isSupabaseConfigured()) {
           const { data: listLan } = await supabase.from('lancamentos').select('*');
           if (active && listLan) {
-            setLancamentos(listLan.map((l: any) => ({
-              id: l.id,
-              botaForaId: l.bota_fora_id || l.botaForaId,
-              botaForaNome: l.bota_fora_nome || l.botaForaNome,
-              quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
-              valor: l.valor,
-              data: l.data,
-              driverName: l.driver_name || l.driverName,
-              vehicleId: l.vehicle_id || l.vehicleId,
-              status: l.status,
-              createdAt: l.created_at || l.createdAt,
-              lat: l.lat,
-              lng: l.lng,
-              observacao: l.observacao || l.observation
-            })));
+            setLancamentos(prev => {
+              const serverIds = new Set(listLan.map((l: any) => l.id));
+              const merged = listLan.map((l: any) => ({
+                id: l.id,
+                botaForaId: l.bota_fora_id || l.botaForaId,
+                botaForaNome: l.bota_fora_nome || l.botaForaNome,
+                quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
+                valor: l.valor,
+                data: l.data,
+                driverName: l.driver_name || l.driverName,
+                vehicleId: l.vehicle_id || l.vehicleId,
+                status: l.status,
+                createdAt: l.created_at || l.createdAt,
+                lat: l.lat,
+                lng: l.lng,
+                observacao: l.observacao || l.observation
+              }));
+              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
+              return merged;
+            });
           }
           const { data: listFuel } = await supabase.from('fuel_logs').select('*');
           if (active && listFuel) {
-            setFuelLogs(listFuel.map((f: any) => ({
-              id: f.id,
-              vehicleId: f.vehicle_id || f.vehicleId,
-              quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
-              kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
-              kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
-              valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
-              data: f.data,
-              driver: f.driver,
-              mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
-              tipo: f.tipo,
-              isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
-              lat: f.lat,
-              lng: f.lng
-            })));
+            setFuelLogs(prev => {
+              const serverIds = new Set(listFuel.map((f: any) => f.id));
+              const merged = listFuel.map((f: any) => ({
+                id: f.id,
+                vehicleId: f.vehicle_id || f.vehicleId,
+                quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
+                kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
+                kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
+                valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
+                data: f.data,
+                driver: f.driver,
+                mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
+                tipo: f.tipo,
+                isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
+                lat: f.lat,
+                lng: f.lng
+              }));
+              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
+              return merged;
+            });
           }
           const { data: listCom } = await supabase.from('comissoes').select('*').order('created_at', { ascending: false });
           if (active && listCom) {
-            setComissoes(listCom.map((c: any) => ({
-              id: c.id,
-              motorista: c.motorista || c.driver || 'Carlos Santana',
-              vaziasColocadas: Number(c.vazias_colocadas ?? c.vaziasColocadas ?? 0),
-              retiradas: Number(c.retiradas ?? 0),
-              data: c.data,
-              createdAt: c.created_at || c.createdAt
-            })));
+            setComissoes(prev => {
+              const serverIds = new Set(listCom.map((c: any) => c.id));
+              const merged = listCom.map((c: any) => ({
+                id: c.id,
+                motorista: c.motorista || c.driver || 'Carlos Santana',
+                vaziasColocadas: Number(c.vazias_colocadas ?? c.vaziasColocadas ?? 0),
+                retiradas: Number(c.retiradas ?? 0),
+                data: c.data,
+                createdAt: c.created_at || c.createdAt
+              }));
+              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
+              return merged;
+            });
           }
+          return;
         }
         // Fallback: load from Express API (shared in-memory DB)
         const [lanRes, fuelRes] = await Promise.all([
@@ -452,11 +468,53 @@ export default function App() {
         ]);
         if (active && lanRes?.ok) {
           const data = await lanRes.json();
-          if (data && data.length > 0) setLancamentos(data);
+          if (data && data.length > 0) {
+            setLancamentos(prev => {
+              const serverIds = new Set(data.map((l: any) => l.id));
+              const merged = data.map((l: any) => ({
+                id: l.id,
+                botaForaId: l.bota_fora_id || l.botaForaId,
+                botaForaNome: l.bota_fora_nome || l.botaForaNome,
+                quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
+                valor: l.valor,
+                data: l.data,
+                driverName: l.driver_name || l.driverName,
+                vehicleId: l.vehicle_id || l.vehicleId,
+                status: l.status,
+                createdAt: l.created_at || l.createdAt,
+                lat: l.lat,
+                lng: l.lng,
+                observacao: l.observacao || l.observation
+              }));
+              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
+              return merged;
+            });
+          }
         }
         if (active && fuelRes?.ok) {
           const data = await fuelRes.json();
-          if (data && data.length > 0) setFuelLogs(data);
+          if (data && data.length > 0) {
+            setFuelLogs(prev => {
+              const serverIds = new Set(data.map((f: any) => f.id));
+              const merged = data.map((f: any) => ({
+                id: f.id,
+                vehicleId: f.vehicle_id || f.vehicleId,
+                quantidadeLitros: f.quantidade_litros !== undefined ? f.quantidade_litros : f.quantidadeLitros,
+                kmInicial: f.km_inicial !== undefined ? f.km_inicial : f.kmInicial,
+                kmFinal: f.km_final !== undefined ? f.km_final : f.kmFinal,
+                valorPago: f.valor_pago !== undefined ? f.valor_pago : f.valorPago,
+                data: f.data,
+                driver: f.driver,
+                mediaKmL: f.media_km_l !== undefined ? f.media_km_l : f.mediaKmL,
+                tipo: f.tipo,
+                isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
+                lat: f.lat,
+                lng: f.lng
+              }));
+              prev.forEach(p => { if (!serverIds.has(p.id)) merged.push(p); });
+              return merged;
+            });
+          }
         }
       } catch (e) {
         console.warn("Polling error:", e);
@@ -943,7 +1001,7 @@ export default function App() {
 
   // Action: Add new Bota Fora
   const handleAddBotaFora = (newBtf: Omit<BotaFora, 'id' | 'createdAt'>) => {
-    const generatedId = `BTF-0${botaForas.length + 1}`;
+    const generatedId = `BTF-${Date.now()}`;
     const freshRecord: BotaFora = {
       ...newBtf,
       id: generatedId,
@@ -1003,7 +1061,7 @@ export default function App() {
 
   // Action: Add new Lançamento
   const handleAddLancamento = (newLan: Omit<Lancamento, 'id' | 'createdAt'>) => {
-    const generatedId = `LAN-10${lancamentos.length + 1}`;
+    const generatedId = `LAN-${Date.now()}`;
     const freshRecord: Lancamento = {
       ...newLan,
       id: generatedId,
@@ -1086,7 +1144,7 @@ export default function App() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(freshRecord)
-    }).catch(err => console.error("Error saving Lancamento to Express API:", err));
+    }).catch(err => console.error("Error saving Lancamento:", err));
 
     // Automatically assign Comissao if this was performed by a driver
     if (newLan.driverName && newLan.driverName !== 'Não Atribuído' && newLan.driverName !== 'Não atribuído' && newLan.driverName.trim() !== '') {
@@ -1105,13 +1163,6 @@ export default function App() {
         });
       }
     }
-
-    // Save to Database
-    fetch("/api/lancamentos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(freshRecord)
-    }).catch(err => console.error("Error saving Lancamento:", err));
 
     fetch("/api/invoices", {
       method: "POST",
@@ -1239,7 +1290,7 @@ export default function App() {
 
   // Action: Add new Fuel Log (Abastecimento)
   const handleAddFuelLog = (newLog: Omit<FuelLog, 'id' | 'mediaKmL'>) => {
-    const generatedId = `AB-${100 + fuelLogs.length + 1}`;
+    const generatedId = `AB-${Date.now()}`;
     
     let mediaKmL: number | undefined = undefined;
     if (!newLog.isRetiradaDiversa && newLog.kmFinal !== undefined && newLog.kmInicial !== undefined) {
