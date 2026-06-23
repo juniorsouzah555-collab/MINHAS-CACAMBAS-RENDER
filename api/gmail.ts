@@ -98,6 +98,7 @@ async function buildSearchQuery() {
 interface BoletoEmail {
   id: string; subject: string; from: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
+  boletoLink?: string;
 }
 
 function findAttachment(part: any): any {
@@ -109,6 +110,46 @@ function findAttachment(part: any): any {
     for (const p of part.parts) {
       const found = findAttachment(p);
       if (found) return found;
+    }
+  }
+  return null;
+}
+
+function decodeBody(part: any): string[] {
+  const texts: string[] = [];
+  if (!part) return texts;
+  if (part.body?.data && (part.mimeType === 'text/html' || part.mimeType === 'text/plain')) {
+    try {
+      texts.push(Buffer.from(part.body.data, 'base64').toString('utf-8'));
+    } catch {}
+  }
+  if (part.parts) {
+    for (const p of part.parts) {
+      texts.push(...decodeBody(p));
+    }
+  }
+  return texts;
+}
+
+function extractBoletoLink(bodies: string[]): string | null {
+  // Common patterns for boleto/payment links
+  const patterns = [
+    /https?:\/\/[^\s"<>']+\.pdf[^\s"<>']*/gi,
+    /https?:\/\/[^\s"<>']*(?:boleto|fatura|cobranca|2[aA]?\s*via|pay|payment|invoice|checkout)[^\s"<>']*/gi,
+    /https?:\/\/[^\s"<>']*asaas[^\s"<>']*/gi,
+    /https?:\/\/[^\s"<>']*mercadopago[^\s"<>']*/gi,
+    /https?:\/\/[^\s"<>']*pagar[^\s"<>']*/gi,
+    /https?:\/\/[^\s"<>']*checkout[^\s"<>']*/gi,
+  ];
+  for (const body of bodies) {
+    for (const pattern of patterns) {
+      const matches = body.match(pattern);
+      if (matches) {
+        // Pick the most relevant match (prefer PDF or boleto in the URL)
+        const relevant = matches.find(m => /\.pdf|boleto|fatura|cobranca|asaas/i.test(m));
+        if (relevant) return relevant;
+        return matches[0];
+      }
     }
   }
   return null;
@@ -145,12 +186,26 @@ async function fetchBoletoEmails(accessToken: string) {
         ? data.payload.body
         : findAttachment(data.payload);
 
-      if (attach) console.log('[GMAIL] attachment found:', attach.filename, attach.mimeType, attach.body?.attachmentId?.substring(0, 10));
+      let boletoLink: string | undefined;
+      if (!attach) {
+        const bodies = decodeBody(data.payload);
+        const link = extractBoletoLink(bodies);
+        if (link) boletoLink = link;
+      }
 
-      result.push({ id: msg.id, subject, from, date, snippet: data.snippet || '', hasAttachment: !!attach, attachmentId: attach?.body?.attachmentId || attach?.attachmentId, filename: attach?.filename, mimeType: attach?.mimeType });
+      if (attach) console.log('[GMAIL] attachment found:', attach.filename, attach.mimeType, attach.body?.attachmentId?.substring(0, 10));
+      if (boletoLink) console.log('[GMAIL] boleto link found:', boletoLink.substring(0, 60));
+
+      result.push({
+        id: msg.id, subject, from, date, snippet: data.snippet || '',
+        hasAttachment: !!attach,
+        attachmentId: attach?.body?.attachmentId || attach?.attachmentId,
+        filename: attach?.filename, mimeType: attach?.mimeType,
+        boletoLink,
+      });
     } catch (e) { console.error('[GMAIL] detail error', msg.id, e); }
   }
-  console.log('[GMAIL] returning', result.length, 'emails,', result.filter(r => r.hasAttachment).length, 'with attachments');
+  console.log('[GMAIL] returning', result.length, 'emails,', result.filter(r => r.hasAttachment).length, 'with attachments,', result.filter(r => r.boletoLink).length, 'with links');
   return result;
 }
 

@@ -6,6 +6,7 @@ const API_BASE = window.location.origin;
 interface BoletoEmail {
   id: string; subject: string; from: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
+  boletoLink?: string;
 }
 
 interface Filter {
@@ -22,7 +23,7 @@ export default function BoletoView() {
 
   const [filters, setFilters] = useState<Filter[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [newType, setNewType] = useState<'sender' | 'subject'>('sender');
+  const [newType, setNewType] = useState<'sender' | 'subject' | 'body'>('sender');
   const [newValue, setNewValue] = useState('');
   const [addingFilter, setAddingFilter] = useState(false);
 
@@ -179,7 +180,7 @@ export default function BoletoView() {
                 <span key={f.id}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">
                   <span className="uppercase text-[9px] text-slate-400 mr-0.5">
-                    {f.type === 'sender' ? 'DE:' : 'ASS:'}
+                    {f.type === 'sender' ? 'DE:' : f.type === 'subject' ? 'ASS:' : 'CORPO:'}
                   </span>
                   {f.value}
                   <button type="button" onClick={() => handleRemoveFilter(f.id)}
@@ -193,13 +194,14 @@ export default function BoletoView() {
 
           {/* Add filter */}
           <div className="flex items-center gap-2">
-            <select value={newType} onChange={e => setNewType(e.target.value as any)}
-              className="text-[10px] font-bold border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 cursor-pointer">
-              <option value="sender">Remetente</option>
-              <option value="subject">Assunto</option>
-            </select>
+              <select value={newType} onChange={e => setNewType(e.target.value as any)}
+                className="text-[10px] font-bold border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 cursor-pointer">
+                <option value="sender">Remetente</option>
+                <option value="subject">Assunto</option>
+                <option value="body">Corpo do e-mail</option>
+              </select>
             <input type="text" value={newValue} onChange={e => setNewValue(e.target.value)}
-              placeholder={newType === 'sender' ? 'ex: banco@exemplo.com' : 'ex: boleto mensalidade'}
+              placeholder={newType === 'sender' ? 'ex: banco@exemplo.com' : newType === 'subject' ? 'ex: boleto mensalidade' : 'ex: 2ª via'}
               className="flex-1 text-[11px] border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-400 transition-colors"
               onKeyDown={e => e.key === 'Enter' && handleAddFilter()}
             />
@@ -277,6 +279,16 @@ export default function BoletoView() {
                             {email.filename?.replace(/.pdf$/i, '')?.substring(0, 10) || 'PDF'}
                           </button>
                         </>
+                      )}
+                      {!email.hasAttachment && email.boletoLink && (
+                        <a href={email.boletoLink} target="_blank" rel="noopener noreferrer"
+                          className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                          <ExternalLink className="w-3 h-3" />
+                          Ver boleto online
+                        </a>
+                      )}
+                      {!email.hasAttachment && !email.boletoLink && (
+                        <span className="text-[9px] text-slate-300 italic">Sem PDF anexado</span>
                       )}
                     </div>
                   </div>
