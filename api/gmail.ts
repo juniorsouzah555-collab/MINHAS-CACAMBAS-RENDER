@@ -132,27 +132,34 @@ function decodeBody(part: any): string[] {
 }
 
 function extractBoletoLink(bodies: string[]): string | null {
-  // Common patterns for boleto/payment links
-  const patterns = [
-    /https?:\/\/[^\s"<>']+\.pdf[^\s"<>']*/gi,
-    /https?:\/\/[^\s"<>']*(?:boleto|fatura|cobranca|2[aA]?\s*via|pay|payment|invoice|checkout)[^\s"<>']*/gi,
-    /https?:\/\/[^\s"<>']*asaas[^\s"<>']*/gi,
-    /https?:\/\/[^\s"<>']*mercadopago[^\s"<>']*/gi,
-    /https?:\/\/[^\s"<>']*pagar[^\s"<>']*/gi,
-    /https?:\/\/[^\s"<>']*checkout[^\s"<>']*/gi,
-  ];
+  const allUrls: string[] = [];
+  const urlRegex = /https?:\/\/[^\s"<>']+/gi;
   for (const body of bodies) {
-    for (const pattern of patterns) {
-      const matches = body.match(pattern);
-      if (matches) {
-        // Pick the most relevant match (prefer PDF or boleto in the URL)
-        const relevant = matches.find(m => /\.pdf|boleto|fatura|cobranca|asaas/i.test(m));
-        if (relevant) return relevant;
-        return matches[0];
-      }
-    }
+    const matches = body.match(urlRegex);
+    if (matches) allUrls.push(...matches);
   }
-  return null;
+
+  // Score URLs: higher is more likely to be the boleto link
+  const score = (url: string): number => {
+    const u = url.toLowerCase();
+    let s = 0;
+    if (/\.pdf\b/.test(u)) s += 100;
+    if (/\b(?:boleto|fatura|cobranca)\b/.test(u)) s += 50;
+    if (/\b(?:invoice|payment|pay|checkout)\b/.test(u)) s += 30;
+    if (/asaas\.com\/[a-z]\/[a-z0-9]{16}/.test(u)) s += 80; // ASAAS invoice pattern
+    if (/asaas\.com\/(?:cobranca|invoice|payment)/.test(u)) s += 60;
+    if (/mercadopago/.test(u)) s += 40;
+    if (/pagar\.me/.test(u)) s += 40;
+    if (/\/(?:boleto|fatura|cobranca|2avia|2a-via|segunda-via)\b/.test(u)) s += 50;
+    // Penalize image/resource URLs
+    if (/customerLogo|logo|\.png|\.jpg|\.gif|\.css|favicon/i.test(u)) s -= 80;
+    if (/unsubscribe|tracking|open\?/i.test(u)) s -= 60;
+    return s;
+  };
+
+  const scored = allUrls.map(u => ({ url: u, score: score(u) })).filter(x => x.score > 0);
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.url || null;
 }
 
 async function fetchBoletoEmails(accessToken: string) {
