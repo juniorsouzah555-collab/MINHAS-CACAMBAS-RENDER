@@ -119,6 +119,7 @@ interface BoletoEmail {
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
   boletoLink?: string;
   alias?: string;
+  hasProvider?: boolean;
 }
 
 function findAttachment(part: any): any {
@@ -213,6 +214,64 @@ function resolveAlias(from: string, aliases: any[]): string | undefined {
   return undefined;
 }
 
+// ---- BOLETO PROVIDERS ----
+
+interface BoletoProvider {
+  id: number; sender: string; password: string;
+}
+
+async function getProviders(): Promise<BoletoProvider[]> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?type=eq.provider&select=id,value&order=id.asc`, { headers: SB_H });
+    if (!r.ok) return [];
+    const rows = await r.json() as { id: number; value: string }[];
+    return rows.map(r => ({ id: r.id, ...JSON.parse(r.value) })).filter(p => p.sender && p.password);
+  } catch { return []; }
+}
+
+async function addProvider(sender: string, password: string) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters`, {
+      method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
+      body: JSON.stringify({ type: 'provider', value: JSON.stringify({ sender, password }) }),
+    });
+    return true;
+  } catch { return false; }
+}
+
+async function removeProvider(id: number) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+    return true;
+  } catch { return false; }
+}
+
+async function tryFetchProviderPdf(boletoUrl: string, password: string): Promise<{ buffer: Buffer; filename: string } | null> {
+  try {
+    const parsed = new URL(boletoUrl);
+
+    // Lello Resolva Fácil
+    if (parsed.hostname.includes('lellocondominios') || parsed.hostname.includes('resolvafacil')) {
+      const token = parsed.searchParams.get('token');
+      const uuid = parsed.searchParams.get('uuid');
+      const hashId = parsed.searchParams.get('x-lello-parceiro-hashid') || '';
+      if (!token || !uuid) return null;
+
+      const apiUrl = `https://api.lellocondominios.com.br/resolvafacil-api/v2/external/primeira-via?token=${encodeURIComponent(token)}&uuid=${encodeURIComponent(uuid)}&digitosDocumento=${encodeURIComponent(password)}`;
+      const res = await fetch(apiUrl, {
+        headers: hashId ? { 'x-lello-parceiro-hashid': hashId } : {},
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        return { buffer, filename: `boleto-lello-${uuid.substring(0, 8)}.pdf` };
+      }
+    }
+  } catch (e) {
+    console.error('[PROVIDER] fetch error', e);
+  }
+  return null;
+}
+
 async function fetchBoletoEmails(accessToken: string, strict: boolean) {
   const query = await buildSearchQuery(strict);
   if (!query) return []; // strict mode sem filtros → vazio
@@ -231,6 +290,7 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
 
   const hiddenIds = await getHiddenIds();
   const aliases = await getAliases();
+  const providers = await getProviders();
 
   const result: BoletoEmail[] = [];
   for (const msg of messages.slice(0, 50)) {
@@ -260,6 +320,8 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
       // Só inclui se tem PDF anexado OU link válido para gerar o boleto
       if (!attach && !boletoLink) continue;
 
+      const hasProvider = !!boletoLink && providers.some(p => p.sender === from);
+
       result.push({
         id: msg.id, subject, from, date, snippet: data.snippet || '',
         hasAttachment: !!attach,
@@ -267,6 +329,7 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
         filename: attach?.filename, mimeType: attach?.mimeType,
         boletoLink,
         alias: resolveAlias(from, aliases),
+        hasProvider,
       });
     } catch (e) { console.error('[GMAIL] detail error', msg.id, e); }
   }
@@ -342,9 +405,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ ok: true });
     }
 
-    // FILTERS — list
+    // FILTERS — list (exclude provider-type filters)
     if (action === 'getFilters') {
-      const filters = await getFilters();
+      const all = await getFilters();
+      const filters = all.filter((f: any) => f.type !== 'provider');
       return res.json({ filters });
     }
 
@@ -365,6 +429,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return res.status(400).json({ error: 'id required' });
       await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
       return res.json({ ok: true });
+    }
+
+    // PROVIDERS — list
+    if (action === 'getProviders') {
+      const providers = await getProviders();
+      return res.json({ providers });
+    }
+
+    // PROVIDERS — add
+    if (action === 'addProvider' && req.method === 'POST') {
+      const { sender, password } = req.body || {};
+      if (!sender || !password) return res.status(400).json({ error: 'sender and password required' });
+      await addProvider(sender, password);
+      return res.json({ ok: true });
+    }
+
+    // PROVIDERS — remove
+    if (action === 'removeProvider' && req.method === 'POST') {
+      const id = req.body?.id || req.query.id;
+      if (!id) return res.status(400).json({ error: 'id required' });
+      await removeProvider(Number(id));
+      return res.json({ ok: true });
+    }
+
+    // PROVIDERS — download PDF
+    if (action === 'downloadProviderPdf') {
+      const boletoUrl = req.query.url as string;
+      const sender = req.query.sender as string;
+      if (!boletoUrl || !sender) return res.status(400).json({ error: 'url and sender required' });
+
+      const providers = await getProviders();
+      const provider = providers.find(p => p.sender === sender);
+      if (!provider) return res.status(404).json({ error: 'Provider not found for this sender' });
+
+      const pdf = await tryFetchProviderPdf(boletoUrl, provider.password);
+      if (!pdf) return res.status(404).json({ error: 'Não foi possível obter o PDF. Verifique a senha cadastrada.' });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+      return res.send(pdf.buffer);
     }
 
     // HIDE EMAIL

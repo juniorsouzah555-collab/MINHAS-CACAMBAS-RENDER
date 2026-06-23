@@ -6,7 +6,7 @@ const API_BASE = window.location.origin;
 interface BoletoEmail {
   id: string; subject: string; from: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
-  boletoLink?: string; alias?: string;
+  boletoLink?: string; alias?: string; hasProvider?: boolean;
 }
 
 interface Filter {
@@ -38,6 +38,13 @@ export default function BoletoView() {
   const [aliasSender, setAliasSender] = useState('');
   const [aliasName, setAliasName] = useState('');
 
+  const [providers, setProviders] = useState<{ id: number; sender: string; password: string }[]>([]);
+  const [showProviders, setShowProviders] = useState(false);
+  const [newProviderSender, setNewProviderSender] = useState('');
+  const [newProviderPassword, setNewProviderPassword] = useState('');
+  const [addingProvider, setAddingProvider] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+
   const fetchBoletos = useCallback(async (mode?: 'strict' | 'broad') => {
     const m = mode || searchMode;
     setLoading(true); setError(null);
@@ -67,6 +74,60 @@ export default function BoletoView() {
       if (data.aliases) setAliases(data.aliases);
     } catch {}
   }, []);
+
+  const fetchProviders = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/gmail?action=getProviders`);
+      const data = await r.json();
+      if (data.providers) setProviders(data.providers);
+    } catch {}
+  }, []);
+
+  const handleAddProvider = async () => {
+    if (!newProviderSender.trim() || !newProviderPassword.trim()) return;
+    setAddingProvider(true);
+    try {
+      await fetch(`${API_BASE}/api/gmail?action=addProvider`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: newProviderSender.trim(), password: newProviderPassword.trim() }),
+      });
+      setNewProviderSender(''); setNewProviderPassword('');
+      await fetchProviders();
+      fetchBoletos();
+    } catch (e: any) { setError(e.message); }
+    finally { setAddingProvider(false); }
+  };
+
+  const handleRemoveProvider = async (id: number) => {
+    try {
+      await fetch(`${API_BASE}/api/gmail?action=removeProvider`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      await fetchProviders();
+      fetchBoletos();
+    } catch (e: any) { setError(e.message); }
+  };
+
+  const handleDownloadProviderPdf = async (email: BoletoEmail) => {
+    setDownloadingPdf(email.id);
+    try {
+      const url = `${API_BASE}/api/gmail?action=downloadProviderPdf&sender=${encodeURIComponent(email.from)}&url=${encodeURIComponent(email.boletoLink!)}`;
+      const r = await fetch(url);
+      if (!r.ok) {
+        const err = await r.json();
+        setError(err.error || 'Erro ao baixar PDF');
+        return;
+      }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'boleto.pdf';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e: any) { setError(e.message); }
+    finally { setDownloadingPdf(null); }
+  };
 
   useEffect(() => { fetchBoletos(); }, [fetchBoletos]);
 
@@ -160,12 +221,21 @@ export default function BoletoView() {
     if (!showFilters) fetchFilters();
     setShowFilters(!showFilters);
     setShowAliasPanel(false);
+    setShowProviders(false);
   };
 
   const toggleAliasPanel = () => {
     if (!showAliasPanel) fetchAliases();
     setShowAliasPanel(!showAliasPanel);
     setShowFilters(false);
+    setShowProviders(false);
+  };
+
+  const toggleProviders = () => {
+    if (!showProviders) fetchProviders();
+    setShowProviders(!showProviders);
+    setShowFilters(false);
+    setShowAliasPanel(false);
   };
 
   const formatDate = (dateStr: string) => {
@@ -212,6 +282,13 @@ export default function BoletoView() {
               className={`border px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${showAliasPanel ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
               <Edit3 className="w-3.5 h-3.5" />
               Apelidos
+            </button>
+          )}
+          {connected === true && (
+            <button type="button" onClick={toggleProviders}
+              className={`border px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${showProviders ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+              <Download className="w-3.5 h-3.5" />
+              Provedores
             </button>
           )}
           {connected === true && (
@@ -340,6 +417,54 @@ export default function BoletoView() {
         </div>
       )}
 
+      {/* Provider Panel */}
+      {connected === true && showProviders && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+            Provedores de boletos
+          </h3>
+          <p className="text-xs text-slate-400 -mt-3">
+            Cadastre provedores que exigem senha para acessar o PDF (ex: Lello Condomínios).
+            O botão "Baixar boleto" aparecerá nos e-mails desses remetentes.
+          </p>
+
+          {providers.length > 0 && (
+            <div className="space-y-2">
+              {providers.map(p => (
+                <div key={p.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">{p.sender}</p>
+                    <p className="text-xs text-slate-400">Senha: {'•'.repeat(8)}</p>
+                  </div>
+                  <button type="button" onClick={() => handleRemoveProvider(p.id)}
+                    className="text-red-400 hover:text-red-600 cursor-pointer transition-colors p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input type="text" value={newProviderSender} onChange={e => setNewProviderSender(e.target.value)}
+              placeholder="E-mail do remetente"
+              className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 transition-colors"
+            />
+            <input type="password" value={newProviderPassword} onChange={e => setNewProviderPassword(e.target.value)}
+              placeholder="Senha (CPF/CNPJ)"
+              className="w-36 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-amber-400 transition-colors"
+              onKeyDown={e => e.key === 'Enter' && handleAddProvider()}
+            />
+            <button type="button" onClick={handleAddProvider}
+              disabled={addingProvider || !newProviderSender.trim() || !newProviderPassword.trim()}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50">
+              <Plus className="w-4 h-4" />
+              {addingProvider ? '...' : 'Adicionar'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Connect Gmail Card */}
       {connected === false && !error && (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
@@ -415,11 +540,20 @@ export default function BoletoView() {
                         </>
                       )}
                       {!email.hasAttachment && email.boletoLink && (
-                        <a href={email.boletoLink} target="_blank" rel="noopener noreferrer"
-                          className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors">
-                          <ExternalLink className="w-4 h-4" />
-                          Ver online
-                        </a>
+                        email.hasProvider ? (
+                          <button type="button" onClick={() => handleDownloadProviderPdf(email)}
+                            disabled={downloadingPdf === email.id}
+                            className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
+                            <Download className="w-4 h-4" />
+                            {downloadingPdf === email.id ? 'Baixando...' : 'Baixar boleto'}
+                          </button>
+                        ) : (
+                          <a href={email.boletoLink} target="_blank" rel="noopener noreferrer"
+                            className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors">
+                            <ExternalLink className="w-4 h-4" />
+                            Ver online
+                          </a>
+                        )
                       )}
                       {!email.hasAttachment && !email.boletoLink && (
                         <span className="text-xs text-slate-300 italic px-1">Sem PDF</span>
