@@ -109,6 +109,7 @@ interface BoletoEmail {
   id: string; subject: string; from: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
   boletoLink?: string;
+  alias?: string;
 }
 
 function findAttachment(part: any): any {
@@ -172,6 +173,37 @@ function extractBoletoLink(bodies: string[]): string | null {
   return scored[0]?.url || null;
 }
 
+async function getAliases() {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?select=*&order=id.asc`, { headers: SB_H });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+}
+
+async function getHiddenIds() {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_hidden?select=message_id`, { headers: SB_H });
+    if (!r.ok) return new Set<string>();
+    const data = await r.json();
+    return new Set(data.map((x: any) => x.message_id));
+  } catch { return new Set(); }
+}
+
+function resolveAlias(from: string, aliases: any[]): string | undefined {
+  const lower = from.toLowerCase();
+  // Try exact email match first, then domain match
+  const emailMatch = aliases.find(a => lower.includes(a.sender.toLowerCase()));
+  if (emailMatch) return emailMatch.alias;
+  // Try domain-only match
+  const domain = from.match(/@([\w-]+\.\w+)/)?.[1]?.toLowerCase();
+  if (domain) {
+    const domainMatch = aliases.find(a => domain.includes(a.sender.toLowerCase()) || a.sender.toLowerCase().includes(domain));
+    if (domainMatch) return domainMatch.alias;
+  }
+  return undefined;
+}
+
 async function fetchBoletoEmails(accessToken: string) {
   const query = await buildSearchQuery();
   console.log('[GMAIL] query:', query);
@@ -186,8 +218,13 @@ async function fetchBoletoEmails(accessToken: string) {
   const { messages = [] } = await r.json();
   console.log('[GMAIL] found', messages.length, 'messages');
   if (messages.length === 0) return [];
+
+  const hiddenIds = await getHiddenIds();
+  const aliases = await getAliases();
+
   const result: BoletoEmail[] = [];
   for (const msg of messages.slice(0, 50)) {
+    if (hiddenIds.has(msg.id)) continue;
     try {
       const detail = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -210,15 +247,13 @@ async function fetchBoletoEmails(accessToken: string) {
         if (link) boletoLink = link;
       }
 
-      if (attach) console.log('[GMAIL] attachment found:', attach.filename, attach.mimeType, attach.body?.attachmentId?.substring(0, 10));
-      if (boletoLink) console.log('[GMAIL] boleto link found:', boletoLink.substring(0, 60));
-
       result.push({
         id: msg.id, subject, from, date, snippet: data.snippet || '',
         hasAttachment: !!attach,
         attachmentId: attach?.body?.attachmentId || attach?.attachmentId,
         filename: attach?.filename, mimeType: attach?.mimeType,
         boletoLink,
+        alias: resolveAlias(from, aliases),
       });
     } catch (e) { console.error('[GMAIL] detail error', msg.id, e); }
   }
@@ -263,8 +298,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'fetch') {
       const tok = await getAccessToken();
       if (!tok) return res.json({ connected: false, emails: [] });
-      const emails = await fetchBoletoEmails(tok.token);
-      return res.json({ connected: true, emails });
+      const [emails, aliases] = await Promise.all([fetchBoletoEmails(tok.token), getAliases()]);
+      return res.json({ connected: true, emails, aliases });
     }
 
     // DOWNLOAD or VIEW (view opens inline, download saves)
@@ -315,6 +350,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const id = req.body?.id || req.query.id;
       if (!id) return res.status(400).json({ error: 'id required' });
       await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+      return res.json({ ok: true });
+    }
+
+    // HIDE EMAIL
+    if (action === 'hideEmail' && req.method === 'POST') {
+      const { messageId } = req.body;
+      if (!messageId) return res.status(400).json({ error: 'messageId required' });
+      await fetch(`${SUPABASE_URL}/rest/v1/gmail_hidden`, {
+        method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
+        body: JSON.stringify({ message_id: messageId }),
+      });
+      return res.json({ ok: true });
+    }
+
+    // ALIASES — list
+    if (action === 'getAliases') {
+      const aliases = await getAliases();
+      return res.json({ aliases });
+    }
+
+    // ALIASES — save
+    if (action === 'saveAlias' && req.method === 'POST') {
+      const { sender, alias } = req.body;
+      if (!sender || !alias) return res.status(400).json({ error: 'sender and alias required' });
+      // Upsert: try insert, conflict on sender -> update
+      const existing = await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?sender=eq.${encodeURIComponent(sender)}&select=id&limit=1`, { headers: SB_H });
+      const existingData = await existing.json();
+      if (existingData?.[0]?.id) {
+        await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?id=eq.${existingData[0].id}`, {
+          method: 'PATCH', headers: { ...SB_H, Prefer: 'return=minimal' },
+          body: JSON.stringify({ alias }),
+        });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases`, {
+          method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
+          body: JSON.stringify({ sender, alias }),
+        });
+      }
+      return res.json({ ok: true });
+    }
+
+    // ALIASES — delete
+    if (action === 'deleteAlias' && req.method === 'POST') {
+      const id = req.body?.id || req.query.id;
+      if (!id) return res.status(400).json({ error: 'id required' });
+      await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
       return res.json({ ok: true });
     }
 
