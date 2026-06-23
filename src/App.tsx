@@ -338,9 +338,9 @@ export default function App() {
             // Load garage config from vehicles table (special sentinel record)
             const { data: configVehicle, error: errConfig } = await supabase.from('vehicles').select('*').eq('type', 'garage_config').maybeSingle();
             if (!errConfig && configVehicle) {
-              if (configVehicle.initial_km != null) {
-                setGarageDieselPrice(Number(configVehicle.initial_km));
-                localStorage.setItem('relampago_garage_diesel_price', String(configVehicle.initial_km));
+              if (configVehicle.cost_per_km != null) {
+                setGarageDieselPrice(Number(configVehicle.cost_per_km));
+                localStorage.setItem('relampago_garage_diesel_price', String(configVehicle.cost_per_km));
               }
               if (configVehicle.efficiency != null) {
                 setGarageDieselQty(Number(configVehicle.efficiency));
@@ -558,8 +558,16 @@ export default function App() {
       supabase.from('vehicles').upsert({
         id: 'GARAGE-CONFIG',
         type: 'garage_config',
-        initial_km: refill.preco_por_litro,
-        efficiency: newQty
+        status: 'garage_config',
+        cost_per_km: refill.preco_por_litro,
+        efficiency: newQty,
+        fuel_used: 0,
+        driver: '',
+        trend: '',
+        speed: 0,
+        lat: 0,
+        lng: 0,
+        is_active: false
       }).then(({ error }) => {
         if (error) console.error('Supabase error saving garage config:', error);
       });
@@ -583,7 +591,15 @@ export default function App() {
       supabase.from('vehicles').upsert({
         id: 'GARAGE-CONFIG',
         type: 'garage_config',
-        efficiency: newQty
+        status: 'garage_config',
+        efficiency: newQty,
+        fuel_used: 0,
+        driver: '',
+        trend: '',
+        speed: 0,
+        lat: 0,
+        lng: 0,
+        is_active: false
       }).then(({ error }) => {
         if (error) console.error('Supabase error saving garage config qty:', error);
       });
@@ -607,7 +623,15 @@ export default function App() {
         supabase.from('vehicles').upsert({
           id: 'GARAGE-CONFIG',
           type: 'garage_config',
-          efficiency: newQty
+          status: 'garage_config',
+          efficiency: newQty,
+          fuel_used: 0,
+          driver: '',
+          trend: '',
+          speed: 0,
+          lat: 0,
+          lng: 0,
+          is_active: false
         }).then(({ error }) => {
           if (error) console.error('Supabase error saving garage config qty:', error);
         });
@@ -1710,8 +1734,16 @@ export default function App() {
                   supabase.from('vehicles').upsert({
                     id: 'GARAGE-CONFIG',
                     type: 'garage_config',
-                    initial_km: price,
-                    efficiency: qty
+                    status: 'garage_config',
+                    cost_per_km: price,
+                    efficiency: qty,
+                    fuel_used: 0,
+                    driver: '',
+                    trend: '',
+                    speed: 0,
+                    lat: 0,
+                    lng: 0,
+                    is_active: false
                   }).then(({ error }) => {
                     if (error) console.error('Supabase error saving garage config:', error);
                   });
