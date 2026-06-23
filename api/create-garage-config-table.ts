@@ -1,60 +1,39 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Client } from 'pg';
 
-const PROJECT_REF = 'wxxyvsidghvidqbypmmp';
+const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+async function callRpc(sqlText: string) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/execute_sql`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': KEY,
+      'Authorization': `Bearer ${KEY}`
+    },
+    body: JSON.stringify({ sql_text: sqlText })
+  });
+  return { status: r.status, body: await r.text() };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Try direct DB connection using service_role key as password
-    // Try pooler first, fall back to direct db connection
-    const poolerHost = `aws-0-us-west-1.pooler.supabase.com`;
-    const dbHost = `db.${PROJECT_REF}.supabase.co`;
-
-    let client = new Client({
-      host: poolerHost,
-      port: 6543,
-      database: 'postgres',
-      user: `postgres.${PROJECT_REF}`,
-      password: KEY,
-      ssl: { rejectUnauthorized: false }
-    });
-
-    try {
-      await client.connect();
-    } catch {
-      // Fall back to direct db connection
-      client = new Client({
-        host: dbHost,
-        port: 5432,
-        database: 'postgres',
-        user: 'postgres',
-        password: KEY,
-        ssl: { rejectUnauthorized: false }
-      });
-      await client.connect();
-    }
-
-    await client.query(`
+    const sql = `
       CREATE TABLE IF NOT EXISTS garage_config (
         id TEXT PRIMARY KEY DEFAULT 'default',
         diesel_qty NUMERIC DEFAULT 5000,
         diesel_price NUMERIC DEFAULT 5.68,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
-    `);
-
-    await client.query(`
       INSERT INTO garage_config (id, diesel_qty, diesel_price)
       VALUES ('default', 5000, 5.68)
       ON CONFLICT (id) DO NOTHING;
-    `);
+    `;
 
-    await client.end();
-
-    res.json({ ok: true, message: 'Table created successfully' });
+    const result = await callRpc(sql);
+    res.json({ ok: result.status < 400, ...result });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
