@@ -27,7 +27,7 @@ export default function BoletoView() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/gmail/fetch`);
+      const r = await fetch(`${API_BASE}/api/gmail?action=fetch`);
       const data = await r.json();
       setConnected(data.connected);
       if (data.emails) setEmails(data.emails);
@@ -43,7 +43,7 @@ export default function BoletoView() {
 
   const handleConnect = () => {
     setConnecting(true);
-    window.location.href = `${API_BASE}/api/gmail/auth`;
+    window.location.href = `${API_BASE}/api/gmail?action=auth`;
   };
 
   const handleDownload = async (msgId: string, attachmentId: string, filename: string) => {
