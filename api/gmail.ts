@@ -60,29 +60,36 @@ interface BoletoEmail {
 }
 
 async function fetchBoletoEmails(accessToken: string) {
-  const query = '(subject:boleto OR subject:BOLETO OR subject:fatura OR subject:FATURA OR subject:2\u00aa via OR subject:segunda via)';
-  const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=20`, {
+  const query = '(subject:boleto OR subject:fatura OR boleto OR fatura) newer_than:90d';
+  const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=30`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!r.ok) return [];
-  const { messages = [] } = await r.json();
+  if (!r.ok) {
+    const err = await r.text();
+    console.error('[GMAIL] search error', r.status, err);
+    return [];
+  }
+  const { messages = [], resultSizeEstimate } = await r.json();
+  console.log('[GMAIL] search found', messages.length, 'results, estimate:', resultSizeEstimate);
+  if (messages.length === 0) return [];
   const result: BoletoEmail[] = [];
-  for (const msg of messages.slice(0, 20)) {
+  for (const msg of messages.slice(0, 30)) {
     try {
       const detail = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (!detail.ok) continue;
+      if (!detail.ok) { console.error('[GMAIL] detail error', msg.id, detail.status); continue; }
       const data = await detail.json();
       const headers = data.payload?.headers || [];
       const from = headers.find((h: any) => h.name === 'From')?.value?.replace(/<[^>]+>/g, '').trim().split('"').join('') || '';
       const subject = headers.find((h: any) => h.name === 'Subject')?.value || '(sem assunto)';
       const date = headers.find((h: any) => h.name === 'Date')?.value || '';
       const parts = data.payload?.parts || [];
-      const attach = parts.find((p: any) => p.filename && (p.mimeType === 'application/pdf' || p.filename?.toLowerCase().includes('boleto')));
+      const attach = parts.find((p: any) => p.filename && p.filename.length > 0 && (p.mimeType === 'application/pdf' || p.filename?.toLowerCase().includes('boleto')));
       result.push({ id: msg.id, subject, from, date, snippet: data.snippet || '', hasAttachment: !!attach, attachmentId: attach?.body?.attachmentId, filename: attach?.filename, mimeType: attach?.mimeType });
-    } catch {}
+    } catch (e) { console.error('[GMAIL] detail catch', msg.id); }
   }
+  console.log('[GMAIL] returning', result.length, 'emails');
   return result;
 }
 
