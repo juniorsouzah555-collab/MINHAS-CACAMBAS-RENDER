@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
+const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 async function getUserIdByEmail(email: string): Promise<string | null> {

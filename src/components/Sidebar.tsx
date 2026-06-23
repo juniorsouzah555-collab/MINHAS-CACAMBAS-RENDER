@@ -16,7 +16,8 @@ import {
   Zap,
   FileText,
   Percent,
-  Smartphone
+  Smartphone,
+  MapPin
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -34,6 +35,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
   const navItems = [
     { id: 'dashboard', name: 'Painel', icon: LayoutDashboard },
     { id: 'driver-portal', name: 'Portal Motorista', icon: Smartphone },
+    { id: 'tracking', name: 'Rastreamento', icon: MapPin },
     { id: 'operations', name: 'Operações', icon: Activity },
     { id: 'disposal', name: 'Cadastro', icon: Trash2 },
     { id: 'finance', name: 'Financeiro', icon: DollarSign },

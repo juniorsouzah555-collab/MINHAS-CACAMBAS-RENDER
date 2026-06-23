@@ -57,6 +57,7 @@ import ReportsView from './components/ReportsView';
 import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
+import TrackingView from './components/TrackingView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -1610,6 +1611,10 @@ export default function App() {
               onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
               onLogout={handleLogout}
             />
+          )}
+
+          {currentTab === 'tracking' && (
+            <TrackingView vehicles={vehicles} />
           )}
 
           {currentTab === 'reports' && (
