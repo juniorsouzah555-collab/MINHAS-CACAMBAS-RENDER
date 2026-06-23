@@ -335,6 +335,19 @@ export default function App() {
               })));
             }
 
+            // Load garage config (diesel price & qty) from Supabase
+            const { data: garageConfig, error: errConfig } = await supabase.from('garage_config').select('*').eq('id', 'default').maybeSingle();
+            if (!errConfig && garageConfig) {
+              if (garageConfig.diesel_price != null) {
+                setGarageDieselPrice(Number(garageConfig.diesel_price));
+                localStorage.setItem('relampago_garage_diesel_price', String(garageConfig.diesel_price));
+              }
+              if (garageConfig.diesel_qty != null) {
+                setGarageDieselQty(Number(garageConfig.diesel_qty));
+                localStorage.setItem('relampago_garage_diesel_qty', String(garageConfig.diesel_qty));
+              }
+            }
+
             return;
           }
 
@@ -541,6 +554,16 @@ export default function App() {
     setGarageDieselQty(newQty);
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
     localStorage.setItem('relampago_garage_diesel_price', refill.preco_por_litro.toString());
+    if (isSupabaseConfigured()) {
+      supabase.from('garage_config').upsert({
+        id: 'default',
+        diesel_qty: newQty,
+        diesel_price: refill.preco_por_litro,
+        updated_at: new Date().toISOString()
+      }).then(({ error }) => {
+        if (error) console.error('Supabase error saving garage config:', error);
+      });
+    }
   };
 
   const handleDeleteGarageRefill = (id: string) => {
@@ -557,6 +580,13 @@ export default function App() {
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
     if (isSupabaseConfigured()) {
       proxyDelete('garage_refills', `id=eq.${id}`);
+      supabase.from('garage_config').upsert({
+        id: 'default',
+        diesel_qty: newQty,
+        updated_at: new Date().toISOString()
+      }).then(({ error }) => {
+        if (error) console.error('Supabase error saving garage config qty:', error);
+      });
     }
   };
 
@@ -573,6 +603,15 @@ export default function App() {
       const newQty = Math.max(0, garageDieselQty + diff);
       setGarageDieselQty(newQty);
       localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+      if (isSupabaseConfigured()) {
+        supabase.from('garage_config').upsert({
+          id: 'default',
+          diesel_qty: newQty,
+          updated_at: new Date().toISOString()
+        }).then(({ error }) => {
+          if (error) console.error('Supabase error saving garage config qty:', error);
+        });
+      }
     }
     if (isSupabaseConfigured()) {
       proxyUpdate('garage_refills', {
@@ -1667,6 +1706,16 @@ export default function App() {
                 setGarageDieselPrice(price);
                 localStorage.setItem('relampago_garage_diesel_qty', qty.toString());
                 localStorage.setItem('relampago_garage_diesel_price', price.toString());
+                if (isSupabaseConfigured()) {
+                  supabase.from('garage_config').upsert({
+                    id: 'default',
+                    diesel_qty: qty,
+                    diesel_price: price,
+                    updated_at: new Date().toISOString()
+                  }).then(({ error }) => {
+                    if (error) console.error('Supabase error saving garage config:', error);
+                  });
+                }
               }}
               garageRefills={garageRefills}
               onAddGarageRefill={handleAddGarageRefill}
