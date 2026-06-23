@@ -465,7 +465,15 @@ export default function DriverPortal({
 
     const inputLiters = parseFloat(liters);
     const isGaragem = fuelStationType === 'GARAGEM';
-    const inputPrice = isGaragem ? garageCalculatedValue : parseFloat(fuelPrice);
+    let inputPrice = isGaragem ? garageCalculatedValue : parseFloat(fuelPrice);
+    if (isGaragem && isSupabaseConfigured()) {
+      try {
+        const { data: cfg } = await supabase.from('vehicles').select('cost_per_km').eq('id', 'GARAGE-CONFIG').maybeSingle();
+        if (cfg?.cost_per_km != null) {
+          inputPrice = Number(cfg.cost_per_km) * inputLiters;
+        }
+      } catch {}
+    }
     if (isNaN(inputLiters) || inputLiters <= 0) {
       onShowToast("Valor de Litros Inválido", "Por favor, digite uma quantidade de litros válida.", "warning");
       return;
