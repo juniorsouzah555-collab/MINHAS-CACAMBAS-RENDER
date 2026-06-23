@@ -230,37 +230,22 @@ export default function DriverPortal({
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [locationPermissionAsked, setLocationPermissionAskedState] = useState(() => {
-    return localStorage.getItem('relampago_loc_asked') === 'true';
-  });
-
-  const setLocationPermissionAsked = (val: boolean) => {
-    setLocationPermissionAskedState(val);
-    if (val) {
-      localStorage.setItem('relampago_loc_asked', 'true');
-    } else {
-      localStorage.removeItem('relampago_loc_asked');
-    }
-  };
+  const hasDefinitiveLocation = () => localStorage.getItem('relampago_loc_definitivo') === 'true';
 
   // Pede localização automaticamente ao entrar como motorista
   useEffect(() => {
     if (!isDriverUser) return;
-    const def = localStorage.getItem('relampago_loc_definitivo');
-    if (def === 'true' && navigator.geolocation) {
+    if (hasDefinitiveLocation() && navigator.geolocation) {
       startWatching();
       return;
     }
-    if (!locationPermissionAsked) {
-      askLocation(true);
-    }
+    askLocation(true);
   }, [isDriverUser]);
 
-  // Pede localização (auto se true)
+  // Pede localização (auto = true quando é automático)
   const askLocation = (auto = false) => {
     if (!navigator.geolocation) {
       setGeoError("Este navegador não suporta a API de Geolocalização.");
-      setLocationPermissionAsked(true);
       return;
     }
 
@@ -271,11 +256,8 @@ export default function DriverPortal({
           lng: position.coords.longitude
         });
         setGeoError(null);
-        setLocationPermissionAsked(true);
-        if (auto) {
-          localStorage.setItem('relampago_loc_definitivo', 'true');
-          startWatching();
-        }
+        localStorage.setItem('relampago_loc_definitivo', 'true');
+        startWatching();
       },
       (error) => {
         console.warn("Erro ao obter geolocalização:", error);
@@ -293,7 +275,6 @@ export default function DriverPortal({
             setGeoError("Ocorreu um erro desconhecido ao obter a geolocalização.");
             break;
         }
-        setLocationPermissionAsked(true);
       },
       {
         enableHighAccuracy: true,
@@ -636,7 +617,7 @@ export default function DriverPortal({
   })();
 
   // Tela de permissão de localização (antes de mostrar o portal)
-  if (isDriverUser && !locationPermissionAsked) {
+  if (isDriverUser && !hasDefinitiveLocation() && !geoError && !userCoords) {
     return (
       <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-slate-100 shadow-2xl relative overflow-hidden font-sans">
         <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
@@ -724,7 +705,7 @@ export default function DriverPortal({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => { setGeoError(null); setLocationPermissionAsked(false); askLocation(true); }}
+            onClick={() => { setGeoError(null); askLocation(true); }}
             className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
           >
             Tentar Novamente
