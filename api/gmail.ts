@@ -211,17 +211,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // DISCONNECT — delete stored token
+  // DISCONNECT — delete stored token via proxy
   if (action === 'disconnect') {
     try {
-      // Delete all tokens
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens`, {
-        method: 'DELETE',
-        headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
-      });
-      if (!r.ok) {
-        const text = await r.text();
-        return res.status(500).json({ error: text });
+      // Get email first
+      let email = '';
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: SB_HEADERS });
+        const list = await r.json();
+        if (list?.[0]?.email) email = list[0].email;
+      } catch {}
+      if (email) {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, {
+          method: 'DELETE',
+          headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
+        });
+        if (!r.ok) {
+          const text = await r.text();
+          return res.status(500).json({ error: text });
+        }
       }
       return res.json({ ok: true });
     } catch (e: any) {
