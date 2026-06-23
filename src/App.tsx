@@ -58,6 +58,7 @@ import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 import TrackingView from './components/TrackingView';
+import BoletoView from './components/BoletoView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -1615,6 +1616,10 @@ export default function App() {
 
           {currentTab === 'tracking' && (
             <TrackingView vehicles={vehicles} motoristas={motoristas} />
+          )}
+
+          {currentTab === 'boletos' && (
+            <BoletoView />
           )}
 
           {currentTab === 'reports' && (

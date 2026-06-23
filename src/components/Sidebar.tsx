@@ -17,7 +17,8 @@ import {
   FileText,
   Percent,
   Smartphone,
-  MapPin
+  MapPin,
+  Receipt
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'disposal', name: 'Cadastro', icon: Trash2 },
     { id: 'finance', name: 'Financeiro', icon: DollarSign },
     { id: 'commissions', name: 'Comissões', icon: Percent },
+    { id: 'boletos', name: 'Boletos', icon: Receipt },
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }
