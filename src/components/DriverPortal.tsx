@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
 import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers, uploadFuelReceipt } from '../lib/supabase';
+import * as Geo from '../lib/geolocation';
 import DriverLiveMap from './DriverLiveMap';
 
 interface DriverPortalProps {
@@ -240,33 +241,26 @@ export default function DriverPortal({
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const hasDefinitiveLocation = () => localStorage.getItem('relampago_loc_definitivo') === 'true';
 
   // Pede localização automaticamente ao entrar como motorista
   useEffect(() => {
     if (!isDriverUser) return;
-    if (hasDefinitiveLocation() && navigator.geolocation) {
-      startWatching();
-    }
+    const definitive = localStorage.getItem('relampago_loc_definitivo') === 'true';
+    if (definitive) Geo.startWatching(setUserCoords, setGeoError);
   }, [isDriverUser]);
 
   // Recupera localização quando a página volta a ficar visível (app fechado/reaberto)
   useEffect(() => {
     if (!isDriverUser) return;
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && hasDefinitiveLocation() && navigator.geolocation) {
-        if (watchIdRef.current === null) {
-          startWatching();
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-            },
-            () => {},
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
-        }
-      }
+      if (document.visibilityState !== 'visible') return;
+      const definitive = localStorage.getItem('relampago_loc_definitivo') === 'true';
+      if (!definitive) return;
+      Geo.getCurrentPosition().then((pos) => {
+        if (pos) setUserCoords(pos);
+        if (!Geo.startWatching) return;
+      });
+      Geo.startWatching(setUserCoords, setGeoError);
     };
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handleVisibility);
@@ -276,71 +270,26 @@ export default function DriverPortal({
     };
   }, [isDriverUser]);
 
-  // Pede localização (auto = true quando é automático)
-  const askLocation = (auto = false) => {
-    if (!navigator.geolocation) {
-      setGeoError("Este navegador não suporta a API de Geolocalização.");
+  // Pede localização
+  const askLocation = async (auto = false) => {
+    const granted = await Geo.requestPermission();
+    if (!granted) {
+      setGeoError("Acesso à localização recusado. Ative a permissão de geolocalização em seu navegador para habilitar o rastreamento em tempo real.");
       return;
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        setGeoError(null);
-        localStorage.setItem('relampago_loc_definitivo', 'true');
-        startWatching();
-      },
-      (error) => {
-        console.warn("Erro ao obter geolocalização:", error);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setGeoError("Acesso à localização recusado. Ative a permissão de geolocalização em seu navegador para habilitar o rastreamento em tempo real.");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setGeoError("As informações de localização do dispositivo estão indisponíveis no momento.");
-            break;
-          case error.TIMEOUT:
-            setGeoError("Tempo limite esgotado para obter a localização.");
-            break;
-          default:
-            setGeoError("Ocorreu um erro desconhecido ao obter a geolocalização.");
-            break;
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+    const pos = await Geo.getCurrentPosition();
+    if (pos) {
+      setUserCoords(pos);
+      setGeoError(null);
+      localStorage.setItem('relampago_loc_definitivo', 'true');
+      Geo.startWatching(setUserCoords, setGeoError);
+    } else {
+      setGeoError("Não foi possível obter a localização. Verifique se o GPS está ativo.");
+    }
   };
 
-  // Watch position continuamente
-  const watchIdRef = useRef<number | null>(null);
-  const startWatching = () => {
-    if (!navigator.geolocation) return;
-    if (watchIdRef.current !== null) return;
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        setUserCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        localStorage.setItem('relampago_loc_definitivo', 'true');
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
   useEffect(() => {
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
+    return () => { Geo.stopWatching(); };
   }, []);
 
   // Heartbeat com intervalo (usa ref para evitar reiniciar o timer)
@@ -667,7 +616,7 @@ export default function DriverPortal({
   })();
 
   // Tela de permissão de localização (antes de mostrar o portal)
-  if (isDriverUser && !hasDefinitiveLocation() && !geoError && !userCoords) {
+  if (isDriverUser && localStorage.getItem('relampago_loc_definitivo') !== 'true' && !geoError && !userCoords) {
     return (
       <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-slate-100 shadow-2xl relative overflow-hidden font-sans">
         <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
