@@ -1318,7 +1318,7 @@ export default function App() {
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
     return (
-      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
+      <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e]">
         <DriverPortal
           vehicles={vehicles}
           botaForas={botaForas}
@@ -1345,21 +1345,21 @@ export default function App() {
             toast.visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'
           }`}
         >
-          <div className="bg-slate-900 border border-slate-800 text-white p-4 px-5 rounded-xl shadow-2xl flex items-center gap-3.5 max-w-sm">
-            <div className="shrink-0 bg-emerald-500/20 p-2 rounded-lg text-emerald-400 flex items-center justify-center">
+          <div className="bg-white border border-[#f0efed] p-4 px-5 rounded-xl shadow-lg flex items-center gap-3.5 max-w-sm">
+            <div className="shrink-0 bg-teal-50 p-2 rounded-lg flex items-center justify-center">
               {toast.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <CheckCircle2 className="w-5 h-5 text-teal-600" />
               ) : (
-                <Info className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <Info className="w-5 h-5 text-teal-500 animate-pulse-soft" />
               )}
             </div>
-            <div className="flex-1 font-sans">
-              <div className="font-bold text-xs leading-none text-slate-100">{toast.title}</div>
-              <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">{toast.message}</div>
+            <div className="flex-1">
+              <div className="font-bold text-xs leading-none text-[#1a1a2e]">{toast.title}</div>
+              <div className="text-[11px] text-[#6b7280] mt-1 leading-relaxed">{toast.message}</div>
             </div>
             <button 
               onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-              className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+              className="text-[#b0aba3] hover:text-[#1a1a2e] p-1 rounded-full hover:bg-[#f5f4f2] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1371,7 +1371,7 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
+      <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e]">
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
         
         {/* Dynamic Slide-Up Toast Popup */}
@@ -1381,21 +1381,21 @@ export default function App() {
             toast.visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'
           }`}
         >
-          <div className="bg-slate-900 border border-slate-800 text-white p-4 px-5 rounded-xl shadow-2xl flex items-center gap-3.5 max-w-sm">
-            <div className="shrink-0 bg-emerald-500/20 p-2 rounded-lg text-emerald-400 flex items-center justify-center">
+          <div className="bg-white border border-[#f0efed] p-4 px-5 rounded-xl shadow-lg flex items-center gap-3.5 max-w-sm">
+            <div className="shrink-0 bg-teal-50 p-2 rounded-lg flex items-center justify-center">
               {toast.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <CheckCircle2 className="w-5 h-5 text-teal-600" />
               ) : (
-                <Info className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <Info className="w-5 h-5 text-teal-500 animate-pulse-soft" />
               )}
             </div>
-            <div className="flex-1 font-sans">
-              <div className="font-bold text-xs leading-none text-slate-100">{toast.title}</div>
-              <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">{toast.message}</div>
+            <div className="flex-1">
+              <div className="font-bold text-xs leading-none text-[#1a1a2e]">{toast.title}</div>
+              <div className="text-[11px] text-[#6b7280] mt-1 leading-relaxed">{toast.message}</div>
             </div>
             <button 
               onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-              className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+              className="text-[#b0aba3] hover:text-[#1a1a2e] p-1 rounded-full hover:bg-[#f5f4f2] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1406,7 +1406,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen text-slate-800 font-sans flex antialiased selection:bg-purple-500/20">
+    <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e] flex antialiased">
       
       {/* Sidebar navigation drawer */}
       <Sidebar 
@@ -1573,61 +1573,61 @@ export default function App() {
           )}
 
           {currentTab === 'help' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6 max-w-4xl mx-auto">
+            <div className="bg-white border border-[#e5e2dd] rounded-2xl p-6 space-y-6 max-w-4xl mx-auto">
               <div>
-                <h3 className="font-sans font-bold text-lg text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-                  <LifeBuoy className="w-5 h-5 text-indigo-500 animate-spin" />
-                  <span>Central de Ajuda &amp; Manuais Relâmpago Caçambas</span>
+                <h3 className="font-display font-bold text-lg text-[#1a1a2e] border-b border-[#f0efed] pb-3 flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-teal-500" />
+                  <span>Central de Ajuda</span>
                 </h3>
-                <p className="text-slate-400 text-xs mt-1">Diretrizes de conformidade, instruções de balança e parâmetros operacionais do sistema</p>
+                <p className="text-[#b0aba3] text-xs mt-1">Diretrizes e parâmetros operacionais do sistema</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
-                    <BookOpen className="w-4 h-4 text-emerald-600" />
-                    <span>Como posso registrar ordens de despacho de rota?</span>
+                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
+                    <BookOpen className="w-4 h-4 text-teal-600" />
+                    <span>Registrar ordens de despacho</span>
                   </div>
-                  <p className="text-xs text-slate-505 leading-relaxed">
-                    Clique em "Novo Despacho" no menu inferior da barra lateral esquerda ou na tela de operações. Preencha os campos de peso líquido bruto, vincule um motorista e uma unidade livre, informe endereços exatos para retida e descarte ecológico e envie o formulário para transmissão.
+                  <p className="text-xs text-[#6b7280] leading-relaxed">
+                    Clique em "Novo Lançamento" na barra lateral. Preencha os campos de peso, vincule motorista e veículo, informe endereços e envie.
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
-                    <Clock className="w-4 h-4 text-emerald-600" />
-                    <span>Redirecionamento de pânico por superaquecimento terminal</span>
+                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
+                    <Clock className="w-4 h-4 text-teal-600" />
+                    <span>Manutenção da frota</span>
                   </div>
-                  <p className="text-xs text-slate-505 leading-relaxed">
-                    Na aba "Frota", consulte a lista de Alertas de Manutenção periódicas. Clique no sinal "BARRAR ENVIO" ou "TICKET" no cockpit. O sistema realiza o sinal preventivo veicular, zera a acelerabilidade e realoca os parâmetros do caminhão para inspeção corretiva da carcaça do motor.
+                  <p className="text-xs text-[#6b7280] leading-relaxed">
+                    Na aba "Frota", consulte alertas de manutenção. Use os botões de ação para registrar tickets ou barrar envios preventivamente.
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Cobrança ativa e auditoria de caixa</span>
+                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                    <span>Gestão financeira</span>
                   </div>
-                  <p className="text-xs text-slate-505 leading-relaxed">
-                    Utilize o ecossistema "Financeiro" para gerenciar as notas de débito em lote. Mude o status do faturamento clicando nas ações de confirmação de caixa de forma rápida para faturar e garantir a conciliação imediata face aos regulamentos municipais.
+                  <p className="text-xs text-[#6b7280] leading-relaxed">
+                    Utilize o módulo "Financeiro" para gerenciar notas de débito, faturar e conciliar recebimentos.
                   </p>
                 </div>
 
-                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-emerald-800">
-                    <Leaf className="w-4 h-4 text-emerald-600" />
-                    <span>Coeficiente oficial de sustentabilidade (CO2)</span>
+                <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-teal-800">
+                    <BookOpen className="w-4 h-4 text-teal-600" />
+                    <span>Sustentabilidade (CO2)</span>
                   </div>
-                  <p className="text-xs text-emerald-700 leading-relaxed">
-                    Estimamos e auditamos cientificamente uma equivalência de compensação de carbono correspondente a <strong>1.4 toneladas coletivas por peso líquido recuperado</strong> em aterros licenciados.
+                  <p className="text-xs text-teal-700 leading-relaxed">
+                    Estimamos compensação de carbono de <strong>1.4 toneladas por peso recuperado</strong> em aterros licenciados.
                   </p>
                 </div>
 
               </div>
 
-              <div className="pt-4 border-t border-slate-100 text-xs text-slate-400 text-center flex items-center justify-center gap-2">
-                <span>Plataforma Operacional Relâmpago Caçambas v3.6. Para canais diretos de emergência e links, contate relampagoentulho@gmail.com</span>
+              <div className="pt-4 border-t border-[#f0efed] text-xs text-[#b0aba3] text-center">
+                <span>Contato: relampagoentulho@gmail.com</span>
               </div>
             </div>
           )}
@@ -1635,8 +1635,8 @@ export default function App() {
         </main>
 
         {/* Global Footer info bar */}
-        <footer className="py-4 text-center border-t border-slate-200 bg-white text-slate-400 text-[11px] font-medium mt-8 shadow-inner select-none pointer-events-none">
-          © 2026 Relâmpago Caçambas Ltda • Razão Social: 02.948.345/0001-05. Métricas e telemetria atualizadas de forma segura.
+        <footer className="py-4 text-center border-t border-[#f0efed] text-[#b0aba3] text-[11px] font-medium mt-8 select-none pointer-events-none">
+          © 2026 Relâmpago Caçambas Ltda
         </footer>
 
       </div>

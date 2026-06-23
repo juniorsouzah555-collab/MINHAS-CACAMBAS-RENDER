@@ -6,7 +6,6 @@ import {
   EyeOff, 
   Truck, 
   ShieldCheck, 
-  Zap, 
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
@@ -26,7 +25,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   const isConfigured = isSupabaseConfigured();
 
-  // Limpeza: remove de relampago_invited_drivers quem nao esta em relampago_system_users
+  // Cleanup: remove de relampago_invited_drivers quem nao esta em relampago_system_users
   useEffect(() => {
     try {
       const invitedRaw = localStorage.getItem('relampago_invited_drivers');
@@ -158,7 +157,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 .select('email')
                 .eq('email', normEmail)
                 .maybeSingle();
-              // Se erro na query ou usuario nao encontrado, trata como deletado
               if (!approvalRecord) {
                 const filtered = invited.filter(d => d.email !== normEmail);
                 localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
@@ -167,7 +165,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 return;
               }
             } catch {
-              // Se query falhar (RLS, rede), assume que usuario foi deletado
               const filtered = invited.filter(d => d.email !== normEmail);
               localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
               setIsLoading(false);
@@ -188,58 +185,52 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden select-none">
+    <div className="min-h-screen w-full bg-[#f8f6f3] flex flex-col justify-center items-center p-4 relative overflow-hidden select-none">
       
-      {/* Immersive background decoration (ambient circles) */}
-      <div className="absolute top-[-25%] left-[-15%] w-[60%] h-[60%] rounded-full bg-emerald-950/20 blur-[130px] pointer-events-none animate-pulse-glow" style={{ animationDuration: '8s' }} />
-      <div className="absolute bottom-[-15%] right-[-10%] w-[55%] h-[55%] rounded-full bg-purple-950/20 blur-[160px] pointer-events-none animate-pulse-glow" style={{ animationDelay: '-5s', animationDuration: '10s' }} />
+      {/* Decorative subtle background */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-500/3 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-15%] right-[-10%] w-[55%] h-[55%] rounded-full bg-amber-500/3 blur-[150px] pointer-events-none" />
       
-      {/* Decorative lightning spark grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#020617_2px,transparent_2px),linear-gradient(to_bottom,#020617_2px,transparent_2px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-35" />
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e2dd_1px,transparent_1px),linear-gradient(to_bottom,#e5e2dd_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20" />
 
       {/* Main Container */}
-      <div className="w-full max-w-md space-y-4 relative z-10">
-
-        {/* Main login card box with clean entering animation */}
-        <div 
-          className="w-full bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl relative"
-        >
-          {/* Brand Header */}
-          <div className="text-center mb-6">
-            <div 
-              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-700 p-0.5 shadow-xl shadow-emerald-950/40 mb-3"
-            >
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
-                <Zap className="w-8 h-8 text-emerald-400 absolute animate-pulse" />
-                <Truck className="w-5 h-5 text-emerald-500 opacity-20 absolute -bottom-1 -right-1" />
-              </div>
+      <div className="w-full max-w-sm space-y-5 relative z-10">
+        
+        {/* Logo area */}
+        <div className="text-center animate-fade-in-up">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border border-[#e5e2dd] shadow-sm mb-4">
+            <div className="w-full h-full rounded-[14px] flex items-center justify-center bg-gradient-to-br from-teal-500 to-teal-600">
+              <Truck className="w-7 h-7 text-white" />
             </div>
-            
-            <h1 className="text-2xl font-black font-sans text-white tracking-tight leading-none">
-              Relâmpago Caçambas
-            </h1>
-            <p className="text-xs text-slate-400 font-medium mt-2 font-sans">
-              Logística Inteligente de Entulhos & Gestão de Caçambas
-            </p>
           </div>
+          <h1 className="text-2xl font-display font-bold text-[#1a1a2e] tracking-tight">
+            Relâmpago Caçambas
+          </h1>
+          <p className="text-sm text-[#6b7280] mt-1.5 font-medium">
+            Logística Inteligente de Entulhos
+          </p>
+        </div>
 
+        {/* Main login card */}
+        <div className="bg-white border border-[#e5e2dd] rounded-2xl p-6 shadow-sm animate-fade-in-up delay-100">
+          
           {errorMsg && (
-            <div className="bg-red-950/50 border border-red-900/60 rounded-xl p-3 flex items-start gap-2.5 mb-4">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <span className="text-[11px] font-sans font-bold text-red-300 leading-relaxed">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-start gap-3 mb-4 animate-fade-in">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <span className="text-[13px] font-medium text-red-700 leading-relaxed">
                 {errorMsg}
               </span>
             </div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans animate-pulse">
-                E-mail do Operador ou Motorista
+              <label className="block text-xs font-semibold text-[#6b7280]">
+                E-mail
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#b0aba3]">
                   <Mail className="w-4 h-4" />
                 </span>
                 <input
@@ -248,26 +239,26 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="nome@relampago.com"
-                  className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white font-semibold font-mono tracking-wide focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  className="w-full bg-white border border-[#e5e2dd] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#1a1a2e] font-medium placeholder:text-[#b0aba3] focus:border-teal-500 focus:ring-0"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest font-sans">
-                  Senha de Acesso
+                <label className="block text-xs font-semibold text-[#6b7280]">
+                  Senha
                 </label>
                 <button
                   type="button"
                   onClick={() => alert("Solicite ao administrador a redefinição da sua senha.")}
-                  className="text-[9px] font-extrabold text-emerald-400 hover:underline cursor-pointer font-sans font-mono"
+                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
                 >
                   Recuperar senha?
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#b0aba3]">
                   <Lock className="w-4 h-4" />
                 </span>
                 <input
@@ -275,59 +266,57 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="******"
-                  className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white font-semibold font-mono tracking-widest focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-slate-600"
+                  placeholder="••••••••"
+                  className="w-full bg-white border border-[#e5e2dd] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#1a1a2e] font-medium placeholder:text-[#b0aba3] focus:border-teal-500 focus:ring-0"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#b0aba3] hover:text-[#6b7280] transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans pt-1">
+            <div className="flex items-center justify-between text-xs text-[#9ca3af] pt-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
                   type="checkbox" 
                   defaultChecked 
-                  className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" 
+                  className="rounded border-[#e5e2dd] bg-white text-teal-600 focus:ring-0 focus:ring-offset-0 w-4 h-4" 
                 />
                 <span>Lembrar credenciais</span>
               </label>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-500/80 font-bold">
+              <div className="flex items-center gap-1.5 text-teal-600/70">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Criptografado</span>
+                <span className="font-medium">Criptografado</span>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-450 hover:to-teal-550 text-white py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/30 font-sans disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
                   <span>Entrar no Painel</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
         </div>
 
-        {/* Page Footer credentials */}
-        <div className="text-center">
-          <span className="text-[10px] text-slate-600 font-mono mt-2 inline-block">
-            © 2026 Relâmpago Caçambas Ltda. Todos os direitos reservados.
+        <div className="text-center animate-fade-in-up delay-200">
+          <span className="text-xs text-[#b0aba3]">
+            © 2026 Relâmpago Caçambas Ltda.
           </span>
         </div>
       </div>
     </div>
   );
 }
-

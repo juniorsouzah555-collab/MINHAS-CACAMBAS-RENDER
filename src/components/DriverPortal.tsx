@@ -14,7 +14,8 @@ import {
   Building,
   Navigation,
   FileText,
-  LogOut
+  LogOut,
+  Maximize2
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
 import { supabase } from '../lib/supabase';
@@ -23,20 +24,29 @@ import { supabase } from '../lib/supabase';
 function DriverLiveMap({ 
   coords, 
   error, 
-  onRetry 
+  onRetry,
+  vehicles = [],
+  selectedDriver = '',
+  zoomed,
+  onToggleZoom
 }: { 
   coords: { lat: number; lng: number } | null; 
   error: string | null;
   onRetry: () => void;
+  vehicles?: Vehicle[];
+  selectedDriver?: string;
+  zoomed?: boolean;
+  onToggleZoom?: () => void;
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const driverMarkerRef = useRef<any>(null);
+  const vehicleMarkersRef = useRef<any[]>([]);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
+  const tilesRef = useRef<any>(null);
 
   // Dynamic script/css loader
   useEffect(() => {
-    // Check if Leaflet is already loaded
     if ((window as any).L) {
       setIsLeafletLoaded(true);
       return;
@@ -60,9 +70,25 @@ function DriverLiveMap({
     document.body.appendChild(script);
   }, []);
 
-  // Initialize and update the map when leaflet is loaded and coordinates change
+  // Initialize map once
   useEffect(() => {
-    if (!isLeafletLoaded || !mapContainerRef.current) return;
+    if (!isLeafletLoaded || !mapContainerRef.current || mapRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    mapRef.current = L.map(mapContainerRef.current, {
+      zoomControl: true,
+      attributionControl: false
+    }).setView([-23.5505, -46.6333], 13);
+
+    tilesRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(mapRef.current);
+  }, [isLeafletLoaded]);
+
+  // Update driver marker when coords change
+  useEffect(() => {
+    if (!isLeafletLoaded || !mapRef.current) return;
     const L = (window as any).L;
     if (!L) return;
 
@@ -70,54 +96,127 @@ function DriverLiveMap({
 
     const { lat, lng } = coords;
 
-    if (!mapRef.current) {
-      // Create map instance
-      mapRef.current = L.map(mapContainerRef.current, {
-        zoomControl: true,
-        attributionControl: false
-      }).setView([lat, lng], 15);
+    const driverIconHtml = `
+      <div class="relative flex items-center justify-center">
+        <div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; background: #059669; color: white; font-size: 10px; font-weight: 700; padding: 1px 8px; border-radius: 4px; white-space: nowrap; font-family: sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+          ${selectedDriver}
+          <div style="position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #059669;"></div>
+        </div>
+        <div class="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-emerald-400 opacity-75"></div>
+        <div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white shadow-lg">
+          <div class="h-2 w-2 bg-white rounded-full"></div>
+        </div>
+      </div>
+    `;
+    const driverIcon = L.divIcon({
+      html: driverIconHtml,
+      className: 'custom-driver-icon',
+      iconSize: [32, 52],
+      iconAnchor: [16, 42]
+    });
 
-      // Add TileLayer (OpenStreetMap tile)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(mapRef.current);
+    if (!driverMarkerRef.current) {
+      driverMarkerRef.current = L.marker([lat, lng], { icon: driverIcon }).addTo(mapRef.current);
+      driverMarkerRef.current.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 12px; font-weight: 700; color: #059669; text-align: center;">
+          <div style="font-size: 14px;">📍 ${selectedDriver || 'Motorista'}</div>
+          <div style="font-weight: 400; color: #6b7280; font-size: 10px; margin-top: 2px;">
+            ${lat.toFixed(6)}, ${lng.toFixed(6)}
+          </div>
+        </div>
+      `);
+    } else {
+      driverMarkerRef.current.setLatLng([lat, lng]);
+    }
 
-      // Add a HTML div icon to avoid standard marker asset search issues within bundlers
-      const iconHtml = `
+    if (mapRef.current.getZoom() < 13) {
+      mapRef.current.setView([lat, lng], 13);
+    }
+  }, [isLeafletLoaded, coords, selectedDriver]);
+
+  // Update vehicle markers when vehicles change
+  useEffect(() => {
+    if (!isLeafletLoaded || !mapRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Remove old vehicle markers
+    vehicleMarkersRef.current.forEach(m => m.remove());
+    vehicleMarkersRef.current = [];
+
+    const activeVehicles = vehicles.filter(v =>
+      v.isActive && v.lat && v.lng && v.id
+    );
+
+    activeVehicles.forEach(v => {
+      const isDriverVehicle = driverMarkerRef.current &&
+        driverMarkerRef.current.getLatLng().lat === v.lat &&
+        driverMarkerRef.current.getLatLng().lng === v.lng;
+
+      if (isDriverVehicle) return;
+
+      const vehicleIconHtml = `
         <div class="relative flex items-center justify-center">
-          <div class="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-emerald-400 opacity-75"></div>
-          <div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white shadow-lg">
-            <div class="h-2 w-2 bg-white rounded-full"></div>
+          <div class="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 border-2 border-white shadow-md">
+            <div class="h-1.5 w-1.5 bg-white rounded-full"></div>
           </div>
         </div>
       `;
-      const customIcon = L.divIcon({
-        html: iconHtml,
-        className: 'custom-driver-icon',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+      const vehicleIcon = L.divIcon({
+        html: vehicleIconHtml,
+        className: 'custom-vehicle-icon',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
       });
 
-      markerRef.current = L.marker([lat, lng], { icon: customIcon }).addTo(mapRef.current);
+      const marker = L.marker([v.lat, v.lng], { icon: vehicleIcon }).addTo(mapRef.current);
+      marker.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 11px;">
+          <div style="font-weight: 700; color: #4338ca;">🚛 ${v.id}</div>
+          <div style="color: #6b7280; margin-top: 2px;">Motorista: ${v.driver || '—'}</div>
+          <div style="color: #6b7280; font-size: 10px;">Status: ${v.status}</div>
+        </div>
+      `);
+      vehicleMarkersRef.current.push(marker);
+    });
+  }, [isLeafletLoaded, vehicles, coords]);
+
+  // Toggle zoom when button is clicked
+  useEffect(() => {
+    if (!mapRef.current || !coords) return;
+    if (zoomed) {
+      mapRef.current.setView([coords.lat, coords.lng], 17);
     } else {
-      // Map already exists, update center and marker location
-      mapRef.current.setView([lat, lng], mapRef.current.getZoom());
-      if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
-      }
+      mapRef.current.setView([coords.lat, coords.lng], 13);
     }
-  }, [isLeafletLoaded, coords]);
+  }, [zoomed]);
+
+  // Invalidate map size on mount after container is sized
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.invalidateSize();
+      }, 300);
+    }
+  }, [isLeafletLoaded]);
 
   // Clean map instance on unmount
   useEffect(() => {
     return () => {
+      vehicleMarkersRef.current.forEach(m => m.remove());
+      vehicleMarkersRef.current = [];
+      if (driverMarkerRef.current) {
+        driverMarkerRef.current.remove();
+        driverMarkerRef.current = null;
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
-        markerRef.current = null;
       }
     };
   }, []);
+
+  const currentZoom = zoomed ? 17 : 13;
 
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-2xl shadow-inner overflow-hidden h-64 relative">
@@ -151,6 +250,30 @@ function DriverLiveMap({
       ) : (
         <div ref={mapContainerRef} className="w-full h-full z-0" />
       )}
+
+      {coords && onToggleZoom && (
+        <button
+          onClick={onToggleZoom}
+          className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm transition-colors cursor-pointer"
+          title={zoomed ? "Afastar mapa" : "Dar zoom no mapa"}
+        >
+          <Maximize2 className="w-4 h-4 text-slate-600" />
+        </button>
+      )}
+
+      {coords && (
+        <div className="absolute bottom-2 left-2 z-10 bg-white/90 border border-slate-200 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-slate-600 shadow-sm flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span>{selectedDriver}</span>
+          <span className="text-slate-300">|</span>
+          <span className="font-mono">{zoomed ? '1:5k' : '1:50k'}</span>
+        </div>
+      )}
+
+      {/* Zoom level indicator */}
+      <div className="absolute bottom-2 right-2 z-10 bg-white/90 border border-slate-200 px-2 py-1 rounded-lg text-[10px] text-slate-500 font-mono shadow-sm">
+        Zoom {currentZoom}
+      </div>
     </div>
   );
 }
@@ -314,6 +437,9 @@ export default function DriverPortal({
   // Geolocation state
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+
+  // Fullscreen map state
+  const [mapZoomed, setMapZoomed] = useState(false);
 
   // Request & Watch location
   const startWatchingLocation = () => {
@@ -706,6 +832,10 @@ export default function DriverPortal({
             setGeoError(null);
             startWatchingLocation();
           }} 
+          vehicles={vehicles}
+          selectedDriver={selectedDriver}
+          zoomed={mapZoomed}
+          onToggleZoom={() => setMapZoomed(!mapZoomed)}
         />
       </div>
 

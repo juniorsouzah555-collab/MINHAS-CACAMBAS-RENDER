@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md", "CORREÇÕES DE IA.md"],
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "references": {
+    "api": {
+      "path": "api",
+      "description": "Use for Vercel serverless endpoints (proxy, auth, fuel-log)"
+    },
+    "components": {
+      "path": "src/components",
+      "description": "Use for React component implementation details"
+    }
+  }
+}

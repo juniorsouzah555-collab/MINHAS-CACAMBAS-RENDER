@@ -31,8 +31,8 @@ const isValidHttpUrl = (str: string): boolean => {
   }
 };
 
-const HARDCODED_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
-const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NTIwNzksImV4cCI6MjA5NzIyODA3OX0.EO0tflk_Q7wNYXEIIXLoyAMXj9J-XKtGQO1gNdp7Lzc';
+const HARDCODED_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
+const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHl2c2lkZ2h2aWRxYnlwbW1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzA5NzQsImV4cCI6MjA5Nzc0Njk3NH0.jZFTeYRf3rkwvekg0Srpy4Zq4Aj-WEOf2ETHaAAeLtA';
 
 // Retrieve keys from localStorage or fallback to hardcoded values
 export const getSupabaseConfig = () => {
