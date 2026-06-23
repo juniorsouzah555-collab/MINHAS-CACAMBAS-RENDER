@@ -237,9 +237,7 @@ export default function DriverPortal({
     if (!isDriverUser) return;
     if (hasDefinitiveLocation() && navigator.geolocation) {
       startWatching();
-      return;
     }
-    askLocation(true);
   }, [isDriverUser]);
 
   // Pede localização (auto = true quando é automático)
