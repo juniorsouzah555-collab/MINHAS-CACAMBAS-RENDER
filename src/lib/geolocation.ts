@@ -1,3 +1,8 @@
+import type { BackgroundGeolocationPlugin } from '@capacitor-community/background-geolocation';
+import { registerPlugin, Capacitor } from '@capacitor/core';
+
+const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
+
 export interface GeoPosition {
   lat: number;
   lng: number;
@@ -6,18 +11,7 @@ export interface GeoPosition {
 type GeoCallback = (pos: GeoPosition) => void;
 type GeoErrorCallback = (err: string) => void;
 
-let capacitorAvailable = false;
-
-async function initCapacitor() {
-  try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.isNativePlatform()) {
-      capacitorAvailable = true;
-    }
-  } catch {}
-}
-
-initCapacitor();
+const capacitorAvailable = Capacitor.isNativePlatform();
 
 export async function requestPermission(): Promise<boolean> {
   if (capacitorAvailable) {
@@ -63,16 +57,36 @@ export function startWatching(onPosition: GeoCallback, onError?: GeoErrorCallbac
   if (capacitorAvailable) {
     let removed = false;
     (async () => {
-      const { Geolocation } = await import('@capacitor/geolocation');
-      const watchId = await Geolocation.watchPosition(
-        { enableHighAccuracy: true, timeout: 10000 },
-        (pos, err) => {
-          if (removed) return;
-          if (err) { onError?.(String(err)); return; }
-          if (pos) onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        }
-      );
-      watchCleanup = () => { removed = true; Geolocation.clearWatch({ id: watchId }); };
+      try {
+        // Tenta usar o background geolocation (rastreia mesmo com app fechado)
+        const watcherId = await BackgroundGeolocation.addWatcher(
+          {
+            backgroundMessage: 'Rastreando localização em tempo real',
+            backgroundTitle: 'Portal Motorista',
+            requestPermissions: true,
+            distanceFilter: 10,
+            stale: false,
+          },
+          (position, error) => {
+            if (removed) return;
+            if (error) { onError?.(error.message); return; }
+            if (position) onPosition({ lat: position.latitude, lng: position.longitude });
+          }
+        );
+        watchCleanup = () => { removed = true; BackgroundGeolocation.removeWatcher({ id: watcherId }); };
+      } catch {
+        // Fallback para @capacitor/geolocation (foreground apenas)
+        const { Geolocation } = await import('@capacitor/geolocation');
+        const watchId = await Geolocation.watchPosition(
+          { enableHighAccuracy: true, timeout: 10000 },
+          (pos, err) => {
+            if (removed) return;
+            if (err) { onError?.(String(err)); return; }
+            if (pos) onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          }
+        );
+        watchCleanup = () => { removed = true; Geolocation.clearWatch({ id: watchId }); };
+      }
     })();
     return () => watchCleanup?.();
   }
