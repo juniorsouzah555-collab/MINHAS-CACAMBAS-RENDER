@@ -8,9 +8,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Try direct DB connection using service_role key as password via pooler
-    const client = new Client({
-      host: `${PROJECT_REF}.pooler.supabase.com`,
+    // Try direct DB connection using service_role key as password
+    // Try pooler first, fall back to direct db connection
+    const poolerHost = `aws-0-us-west-1.pooler.supabase.com`;
+    const dbHost = `db.${PROJECT_REF}.supabase.co`;
+
+    let client = new Client({
+      host: poolerHost,
       port: 6543,
       database: 'postgres',
       user: `postgres.${PROJECT_REF}`,
@@ -18,7 +22,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ssl: { rejectUnauthorized: false }
     });
 
-    await client.connect();
+    try {
+      await client.connect();
+    } catch {
+      // Fall back to direct db connection
+      client = new Client({
+        host: dbHost,
+        port: 5432,
+        database: 'postgres',
+        user: 'postgres',
+        password: KEY,
+        ssl: { rejectUnauthorized: false }
+      });
+      await client.connect();
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS garage_config (
