@@ -1427,6 +1427,8 @@ export default function App() {
           comissoes={comissoes}
           dispatches={dispatches}
           fuelLogs={fuelLogs}
+          garageDieselPrice={garageDieselPrice}
+          garageDieselQty={garageDieselQty}
           onAddLancamento={handleAddLancamento}
           onAddComissao={handleAddComissao}
           onUpdateComissao={handleUpdateComissao}
@@ -1612,6 +1614,8 @@ export default function App() {
               comissoes={comissoes}
               dispatches={dispatches}
               fuelLogs={fuelLogs}
+              garageDieselPrice={garageDieselPrice}
+              garageDieselQty={garageDieselQty}
               onAddLancamento={handleAddLancamento}
               onAddComissao={handleAddComissao}
               onUpdateComissao={handleUpdateComissao}

@@ -30,6 +30,8 @@ interface DriverPortalProps {
   comissoes: ComissaoMotorista[];
   dispatches: Dispatch[];
   fuelLogs: FuelLog[];
+  garageDieselPrice?: number;
+  garageDieselQty?: number;
   onAddLancamento: (newLan: Omit<Lancamento, 'id' | 'createdAt'>) => void;
   onAddComissao: (newCom: Omit<ComissaoMotorista, 'id' | 'createdAt'>) => void;
   onUpdateComissao: (updatedCom: ComissaoMotorista) => void;
@@ -455,12 +457,15 @@ export default function DriverPortal({
     e.preventDefault();
 
     const inputLiters = parseFloat(liters);
-    const inputPrice = parseFloat(fuelPrice);
+    const isGaragem = fuelStationType === 'GARAGEM';
+    const inputPrice = isGaragem
+      ? (garageDieselPrice ?? 0) * inputLiters
+      : parseFloat(fuelPrice);
     if (isNaN(inputLiters) || inputLiters <= 0) {
       onShowToast("Valor de Litros Inválido", "Por favor, digite uma quantidade de litros válida.", "warning");
       return;
     }
-    if (isNaN(inputPrice) || inputPrice <= 0) {
+    if (!isGaragem && (isNaN(inputPrice) || inputPrice <= 0)) {
       onShowToast("Valor Pago Inválido", "Por favor, especifique o custo do abastecimento.", "warning");
       return;
     }
@@ -1283,7 +1288,7 @@ export default function DriverPortal({
                       type="number"
                       required
                       disabled={fuelStationType === 'GARAGEM'}
-                      value={fuelStationType === 'GARAGEM' ? '0' : fuelPrice}
+                      value={fuelStationType === 'GARAGEM' ? ((garageDieselPrice ?? 0) * (parseFloat(liters) || 0)).toFixed(2) : fuelPrice}
                       onChange={(e) => setFuelPrice(e.target.value)}
                       placeholder="850"
                       className="w-full pl-14 pr-4 py-3 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-blue-200/60 rounded-xl text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold transition-all hover:border-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
