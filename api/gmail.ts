@@ -60,7 +60,7 @@ interface BoletoEmail {
 }
 
 async function fetchBoletoEmails(accessToken: string) {
-  const query = '(subject:boleto OR subject:BOLETO OR subject:fatura OR subject:FATURA)';
+  const query = '(subject:boleto OR subject:BOLETO OR subject:fatura OR subject:FATURA OR subject:2\u00aa via OR subject:segunda via)';
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=20`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -132,8 +132,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // FETCH — get boleto emails (GET)
   if (action === 'fetch') {
-    const email = (req.query.email as string) || 'admin';
-    const stored = await getStoredToken(email);
+    let email = req.query.email as string;
+    let stored = email ? await getStoredToken(email) : null;
+    if (!stored) {
+      // Try to get any stored token
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: SB_HEADERS });
+        const list = await r.json();
+        if (list?.[0]?.email) {
+          email = list[0].email;
+          stored = await getStoredToken(email);
+        }
+      } catch {}
+    }
     if (!stored) return res.json({ connected: false, emails: [] });
 
     let accessToken = stored.access_token;
