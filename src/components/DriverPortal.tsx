@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Smartphone, 
   Sparkles, 
@@ -216,6 +216,11 @@ export default function DriverPortal({
   const [fuelFotoNota, setFuelFotoNota] = useState<string | null>(null);
   const [fuelFotoFile, setFuelFotoFile] = useState<File | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
+
+  const garageCalculatedValue = useMemo(() => {
+    const litersNum = parseFloat(liters) || 0;
+    return (garageDieselPrice ?? 0) * litersNum;
+  }, [garageDieselPrice, liters]);
 
   const handleFotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -460,9 +465,7 @@ export default function DriverPortal({
 
     const inputLiters = parseFloat(liters);
     const isGaragem = fuelStationType === 'GARAGEM';
-    const inputPrice = isGaragem
-      ? (garageDieselPrice ?? 0) * inputLiters
-      : parseFloat(fuelPrice);
+    const inputPrice = isGaragem ? garageCalculatedValue : parseFloat(fuelPrice);
     if (isNaN(inputLiters) || inputLiters <= 0) {
       onShowToast("Valor de Litros Inválido", "Por favor, digite uma quantidade de litros válida.", "warning");
       return;
@@ -1290,7 +1293,7 @@ export default function DriverPortal({
                       type="number"
                       required
                       disabled={fuelStationType === 'GARAGEM'}
-                      value={fuelStationType === 'GARAGEM' ? ((garageDieselPrice ?? 0) * (parseFloat(liters) || 0)).toFixed(2) : fuelPrice}
+                      value={fuelStationType === 'GARAGEM' ? garageCalculatedValue.toFixed(2) : fuelPrice}
                       onChange={(e) => setFuelPrice(e.target.value)}
                       placeholder="850"
                       className="w-full pl-14 pr-4 py-3 bg-gradient-to-r from-emerald-50/50 to-white border-2 border-blue-200/60 rounded-xl text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-bold transition-all hover:border-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
