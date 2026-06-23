@@ -502,14 +502,11 @@ export default function App() {
           localStorage.setItem('relampago_garage_diesel_qty', String(v.efficiency));
         }
       })
-      .subscribe();
-
-    // Polling fallback: re-fetch garage config a cada 10s (caso Realtime não esteja
-    // habilitado no projeto Supabase, garante que o preço sincronize em até 10s)
-    const pollInterval = setInterval(async () => {
-      try {
-        const { data } = await supabase.from('vehicles').select('cost_per_km, efficiency').eq('id', 'GARAGE-CONFIG').maybeSingle();
-        if (data) {
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        // Busca inicial do garage config assim que o canal conectar
+        supabase.from('vehicles').select('cost_per_km, efficiency').eq('id', 'GARAGE-CONFIG').maybeSingle().then(({ data }) => {
+          if (!data) return;
           if (data.cost_per_km != null) {
             setGarageDieselPrice(Number(data.cost_per_km));
             localStorage.setItem('relampago_garage_diesel_price', String(data.cost_per_km));
@@ -518,14 +515,10 @@ export default function App() {
             setGarageDieselQty(Number(data.efficiency));
             localStorage.setItem('relampago_garage_diesel_qty', String(data.efficiency));
           }
-        }
-      } catch {}
-    }, 10000);
+        });
+      });
 
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(pollInterval);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [isAuthenticated]);
 
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
