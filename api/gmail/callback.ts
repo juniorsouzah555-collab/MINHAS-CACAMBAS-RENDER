@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
-const REDIRECT_URI = `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/gmail/callback`;
+const REDIRECT_URI = process.env.GMAIL_REDIRECT_URI || 'https://relampago-cacambas-novo.vercel.app/api/gmail/callback';
 const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
