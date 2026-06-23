@@ -39,6 +39,7 @@ test.describe('Garage Price Flow', () => {
   test('check price sync from Supabase after clearing localStorage', async ({ page }) => {
     test.skip(!EMAIL || !PASSWORD, 'no creds');
     // Clear localStorage to simulate a fresh device — Supabase should restore the price
+    // from the special GARAGE-CONFIG record in vehicles table
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
     await page.reload();

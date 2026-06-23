@@ -335,16 +335,16 @@ export default function App() {
               })));
             }
 
-            // Load garage config (diesel price & qty) from Supabase
-            const { data: garageConfig, error: errConfig } = await supabase.from('garage_config').select('*').eq('id', 'default').maybeSingle();
-            if (!errConfig && garageConfig) {
-              if (garageConfig.diesel_price != null) {
-                setGarageDieselPrice(Number(garageConfig.diesel_price));
-                localStorage.setItem('relampago_garage_diesel_price', String(garageConfig.diesel_price));
+            // Load garage config from vehicles table (special sentinel record)
+            const { data: configVehicle, error: errConfig } = await supabase.from('vehicles').select('*').eq('type', 'garage_config').maybeSingle();
+            if (!errConfig && configVehicle) {
+              if (configVehicle.initial_km != null) {
+                setGarageDieselPrice(Number(configVehicle.initial_km));
+                localStorage.setItem('relampago_garage_diesel_price', String(configVehicle.initial_km));
               }
-              if (garageConfig.diesel_qty != null) {
-                setGarageDieselQty(Number(garageConfig.diesel_qty));
-                localStorage.setItem('relampago_garage_diesel_qty', String(garageConfig.diesel_qty));
+              if (configVehicle.efficiency != null) {
+                setGarageDieselQty(Number(configVehicle.efficiency));
+                localStorage.setItem('relampago_garage_diesel_qty', String(configVehicle.efficiency));
               }
             }
 
@@ -555,11 +555,11 @@ export default function App() {
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
     localStorage.setItem('relampago_garage_diesel_price', refill.preco_por_litro.toString());
     if (isSupabaseConfigured()) {
-      supabase.from('garage_config').upsert({
-        id: 'default',
-        diesel_qty: newQty,
-        diesel_price: refill.preco_por_litro,
-        updated_at: new Date().toISOString()
+      supabase.from('vehicles').upsert({
+        id: 'GARAGE-CONFIG',
+        type: 'garage_config',
+        initial_km: refill.preco_por_litro,
+        efficiency: newQty
       }).then(({ error }) => {
         if (error) console.error('Supabase error saving garage config:', error);
       });
@@ -580,10 +580,10 @@ export default function App() {
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
     if (isSupabaseConfigured()) {
       proxyDelete('garage_refills', `id=eq.${id}`);
-      supabase.from('garage_config').upsert({
-        id: 'default',
-        diesel_qty: newQty,
-        updated_at: new Date().toISOString()
+      supabase.from('vehicles').upsert({
+        id: 'GARAGE-CONFIG',
+        type: 'garage_config',
+        efficiency: newQty
       }).then(({ error }) => {
         if (error) console.error('Supabase error saving garage config qty:', error);
       });
@@ -604,10 +604,10 @@ export default function App() {
       setGarageDieselQty(newQty);
       localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
       if (isSupabaseConfigured()) {
-        supabase.from('garage_config').upsert({
-          id: 'default',
-          diesel_qty: newQty,
-          updated_at: new Date().toISOString()
+        supabase.from('vehicles').upsert({
+          id: 'GARAGE-CONFIG',
+          type: 'garage_config',
+          efficiency: newQty
         }).then(({ error }) => {
           if (error) console.error('Supabase error saving garage config qty:', error);
         });
@@ -1707,11 +1707,11 @@ export default function App() {
                 localStorage.setItem('relampago_garage_diesel_qty', qty.toString());
                 localStorage.setItem('relampago_garage_diesel_price', price.toString());
                 if (isSupabaseConfigured()) {
-                  supabase.from('garage_config').upsert({
-                    id: 'default',
-                    diesel_qty: qty,
-                    diesel_price: price,
-                    updated_at: new Date().toISOString()
+                  supabase.from('vehicles').upsert({
+                    id: 'GARAGE-CONFIG',
+                    type: 'garage_config',
+                    initial_km: price,
+                    efficiency: qty
                   }).then(({ error }) => {
                     if (error) console.error('Supabase error saving garage config:', error);
                   });
