@@ -21,17 +21,15 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const [loadingAddress, setLoadingAddress] = useState<Set<string>>(new Set());
 
   const fetchAddresses = useCallback(async (users: { name: string; lat: number; lng: number }[]) => {
-    const loading = new Set<string>();
+    const filtered = users.filter(u => motoristas.some(m => m.toLowerCase() === u.name.toLowerCase()));
     const enriched: OnlineUser[] = await Promise.all(
-      users.map(async (u) => {
-        loading.add(u.name);
+      filtered.map(async (u) => {
         const address = await getAddressFromCoords(u.lat, u.lng);
         return { ...u, address };
       })
     );
-    setLoadingAddress(new Set());
     setOnlineUsers(enriched);
-  }, []);
+  }, [motoristas]);
 
   const poll = useCallback(async () => {
     try {

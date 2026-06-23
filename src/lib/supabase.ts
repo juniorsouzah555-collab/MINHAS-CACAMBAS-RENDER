@@ -199,9 +199,14 @@ export const sendHeartbeat = async (email: string, lat?: number, lng?: number): 
 export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng: number }[]> => {
   try {
     const cutoff = Date.now() - 120000;
-    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng, status').gte('last_seen', cutoff);
+    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng, last_seen, status').gte('last_seen', cutoff);
     if (error) console.error('[OU] error', error);
-    return (data || []).filter((u: any) => u.name && u.status === 'Ativo' && u.last_lat && u.last_lng).map((u: any) => ({ name: u.name, lat: u.last_lat, lng: u.last_lng }));
+    const seen = new Map<string, { lat: number; lng: number; ts: number }>();
+    (data || []).filter((u: any) => u.name && u.status === 'Ativo' && u.last_lat && u.last_lng).forEach((u: any) => {
+      const prev = seen.get(u.name);
+      if (!prev || u.last_seen > prev.ts) seen.set(u.name, { lat: u.last_lat, lng: u.last_lng, ts: u.last_seen });
+    });
+    return [...seen.entries()].map(([name, v]) => ({ name, lat: v.lat, lng: v.lng }));
   } catch (e) { console.error('[OU] catch', e); return []; }
 };
 

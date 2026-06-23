@@ -119,7 +119,8 @@ export default function DriverPortal({
     if (!isSupabaseConfigured()) return;
     supabase.from('user_approvals').select('name, email, role').eq('role', 'Motorista').then(({ data, error }) => {
       if (!error && data) {
-        setApprovedDriverNames(data.map((u: any) => u.name || u.email?.split('@')[0] || '').filter(Boolean));
+        const names = data.map((u: any) => u.name || u.email?.split('@')[0] || '').filter(Boolean);
+        setApprovedDriverNames([...new Set(names)]);
       }
     });
   }, []);
@@ -591,13 +592,14 @@ export default function DriverPortal({
       return vehicles.filter(v => v.driver === selectedDriver && v.lat && v.lng);
     }
     // Admin: mostra todos os motoristas aprovados + sintéticos
-    const activeNames = approvedDriverNames.length > 0 ? approvedDriverNames : motoristas;
+    const activeNames = [...new Set(approvedDriverNames.length > 0 ? approvedDriverNames : motoristas)];
     const filtered = vehicles.filter(v => v.driver && v.lat && v.lng && activeNames.includes(v.driver));
     const driversOnMap = new Set(filtered.map(v => v.driver));
     const onlineMap = new Map(onlineUsers.map(u => [u.name, u]));
     console.log('[MV] onlineMap', [...onlineMap.entries()], 'activeNames', activeNames);
     activeNames.forEach((name, i) => {
       if (!driversOnMap.has(name)) {
+        driversOnMap.add(name);
         const o = onlineMap.get(name);
         const useLat = o && o.lat ? o.lat : 0.15 + i * 0.04;
         const useLng = o && o.lng ? o.lng : 0.15 + i * 0.04;
