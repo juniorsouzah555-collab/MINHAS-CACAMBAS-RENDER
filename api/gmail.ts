@@ -81,16 +81,26 @@ async function getFilters() {
 
 // ---- SEARCH ----
 
+function q(prefix: string, value: string): string {
+  // Quote value if it contains spaces so Gmail treats it as a phrase
+  return value.includes(' ') ? `${prefix}:"${value}"` : `${prefix}:${value}`;
+}
+
+function raw(value: string): string {
+  // For body search, quote if it contains spaces
+  return value.includes(' ') ? `"${value}"` : value;
+}
+
 async function buildSearchQuery() {
   const defaultTerms = [
-    'subject:boleto', 'subject:fatura', 'subject:2\u00aa via', 'subject:segunda via',
-    'subject:cobran\u00e7a', 'subject:boleto eletr\u00f4nico',
+    q('subject', 'boleto'), q('subject', 'fatura'), q('subject', '2\u00aa via'),
+    q('subject', 'segunda via'), q('subject', 'cobran\u00e7a'), q('subject', 'boleto eletr\u00f4nico'),
   ];
   const filters = await getFilters();
   for (const f of filters) {
-    if (f.type === 'subject') defaultTerms.push(`subject:${f.value}`);
-    if (f.type === 'sender') defaultTerms.push(`from:${f.value}`);
-    if (f.type === 'body') defaultTerms.push(f.value);
+    if (f.type === 'subject') defaultTerms.push(q('subject', f.value));
+    if (f.type === 'sender') defaultTerms.push(q('from', f.value));
+    if (f.type === 'body') defaultTerms.push(raw(f.value));
   }
   return `(${defaultTerms.join(' OR ')}) newer_than:180d`;
 }
