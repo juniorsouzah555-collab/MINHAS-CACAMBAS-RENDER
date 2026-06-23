@@ -67,18 +67,11 @@ export default function BoletoView() {
 
   const handleDownload = async (msgId: string, attachmentId: string, filename: string) => {
     try {
-      const r = await fetch(
-        `${API_BASE}/api/gmail/fetch?download=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`
-      );
-      if (r.ok) {
-        const blob = await r.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      const url = `${API_BASE}/api/gmail?action=download&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
     } catch {}
   };
 

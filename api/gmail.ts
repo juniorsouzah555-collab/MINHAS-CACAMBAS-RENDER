@@ -168,6 +168,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ connected: true, emails });
   }
 
+  // DOWNLOAD — get attachment
+  if (action === 'download') {
+    const msgId = req.query.msgId as string;
+    const attachmentId = req.query.attachmentId as string;
+    const filename = req.query.filename as string || 'boleto.pdf';
+    if (!msgId || !attachmentId) return res.status(400).json({ error: 'Missing msgId or attachmentId' });
+
+    let email = req.query.email as string;
+    let stored = email ? await getStoredToken(email) : null;
+    if (!stored) {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: SB_HEADERS });
+        const list = await r.json();
+        if (list?.[0]?.email) { email = list[0].email; stored = await getStoredToken(email); }
+      } catch {}
+    }
+    if (!stored) return res.status(401).json({ error: 'Not connected' });
+
+    let accessToken = stored.access_token;
+    if (!accessToken || !stored.expires_at || stored.expires_at < Date.now()) {
+      if (!stored.refresh_token) return res.status(401).json({ error: 'Token expired' });
+      const refreshed = await refreshAccessToken(stored.refresh_token);
+      if (!refreshed) return res.status(401).json({ error: 'Failed to refresh' });
+      accessToken = refreshed.accessToken;
+      await storeToken(email, stored.refresh_token, refreshed.accessToken, refreshed.expiresAt);
+    }
+
+    try {
+      const attRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}/attachments/${attachmentId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!attRes.ok) return res.status(500).json({ error: 'Failed to fetch attachment' });
+      const attData = await attRes.json();
+      const buf = Buffer.from(attData.data, 'base64');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buf);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // DISCONNECT — delete stored token
   if (action === 'disconnect') {
     try {
