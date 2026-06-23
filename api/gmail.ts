@@ -60,7 +60,7 @@ interface BoletoEmail {
 }
 
 async function fetchBoletoEmails(accessToken: string) {
-  const query = '(subject:boleto OR subject:fatura OR boleto OR fatura) newer_than:90d';
+  const query = '(subject:boleto OR subject:fatura OR subject:2\u00aa OR boleto OR fatura OR "segunda via" OR "cobran\u00e7a") newer_than:180d';
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=30`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
