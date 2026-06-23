@@ -61,6 +61,7 @@ interface FleetViewProps {
   onRefreshData: () => void;
   onAddVehicle: (vehicle: Omit<Vehicle, 'status' | 'efficiency' | 'fuelUsed' | 'costPerKm' | 'trend' | 'isActive' | 'lat' | 'lng' | 'speed'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
+  onDeleteVehicle: (id: string) => void;
   onAddFuelLog: (log: Omit<FuelLog, 'id' | 'mediaKmL'>) => void;
   onDeleteFuelLog?: (id: string) => void;
   onEditFuelLog?: (log: FuelLog) => void;
@@ -87,6 +88,7 @@ export default function FleetView({
   onRefreshData,
   onAddVehicle,
   onUpdateVehicle,
+  onDeleteVehicle,
   onAddFuelLog,
   onDeleteFuelLog,
   onEditFuelLog,
@@ -1726,15 +1728,29 @@ export default function FleetView({
                       <td className="px-4 py-3 font-mono text-xs text-slate-800 text-right">{(v.initialKm || 0).toLocaleString()} KM</td>
                       <td className="px-4 py-3 font-mono text-xs text-purple-700 text-right">R$ {(v.costPerKm ?? 1.10).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => startEditingVehicle(v)}
-                          className="px-2.5 py-1 text-[11px] font-bold border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-500 hover:text-purple-700 bg-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 select-none"
-                          title="Fazer edição do cadastro deste veículo"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          <span>Editar</span>
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditingVehicle(v)}
+                            className="px-2.5 py-1 text-[11px] font-bold border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-500 hover:text-purple-700 bg-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 select-none"
+                            title="Fazer edição do cadastro deste veículo"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Deseja realmente excluir o veículo "${v.id}" (${v.driver})?`)) {
+                                onDeleteVehicle(v.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100 transition-colors cursor-pointer"
+                            title="Excluir veículo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

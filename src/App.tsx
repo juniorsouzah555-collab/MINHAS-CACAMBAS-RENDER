@@ -1251,6 +1251,14 @@ export default function App() {
     handleShowToast("Veículo Atualizado", `O cadastro do veículo "${updatedVehicle.id}" foi alterado com sucesso.`, "success");
   };
 
+  const handleDeleteVehicle = (id: string) => {
+    setVehicles(prev => prev.filter(v => v.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('vehicles').delete().eq('id', id).then();
+    }
+    handleShowToast("Veículo Excluído", `O veículo "${id}" foi removido.`, "info");
+  };
+
   // Action: Add new Fuel Log (Abastecimento)
   const handleAddFuelLog = (newLog: Omit<FuelLog, 'id' | 'mediaKmL'>) => {
     const generatedId = `AB-${Date.now()}`;
@@ -1643,6 +1651,7 @@ export default function App() {
               onRefreshData={handleRefreshData}
               onAddVehicle={handleAddVehicle}
               onUpdateVehicle={handleUpdateVehicle}
+              onDeleteVehicle={handleDeleteVehicle}
               onAddFuelLog={handleAddFuelLog}
               onDeleteFuelLog={handleDeleteFuelLog}
               onEditFuelLog={handleEditFuelLog}
