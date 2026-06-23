@@ -90,6 +90,8 @@ export default function DriverPortal({
   comissoes,
   dispatches,
   fuelLogs,
+  garageDieselPrice,
+  garageDieselQty,
   onAddLancamento,
   onAddComissao,
   onUpdateComissao,
