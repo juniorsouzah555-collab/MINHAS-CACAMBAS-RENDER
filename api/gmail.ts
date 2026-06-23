@@ -91,18 +91,27 @@ function raw(value: string): string {
   return value.includes(' ') ? `"${value}"` : value;
 }
 
-async function buildSearchQuery() {
+async function buildSearchQuery(strict: boolean) {
   const defaultTerms = [
     q('subject', 'boleto'), q('subject', 'fatura'), q('subject', '2\u00aa via'),
     q('subject', 'segunda via'), q('subject', 'cobran\u00e7a'), q('subject', 'boleto eletr\u00f4nico'),
   ];
   const filters = await getFilters();
+  const filterTerms: string[] = [];
   for (const f of filters) {
-    if (f.type === 'subject') defaultTerms.push(q('subject', f.value));
-    if (f.type === 'sender') defaultTerms.push(q('from', f.value));
-    if (f.type === 'body') defaultTerms.push(raw(f.value));
+    if (f.type === 'subject') filterTerms.push(q('subject', f.value));
+    if (f.type === 'sender') filterTerms.push(q('from', f.value));
+    if (f.type === 'body') filterTerms.push(raw(f.value));
   }
-  return `(${defaultTerms.join(' OR ')}) newer_than:180d`;
+  if (strict) {
+    // Modo restrito: busca SÓ pelos remetentes cadastrados (filtro sender)
+    const senderFilters = filters.filter(f => f.type === 'sender');
+    if (senderFilters.length === 0) return null;
+    const terms = senderFilters.map(f => q('from', f.value));
+    return `(${terms.join(' OR ')}) newer_than:180d`;
+  }
+  // Modo abrangente: termos padrão + filtros do usuário
+  return `(${[...defaultTerms, ...filterTerms].join(' OR ')}) newer_than:180d`;
 }
 
 interface BoletoEmail {
@@ -204,8 +213,9 @@ function resolveAlias(from: string, aliases: any[]): string | undefined {
   return undefined;
 }
 
-async function fetchBoletoEmails(accessToken: string) {
-  const query = await buildSearchQuery();
+async function fetchBoletoEmails(accessToken: string, strict: boolean) {
+  const query = await buildSearchQuery(strict);
+  if (!query) return []; // strict mode sem filtros → vazio
   console.log('[GMAIL] query:', query);
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -246,6 +256,9 @@ async function fetchBoletoEmails(accessToken: string) {
         const link = extractBoletoLink(bodies);
         if (link) boletoLink = link;
       }
+
+      // Só inclui se tem PDF anexado OU link válido para gerar o boleto
+      if (!attach && !boletoLink) continue;
 
       result.push({
         id: msg.id, subject, from, date, snippet: data.snippet || '',
@@ -297,9 +310,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // FETCH
     if (action === 'fetch') {
       const tok = await getAccessToken();
-      if (!tok) return res.json({ connected: false, emails: [] });
-      const [emails, aliases] = await Promise.all([fetchBoletoEmails(tok.token), getAliases()]);
-      return res.json({ connected: true, emails, aliases });
+      if (!tok) return res.json({ connected: false, emails: [], mode: req.query.mode || 'broad' });
+      const strict = req.query.mode === 'strict';
+      const [emails, aliases] = await Promise.all([fetchBoletoEmails(tok.token, strict), getAliases()]);
+      return res.json({ connected: true, emails, aliases, mode: strict ? 'strict' : 'broad' });
     }
 
     // DOWNLOAD or VIEW (view opens inline, download saves)

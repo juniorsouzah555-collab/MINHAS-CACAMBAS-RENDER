@@ -25,6 +25,7 @@ export default function BoletoView() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'strict' | 'broad'>('strict');
 
   const [filters, setFilters] = useState<Filter[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -37,10 +38,11 @@ export default function BoletoView() {
   const [aliasSender, setAliasSender] = useState('');
   const [aliasName, setAliasName] = useState('');
 
-  const fetchBoletos = useCallback(async () => {
+  const fetchBoletos = useCallback(async (mode?: 'strict' | 'broad') => {
+    const m = mode || searchMode;
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/gmail?action=fetch`);
+      const r = await fetch(`${API_BASE}/api/gmail?action=fetch&mode=${m}`);
       const data = await r.json();
       setConnected(data.connected);
       if (data.emails) setEmails(data.emails);
@@ -48,7 +50,7 @@ export default function BoletoView() {
       if (data.error) setError(data.error);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
-  }, []);
+  }, [searchMode]);
 
   const fetchFilters = useCallback(async () => {
     try {
@@ -67,6 +69,11 @@ export default function BoletoView() {
   }, []);
 
   useEffect(() => { fetchBoletos(); }, [fetchBoletos]);
+
+  const switchMode = (mode: 'strict' | 'broad') => {
+    setSearchMode(mode);
+    fetchBoletos(mode);
+  };
 
   const handleConnect = () => { setConnecting(true); window.location.href = `${API_BASE}/api/gmail?action=auth`; };
 
@@ -230,6 +237,20 @@ export default function BoletoView() {
         </div>
       )}
 
+      {/* Mode Tabs */}
+      {connected === true && (
+        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+          <button type="button" onClick={() => switchMode('strict')}
+            className={`px-4 py-2 rounded-md text-xs font-bold cursor-pointer transition-colors ${searchMode === 'strict' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            Filtrado
+          </button>
+          <button type="button" onClick={() => switchMode('broad')}
+            className={`px-4 py-2 rounded-md text-xs font-bold cursor-pointer transition-colors ${searchMode === 'broad' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            Abrangente
+          </button>
+        </div>
+      )}
+
       {/* Filters Panel */}
       {connected === true && showFilters && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
@@ -349,9 +370,13 @@ export default function BoletoView() {
           {emails.length === 0 ? (
             <div className="p-16 text-center">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-lg font-semibold text-slate-500">Nenhum boleto encontrado</p>
+              <p className="text-lg font-semibold text-slate-500">
+                {searchMode === 'strict' ? 'Nenhum boleto nos filtros' : 'Nenhum boleto encontrado'}
+              </p>
               <p className="text-sm text-slate-400 mt-1">
-                Tente adicionar filtros ou apelidos para personalizar a busca
+                {searchMode === 'strict'
+                  ? 'Adicione filtros de assunto, remetente ou corpo para restringir a busca'
+                  : 'Tente adicionar filtros ou apelidos para personalizar a busca'}
               </p>
             </div>
           ) : (
