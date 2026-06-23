@@ -9,7 +9,7 @@ import {
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured, updateUserPasswordByEmail, createInvitedUser } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
@@ -92,42 +92,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         return;
       }
 
-      // Se signInWithPassword falhou, tenta confirmar email + atualizar senha via Admin API
-      // (para usuários convidados antes da autoconfirmação automática)
-      try {
-        const { data: checkUser } = await supabase
-          .from('user_approvals')
-          .select('email, role')
-          .eq('email', normEmail)
-          .maybeSingle();
-        if (checkUser) {
-          const ok = await updateUserPasswordByEmail(normEmail, password);
-          if (ok) {
-            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
-              email: normEmail,
-              password: password,
-            });
-            if (!retryError && retryData?.user) {
-              setIsLoading(false);
-              onLoginSuccess(normEmail, checkUser.role || 'Motorista');
-              return;
-            }
-          } else {
-            const created = await createInvitedUser(normEmail, password);
-            if (created.ok) {
-              const { data: retryData2, error: retryError2 } = await supabase.auth.signInWithPassword({
-                email: normEmail,
-                password: password,
-              });
-              if (!retryError2 && retryData2?.user) {
-                setIsLoading(false);
-                onLoginSuccess(normEmail, checkUser.role || 'Motorista');
-                return;
-              }
-            }
-          }
-        }
-      } catch {}
+      // Fallback desativado por segurança:
+      // Antes, qualquer senha funcionava pois o código abaixo redefinia a senha
+      // do usuário no Auth automaticamente. Agora, se o login falhar, o usuário
+      // deve usar "Recuperar senha?" ou ser convidado pelo administrador.
     }
 
     // 2. Fallback: contas demo fixas
