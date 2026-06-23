@@ -100,6 +100,20 @@ interface BoletoEmail {
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
 }
 
+function findAttachment(part: any): any {
+  if (!part) return null;
+  if (part.filename && part.filename.length > 0 && (part.mimeType === 'application/pdf' || part.filename?.toLowerCase().includes('boleto'))) {
+    return part;
+  }
+  if (part.parts) {
+    for (const p of part.parts) {
+      const found = findAttachment(p);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 async function fetchBoletoEmails(accessToken: string) {
   const query = await buildSearchQuery();
   console.log('[GMAIL] query:', query);
@@ -112,11 +126,12 @@ async function fetchBoletoEmails(accessToken: string) {
     return [];
   }
   const { messages = [] } = await r.json();
+  console.log('[GMAIL] found', messages.length, 'messages');
   if (messages.length === 0) return [];
   const result: BoletoEmail[] = [];
   for (const msg of messages.slice(0, 50)) {
     try {
-      const detail = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, {
+      const detail = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!detail.ok) continue;
@@ -125,11 +140,17 @@ async function fetchBoletoEmails(accessToken: string) {
       const from = h.find((x: any) => x.name === 'From')?.value?.replace(/<[^>]+>/g, '').trim().split('"').join('') || '';
       const subject = h.find((x: any) => x.name === 'Subject')?.value || '(sem assunto)';
       const date = h.find((x: any) => x.name === 'Date')?.value || '';
-      const parts = data.payload?.parts || [];
-      const attach = parts.find((p: any) => p.filename && p.filename.length > 0 && (p.mimeType === 'application/pdf' || p.filename?.toLowerCase().includes('boleto')));
-      result.push({ id: msg.id, subject, from, date, snippet: data.snippet || '', hasAttachment: !!attach, attachmentId: attach?.body?.attachmentId, filename: attach?.filename, mimeType: attach?.mimeType });
-    } catch {}
+
+      const attach = data.payload?.body?.attachmentId
+        ? data.payload.body
+        : findAttachment(data.payload);
+
+      if (attach) console.log('[GMAIL] attachment found:', attach.filename, attach.mimeType, attach.body?.attachmentId?.substring(0, 10));
+
+      result.push({ id: msg.id, subject, from, date, snippet: data.snippet || '', hasAttachment: !!attach, attachmentId: attach?.body?.attachmentId || attach?.attachmentId, filename: attach?.filename, mimeType: attach?.mimeType });
+    } catch (e) { console.error('[GMAIL] detail error', msg.id, e); }
   }
+  console.log('[GMAIL] returning', result.length, 'emails,', result.filter(r => r.hasAttachment).length, 'with attachments');
   return result;
 }
 
