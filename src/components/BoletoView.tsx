@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FileText, Mail, Download, RefreshCw, ExternalLink, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut } from 'lucide-react';
 
 const API_BASE = window.location.origin;
 
@@ -20,9 +20,9 @@ export default function BoletoView() {
   const [emails, setEmails] = useState<BoletoEmail[]>([]);
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check connection + fetch on mount
   const fetchBoletos = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -44,6 +44,25 @@ export default function BoletoView() {
   const handleConnect = () => {
     setConnecting(true);
     window.location.href = `${API_BASE}/api/gmail?action=auth`;
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Desconectar o Gmail? Os boletos não serão mais buscados automaticamente.')) return;
+    setDisconnecting(true);
+    setError(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/gmail?action=disconnect`, { method: 'POST' });
+      if (r.ok) {
+        setConnected(false);
+        setEmails([]);
+      } else {
+        setError('Erro ao desconectar');
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   const handleDownload = async (msgId: string, attachmentId: string, filename: string) => {
@@ -84,6 +103,17 @@ export default function BoletoView() {
         </div>
         <div className="flex items-center gap-2">
           {connected === true && (
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+            >
+              <LogOut className="w-3 h-3" />
+              {disconnecting ? 'Desconectando...' : 'Desconectar'}
+            </button>
+          )}
+          {connected === true && (
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-3 py-1.5 rounded-lg">
               <CheckCircle2 className="w-3 h-3" />
               Conectado
@@ -101,14 +131,22 @@ export default function BoletoView() {
         </div>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200/60 rounded-xl px-5 py-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <p className="text-[11px] font-semibold text-red-700">{error}</p>
+        </div>
+      )}
+
       {/* Connect Gmail Card */}
-      {connected === false && (
+      {connected === false && !error && (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
           <Mail className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <h3 className="text-base font-bold text-slate-800 mb-2">Conectar Gmail</h3>
           <p className="text-xs text-slate-500 mb-6 max-w-md mx-auto">
             Conecte sua conta do Gmail para buscar automaticamente os boletos que chegam todo mês.
-            Usaremos apenas acesso de leiturapara identificar e-mails com boletos anexados.
+            Usaremos apenas acesso de leitura para identificar e-mails com boletos anexados.
           </p>
           <button
             type="button"
@@ -119,16 +157,11 @@ export default function BoletoView() {
             <Mail className="w-4 h-4" />
             {connecting ? 'Conectando...' : 'Conectar Gmail'}
           </button>
-          {error && (
-            <p className="text-[10px] text-red-500 mt-4 flex items-center gap-1 justify-center">
-              <AlertCircle className="w-3 h-3" /> {error}
-            </p>
-          )}
         </div>
       )}
 
       {/* Loading */}
-      {loading && connected !== false && (
+      {loading && connected !== false && !error && (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
           <RefreshCw className="w-8 h-8 text-slate-300 mx-auto mb-3 animate-spin" />
           <p className="text-xs font-semibold text-slate-400">Buscando boletos...</p>
@@ -136,7 +169,7 @@ export default function BoletoView() {
       )}
 
       {/* Boleto List */}
-      {!loading && connected === true && (
+      {!loading && connected === true && !error && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           {emails.length === 0 ? (
             <div className="p-12 text-center">
@@ -177,14 +210,6 @@ export default function BoletoView() {
             </div>
           )}
         </div>
-      )}
-
-      {/* Help text */}
-      {connected === true && (
-        <p className="text-[10px] text-slate-400 text-center">
-          Os boletos são identificados por e-mails com "boleto" ou "fatura" no assunto.
-          Para buscar outros remetentes, configure os filtros no backend.
-        </p>
       )}
     </div>
   );

@@ -168,5 +168,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ connected: true, emails });
   }
 
-  res.status(400).json({ error: 'Unknown action. Use ?action=auth|callback|fetch' });
+  // DISCONNECT — delete stored token
+  if (action === 'disconnect') {
+    try {
+      // Delete all tokens
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens`, {
+        method: 'DELETE',
+        headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        return res.status(500).json({ error: text });
+      }
+      return res.json({ ok: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  res.status(400).json({ error: 'Unknown action. Use ?action=auth|callback|fetch|disconnect' });
 }
