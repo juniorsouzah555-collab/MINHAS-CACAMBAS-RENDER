@@ -3,8 +3,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from './src/db/index.ts';
 
-const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJobWdrYXBkdmV4emphc3ZiaWZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTY1MjA3OSwiZXhwIjoyMDk3MjI4MDc5fQ.uZgF0vW3Q7DpeEqNDgv1ItiwncBwBBaCgpE5CnJ5fIM';
+const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHl2c2lkZ2h2aWRxYnlwbW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjE3MDk3NCwiZXhwIjoyMDk3NzQ2OTc0fQ.W-_oZBbh63zechy6uj43lHlTiqIqMIrTscyWxsT-_RI';
 import { 
   vehicles as vehiclesTable, 
   fuelLogs as fuelLogsTable, 

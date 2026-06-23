@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_URL = 'https://rhmgkapdvexzjasvbifd.supabase.co';
+const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const headers = {
@@ -32,6 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         method = 'PATCH';
         body = JSON.stringify(data);
         break;
+      case 'select':
+        if (filter) url += `?${filter}`;
+        method = 'GET';
+        break;
       case 'delete':
         if (!filter) return res.status(400).json({ error: 'filter is required for delete' });
         url += `?${filter}`;
@@ -45,6 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!r.ok) {
       const text = await r.text();
       return res.status(r.status).json({ error: text });
+    }
+    if (action === 'select') {
+      const data = await r.json();
+      return res.json({ data });
     }
     res.json({ ok: true });
   } catch (e: any) {

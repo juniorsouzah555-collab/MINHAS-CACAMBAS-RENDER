@@ -186,6 +186,72 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
   } catch { return false; }
 };
 
+// Heartbeat via REST (anon key)
+export const sendHeartbeat = async (email: string, lat?: number, lng?: number): Promise<void> => {
+  try {
+    const payload: any = { last_seen: Date.now() };
+    if (lat !== undefined && lng !== undefined) { payload.last_lat = lat; payload.last_lng = lng; }
+    console.log('[HB] sending', payload, 'for', email);
+    const { error } = await supabase.from('user_approvals').update(payload).eq('email', email);
+    if (error) console.error('[HB] error', error);
+  } catch (e) { console.error('[HB] catch', e); }
+};
+export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng: number }[]> => {
+  try {
+    const cutoff = Date.now() - 120000;
+    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng, last_seen, status').gte('last_seen', cutoff);
+    if (error) console.error('[OU] error', error);
+    const seen = new Map<string, { lat: number; lng: number; ts: number }>();
+    (data || []).filter((u: any) => u.name && u.status === 'Ativo' && u.last_lat && u.last_lng).forEach((u: any) => {
+      const prev = seen.get(u.name);
+      if (!prev || u.last_seen > prev.ts) seen.set(u.name, { lat: u.last_lat, lng: u.last_lng, ts: u.last_seen });
+    });
+    return [...seen.entries()].map(([name, v]) => ({ name, lat: v.lat, lng: v.lng }));
+  } catch (e) { console.error('[OU] catch', e); return []; }
+};
+
+const addressCache = new Map<string, string>();
+let lastNominatimCall = 0;
+
+export const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const cached = addressCache.get(key);
+  if (cached) return cached;
+
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - lastNominatimCall));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastNominatimCall = Date.now();
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=0`, {
+      headers: { 'User-Agent': 'RelampagoCacambas/1.0' }
+    });
+    if (!res.ok) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const data = await res.json();
+    const addr = data?.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const short = addr.split(',').slice(0, 3).join(',').trim();
+    addressCache.set(key, short);
+    return short;
+  } catch {
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+};
+
+// Faz upload da foto da nota fiscal pro Supabase Storage e retorna a URL pública.
+// Substitui o antigo formato (base64 direto na coluna foto_nota), que era o maior
+// gerador de egress no polling de sincronização.
+export const uploadFuelReceipt = async (file: File): Promise<string | null> => {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('fuel-receipts').upload(path, file, { contentType: file.type });
+    if (error) { console.error('Upload foto_nota error:', error); return null; }
+    const { data } = supabase.storage.from('fuel-receipts').getPublicUrl(path);
+    return data.publicUrl;
+  } catch (e) { console.error('Upload foto_nota catch:', e); return null; }
+};
+
 // Reinitializes the live client with new credentials
 export const updateSupabaseCredentials = (url: string, key: string) => {
   if (url && key) {

@@ -34,6 +34,7 @@ export const lancamentos = pgTable('lancamentos', {
   createdAt: timestamp('created_at').defaultNow(),
   lat: real('lat'),
   lng: real('lng'),
+  observacao: text('observacao'),
 });
 
 // Define 'vehicles' table
@@ -69,6 +70,8 @@ export const fuelLogs = pgTable('fuel_logs', {
   isRetiradaDiversa: boolean('is_retirada_diversa').default(false),
   lat: real('lat'),
   lng: real('lng'),
+  observacao: text('observacao'),
+  fotoNota: text('foto_nota'),
 });
 
 // Define 'maintenance_alerts' table

@@ -57,6 +57,8 @@ import ReportsView from './components/ReportsView';
 import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
+import TrackingView from './components/TrackingView';
+import BoletoView from './components/BoletoView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -111,9 +113,9 @@ export default function App() {
   const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
     try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
     return [
-      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2526-06-16T08:30:00Z' },
-      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2526-06-15T09:12:00Z' },
-      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2526-06-12T11:05:00Z' }
+      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2026-06-16T08:30:00Z' },
+      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
+      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
     ];
   });
 
@@ -248,7 +250,9 @@ export default function App() {
                 tipo: f.tipo,
                 isRetiradaDiversa: f.is_retirada_diversa !== undefined ? f.is_retirada_diversa : f.isRetiradaDiversa,
                 lat: f.lat,
-                lng: f.lng
+                lng: f.lng,
+                observacao: f.observacao,
+                fotoNota: f.foto_nota || f.fotoNota
               })));
             }
 
@@ -389,16 +393,111 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  // Sincronização em tempo real via Supabase Realtime (postgres_changes) entre
+  // motorista (mobile) e admin (web). Substitui o polling antigo (que reconsultava
+  // as tabelas inteiras a cada 60s) por um WebSocket que só recebe as mudanças.
+  // Toda escrita local (handleAddLancamento, handleAddFuelLog, etc.) já atualiza o
+  // estado otimisticamente, então os eventos recebidos aqui podem ser "eco" da
+  // própria escrita do cliente — por isso usamos upsert por id (idempotente) em
+  // vez de um simples append.
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured()) return;
+
+    const mapLancamento = (l: any) => ({
+      id: l.id,
+      botaForaId: l.bota_fora_id,
+      botaForaNome: l.bota_fora_nome,
+      quantidadeCacambas: l.quantidade_cacambas,
+      valor: l.valor,
+      data: l.data,
+      driverName: l.driver_name,
+      vehicleId: l.vehicle_id,
+      status: l.status,
+      createdAt: l.created_at,
+      lat: l.lat,
+      lng: l.lng,
+      observacao: l.observacao
+    });
+    const mapFuelLog = (f: any) => ({
+      id: f.id,
+      vehicleId: f.vehicle_id,
+      quantidadeLitros: f.quantidade_litros,
+      kmInicial: f.km_inicial,
+      kmFinal: f.km_final,
+      valorPago: f.valor_pago,
+      data: f.data,
+      driver: f.driver,
+      mediaKmL: f.media_km_l,
+      tipo: f.tipo,
+      isRetiradaDiversa: f.is_retirada_diversa,
+      lat: f.lat,
+      lng: f.lng,
+      observacao: f.observacao,
+      fotoNota: f.foto_nota
+    });
+    const mapComissao = (c: any) => ({
+      id: c.id,
+      motorista: c.motorista || c.driver || 'Carlos Santana',
+      vaziasColocadas: Number(c.vazias_colocadas ?? 0),
+      retiradas: Number(c.retiradas ?? 0),
+      data: c.data,
+      createdAt: c.created_at
+    });
+
+    const upsertById = (setter: Function) => (mapped: any) =>
+      setter((prev: any[]) => {
+        const idx = prev.findIndex(p => p.id === mapped.id);
+        if (idx === -1) return [mapped, ...prev];
+        const copy = [...prev];
+        copy[idx] = mapped;
+        return copy;
+      });
+    const removeById = (setter: Function) => (id: string) =>
+      setter((prev: any[]) => prev.filter(p => p.id !== id));
+
+    const upsertLan = upsertById(setLancamentos);
+    const removeLan = removeById(setLancamentos);
+    const upsertFuel = upsertById(setFuelLogs);
+    const removeFuel = removeById(setFuelLogs);
+    const upsertCom = upsertById(setComissoes);
+    const removeCom = removeById(setComissoes);
+
+    const channel = supabase
+      .channel('app-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeLan(payload.old.id);
+        else upsertLan(mapLancamento(payload.new));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fuel_logs' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeFuel(payload.old.id);
+        else upsertFuel(mapFuelLog(payload.new));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comissoes' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') removeCom(payload.old.id);
+        else upsertCom(mapComissao(payload.new));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isAuthenticated]);
+
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
-  useEffect(() => { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); }, [vehicles]);
-  useEffect(() => { localStorage.setItem('relampago_fuel_logs', JSON.stringify(fuelLogs)); }, [fuelLogs]);
-  useEffect(() => { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); }, [alerts]);
-  useEffect(() => { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); }, [dispatches]);
-  useEffect(() => { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); }, [botaForas]);
-  useEffect(() => { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); }, [lancamentos]);
-  useEffect(() => { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); }, [comissoes]);
-  useEffect(() => { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); }, [motoristas]);
+  useEffect(() => { try { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); } catch (e) { console.warn('Persist vehicles failed:', e); } }, [vehicles]);
+  useEffect(() => {
+    try {
+      // fotoNota (foto da nota fiscal em base64) fica só no Supabase — é pesado
+      // demais para o localStorage e estourava a cota, quebrando o app (tela branca).
+      const slim = fuelLogs.map(({ fotoNota, ...rest }) => rest);
+      localStorage.setItem('relampago_fuel_logs', JSON.stringify(slim));
+    } catch (e) { console.warn('Persist fuelLogs failed:', e); }
+  }, [fuelLogs]);
+  useEffect(() => { try { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); } catch (e) { console.warn('Persist alerts failed:', e); } }, [alerts]);
+  useEffect(() => { try { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); } catch (e) { console.warn('Persist invoices failed:', e); } }, [invoices]);
+  useEffect(() => { try { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); } catch (e) { console.warn('Persist dispatches failed:', e); } }, [dispatches]);
+  useEffect(() => { try { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); } catch (e) { console.warn('Persist botaForas failed:', e); } }, [botaForas]);
+  useEffect(() => { try { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); } catch (e) { console.warn('Persist lancamentos failed:', e); } }, [lancamentos]);
+  useEffect(() => { try { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); } catch (e) { console.warn('Persist comissoes failed:', e); } }, [comissoes]);
+  useEffect(() => { try { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); } catch (e) { console.warn('Persist motoristas failed:', e); } }, [motoristas]);
   useEffect(() => { if (isAuthenticated) localStorage.setItem('relampago_auth_tab', currentTab); }, [currentTab, isAuthenticated]);
 
   // Garage Diesel Tank States
@@ -865,7 +964,7 @@ export default function App() {
 
   // Action: Add new Bota Fora
   const handleAddBotaFora = (newBtf: Omit<BotaFora, 'id' | 'createdAt'>) => {
-    const generatedId = `BTF-0${botaForas.length + 1}`;
+    const generatedId = `BTF-${Date.now()}`;
     const freshRecord: BotaFora = {
       ...newBtf,
       id: generatedId,
@@ -925,7 +1024,7 @@ export default function App() {
 
   // Action: Add new Lançamento
   const handleAddLancamento = (newLan: Omit<Lancamento, 'id' | 'createdAt'>) => {
-    const generatedId = `LAN-10${lancamentos.length + 1}`;
+    const generatedId = `LAN-${Date.now()}`;
     const freshRecord: Lancamento = {
       ...newLan,
       id: generatedId,
@@ -969,7 +1068,7 @@ export default function App() {
     setInvoices(prev => [autoInvoice, ...prev]);
 
     if (isSupabaseConfigured()) {
-      proxyInsert('lancamentos', {
+      supabase.from('lancamentos').insert([{
         id: freshRecord.id,
         bota_fora_id: freshRecord.botaForaId,
         bota_fora_nome: freshRecord.botaForaNome,
@@ -981,12 +1080,10 @@ export default function App() {
         status: freshRecord.status,
         created_at: freshRecord.createdAt,
         lat: freshRecord.lat ?? null,
-        lng: freshRecord.lng ?? null
-      }).then((ok) => {
-        if (!ok) {
-          console.error("Proxy error saving lancamento");
-          handleShowToast("Sincronização Parcial", "Dados salvos localmente, mas falha ao sincronizar com servidor.", "info");
-        }
+        lng: freshRecord.lng ?? null,
+        observacao: freshRecord.observacao ?? null
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase insert lancamento error:", error);
       });
       supabase.from('invoices').insert([{
         id: autoInvoice.id,
@@ -1005,6 +1102,13 @@ export default function App() {
       });
     }
 
+    // Save to Express API (shared in-memory DB for same-server clients)
+    fetch("/api/lancamentos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(freshRecord)
+    }).catch(err => console.error("Error saving Lancamento:", err));
+
     // Automatically assign Comissao if this was performed by a driver
     if (newLan.driverName && newLan.driverName !== 'Não Atribuído' && newLan.driverName !== 'Não atribuído' && newLan.driverName.trim() !== '') {
       const existing = comissoes.find(c => c.motorista === newLan.driverName && c.data === newLan.data);
@@ -1022,13 +1126,6 @@ export default function App() {
         });
       }
     }
-
-    // Save to Database
-    fetch("/api/lancamentos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(freshRecord)
-    }).catch(err => console.error("Error saving Lancamento:", err));
 
     fetch("/api/invoices", {
       method: "POST",
@@ -1156,7 +1253,7 @@ export default function App() {
 
   // Action: Add new Fuel Log (Abastecimento)
   const handleAddFuelLog = (newLog: Omit<FuelLog, 'id' | 'mediaKmL'>) => {
-    const generatedId = `AB-${100 + fuelLogs.length + 1}`;
+    const generatedId = `AB-${Date.now()}`;
     
     let mediaKmL: number | undefined = undefined;
     if (!newLog.isRetiradaDiversa && newLog.kmFinal !== undefined && newLog.kmInicial !== undefined) {
@@ -1175,30 +1272,23 @@ export default function App() {
     setFuelLogs(prev => [freshRecord, ...prev]);
 
     if (isSupabaseConfigured()) {
-      fetch('/api/fuel-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: freshRecord.id,
-          vehicle_id: freshRecord.vehicleId,
-          quantidade_litros: freshRecord.quantidadeLitros,
-          km_inicial: freshRecord.kmInicial ?? null,
-          km_final: freshRecord.kmFinal ?? null,
-          valor_pago: freshRecord.valorPago,
-          data: freshRecord.data,
-          driver: freshRecord.driver ?? null,
-          media_km_l: freshRecord.mediaKmL ?? null,
-          tipo: freshRecord.tipo ?? null,
-          is_retirada_diversa: freshRecord.isRetiradaDiversa,
-          lat: freshRecord.lat ?? null,
-          lng: freshRecord.lng ?? null
-        })
-      }).then(async r => {
-        const text = await r.text();
-        console.log("fuel-log API response:", r.status, text);
-        if (!r.ok) {
-          handleShowToast("Erro", `API ${r.status}: ${text.substring(0, 100)}`, "info");
-        }
+      supabase.from('fuel_logs').insert([{
+        id: freshRecord.id,
+        vehicle_id: freshRecord.vehicleId,
+        quantidade_litros: freshRecord.quantidadeLitros,
+        km_inicial: freshRecord.kmInicial ?? null,
+        km_final: freshRecord.kmFinal ?? null,
+        valor_pago: freshRecord.valorPago,
+        data: freshRecord.data,
+        driver: freshRecord.driver ?? null,
+        media_km_l: freshRecord.mediaKmL ?? null,
+        tipo: freshRecord.tipo ?? null,
+        is_retirada_diversa: freshRecord.isRetiradaDiversa,
+        lat: freshRecord.lat ?? null,
+        lng: freshRecord.lng ?? null,
+        foto_nota: freshRecord.fotoNota ?? null
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase insert fuel_log error:", error);
       });
     }
 
@@ -1318,7 +1408,7 @@ export default function App() {
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
     return (
-      <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e]">
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100/40 min-h-screen text-slate-800 font-sans antialiased">
         <DriverPortal
           vehicles={vehicles}
           botaForas={botaForas}
@@ -1345,21 +1435,21 @@ export default function App() {
             toast.visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'
           }`}
         >
-          <div className="bg-white border border-[#f0efed] p-4 px-5 rounded-xl shadow-lg flex items-center gap-3.5 max-w-sm">
-            <div className="shrink-0 bg-teal-50 p-2 rounded-lg flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 text-white p-4 px-5 rounded-xl shadow-2xl flex items-center gap-3.5 max-w-sm">
+            <div className="shrink-0 bg-emerald-500/20 p-2 rounded-lg text-emerald-400 flex items-center justify-center">
               {toast.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-teal-600" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               ) : (
-                <Info className="w-5 h-5 text-teal-500 animate-pulse-soft" />
+                <Info className="w-5 h-5 text-indigo-400 animate-pulse" />
               )}
             </div>
-            <div className="flex-1">
-              <div className="font-bold text-xs leading-none text-[#1a1a2e]">{toast.title}</div>
-              <div className="text-[11px] text-[#6b7280] mt-1 leading-relaxed">{toast.message}</div>
+            <div className="flex-1 font-sans">
+              <div className="font-bold text-xs leading-none text-slate-100">{toast.title}</div>
+              <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">{toast.message}</div>
             </div>
             <button 
               onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-              className="text-[#b0aba3] hover:text-[#1a1a2e] p-1 rounded-full hover:bg-[#f5f4f2] transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1371,7 +1461,7 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e]">
+      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
         
         {/* Dynamic Slide-Up Toast Popup */}
@@ -1381,21 +1471,21 @@ export default function App() {
             toast.visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'
           }`}
         >
-          <div className="bg-white border border-[#f0efed] p-4 px-5 rounded-xl shadow-lg flex items-center gap-3.5 max-w-sm">
-            <div className="shrink-0 bg-teal-50 p-2 rounded-lg flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 text-white p-4 px-5 rounded-xl shadow-2xl flex items-center gap-3.5 max-w-sm">
+            <div className="shrink-0 bg-emerald-500/20 p-2 rounded-lg text-emerald-400 flex items-center justify-center">
               {toast.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-teal-600" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               ) : (
-                <Info className="w-5 h-5 text-teal-500 animate-pulse-soft" />
+                <Info className="w-5 h-5 text-indigo-400 animate-pulse" />
               )}
             </div>
-            <div className="flex-1">
-              <div className="font-bold text-xs leading-none text-[#1a1a2e]">{toast.title}</div>
-              <div className="text-[11px] text-[#6b7280] mt-1 leading-relaxed">{toast.message}</div>
+            <div className="flex-1 font-sans">
+              <div className="font-bold text-xs leading-none text-slate-100">{toast.title}</div>
+              <div className="text-[11px] text-slate-300 mt-1 leading-relaxed">{toast.message}</div>
             </div>
             <button 
               onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-              className="text-[#b0aba3] hover:text-[#1a1a2e] p-1 rounded-full hover:bg-[#f5f4f2] transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1406,7 +1496,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-[#f8f6f3] min-h-screen text-[#1a1a2e] flex antialiased">
+    <div className="bg-slate-50 min-h-screen text-slate-800 font-sans flex antialiased selection:bg-purple-500/20">
       
       {/* Sidebar navigation drawer */}
       <Sidebar 
@@ -1524,6 +1614,14 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'tracking' && (
+            <TrackingView vehicles={vehicles} motoristas={motoristas} />
+          )}
+
+          {currentTab === 'boletos' && (
+            <BoletoView />
+          )}
+
           {currentTab === 'reports' && (
             <ReportsView 
               botaForas={botaForas}
@@ -1573,61 +1671,61 @@ export default function App() {
           )}
 
           {currentTab === 'help' && (
-            <div className="bg-white border border-[#e5e2dd] rounded-2xl p-6 space-y-6 max-w-4xl mx-auto">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6 max-w-4xl mx-auto">
               <div>
-                <h3 className="font-display font-bold text-lg text-[#1a1a2e] border-b border-[#f0efed] pb-3 flex items-center gap-2">
-                  <HelpCircle className="w-5 h-5 text-teal-500" />
-                  <span>Central de Ajuda</span>
+                <h3 className="font-sans font-bold text-lg text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                  <LifeBuoy className="w-5 h-5 text-indigo-500 animate-spin" />
+                  <span>Central de Ajuda &amp; Manuais Relâmpago Caçambas</span>
                 </h3>
-                <p className="text-[#b0aba3] text-xs mt-1">Diretrizes e parâmetros operacionais do sistema</p>
+                <p className="text-slate-400 text-xs mt-1">Diretrizes de conformidade, instruções de balança e parâmetros operacionais do sistema</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3">
                 
-                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
-                    <BookOpen className="w-4 h-4 text-teal-600" />
-                    <span>Registrar ordens de despacho</span>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                    <span>Como posso registrar ordens de despacho de rota?</span>
                   </div>
-                  <p className="text-xs text-[#6b7280] leading-relaxed">
-                    Clique em "Novo Lançamento" na barra lateral. Preencha os campos de peso, vincule motorista e veículo, informe endereços e envie.
+                  <p className="text-xs text-slate-505 leading-relaxed">
+                    Clique em "Novo Despacho" no menu inferior da barra lateral esquerda ou na tela de operações. Preencha os campos de peso líquido bruto, vincule um motorista e uma unidade livre, informe endereços exatos para retida e descarte ecológico e envie o formulário para transmissão.
                   </p>
                 </div>
 
-                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
-                    <Clock className="w-4 h-4 text-teal-600" />
-                    <span>Manutenção da frota</span>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                    <Clock className="w-4 h-4 text-emerald-600" />
+                    <span>Redirecionamento de pânico por superaquecimento terminal</span>
                   </div>
-                  <p className="text-xs text-[#6b7280] leading-relaxed">
-                    Na aba "Frota", consulte alertas de manutenção. Use os botões de ação para registrar tickets ou barrar envios preventivamente.
+                  <p className="text-xs text-slate-505 leading-relaxed">
+                    Na aba "Frota", consulte a lista de Alertas de Manutenção periódicas. Clique no sinal "BARRAR ENVIO" ou "TICKET" no cockpit. O sistema realiza o sinal preventivo veicular, zera a acelerabilidade e realoca os parâmetros do caminhão para inspeção corretiva da carcaça do motor.
                   </p>
                 </div>
 
-                <div className="p-4 bg-[#f5f4f2] border border-[#e5e2dd] rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-[#1a1a2e]">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
-                    <span>Gestão financeira</span>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Cobrança ativa e auditoria de caixa</span>
                   </div>
-                  <p className="text-xs text-[#6b7280] leading-relaxed">
-                    Utilize o módulo "Financeiro" para gerenciar notas de débito, faturar e conciliar recebimentos.
+                  <p className="text-xs text-slate-505 leading-relaxed">
+                    Utilize o ecossistema "Financeiro" para gerenciar as notas de débito em lote. Mude o status do faturamento clicando nas ações de confirmação de caixa de forma rápida para faturar e garantir a conciliação imediata face aos regulamentos municipais.
                   </p>
                 </div>
 
-                <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-xs text-teal-800">
-                    <BookOpen className="w-4 h-4 text-teal-600" />
-                    <span>Sustentabilidade (CO2)</span>
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs text-emerald-800">
+                    <Leaf className="w-4 h-4 text-emerald-600" />
+                    <span>Coeficiente oficial de sustentabilidade (CO2)</span>
                   </div>
-                  <p className="text-xs text-teal-700 leading-relaxed">
-                    Estimamos compensação de carbono de <strong>1.4 toneladas por peso recuperado</strong> em aterros licenciados.
+                  <p className="text-xs text-emerald-700 leading-relaxed">
+                    Estimamos e auditamos cientificamente uma equivalência de compensação de carbono correspondente a <strong>1.4 toneladas coletivas por peso líquido recuperado</strong> em aterros licenciados.
                   </p>
                 </div>
 
               </div>
 
-              <div className="pt-4 border-t border-[#f0efed] text-xs text-[#b0aba3] text-center">
-                <span>Contato: relampagoentulho@gmail.com</span>
+              <div className="pt-4 border-t border-slate-100 text-xs text-slate-400 text-center flex items-center justify-center gap-2">
+                <span>Plataforma Operacional Relâmpago Caçambas v3.6. Para canais diretos de emergência e links, contate relampagoentulho@gmail.com</span>
               </div>
             </div>
           )}
@@ -1635,8 +1733,8 @@ export default function App() {
         </main>
 
         {/* Global Footer info bar */}
-        <footer className="py-4 text-center border-t border-[#f0efed] text-[#b0aba3] text-[11px] font-medium mt-8 select-none pointer-events-none">
-          © 2026 Relâmpago Caçambas Ltda
+        <footer className="py-4 text-center border-t border-slate-200 bg-white text-slate-400 text-[11px] font-medium mt-8 shadow-inner select-none pointer-events-none">
+          © 2026 Relâmpago Caçambas Ltda • Razão Social: 02.948.345/0001-05. Métricas e telemetria atualizadas de forma segura.
         </footer>
 
       </div>
