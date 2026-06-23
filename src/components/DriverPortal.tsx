@@ -250,6 +250,32 @@ export default function DriverPortal({
     }
   }, [isDriverUser]);
 
+  // Recupera localização quando a página volta a ficar visível (app fechado/reaberto)
+  useEffect(() => {
+    if (!isDriverUser) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && hasDefinitiveLocation() && navigator.geolocation) {
+        if (watchIdRef.current === null) {
+          startWatching();
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+            },
+            () => {},
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pageshow', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pageshow', handleVisibility);
+    };
+  }, [isDriverUser]);
+
   // Pede localização (auto = true quando é automático)
   const askLocation = (auto = false) => {
     if (!navigator.geolocation) {
@@ -328,7 +354,13 @@ export default function DriverPortal({
     };
     beat();
     const id = setInterval(beat, 30000);
-    return () => clearInterval(id);
+    // Envia heartbeat imediatamente quando a página fica visível
+    const onVisible = () => { if (document.visibilityState === 'visible') beat(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [currentUserEmail]);
 
   // Online badge (polling a cada 15s)
