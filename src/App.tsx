@@ -1614,7 +1614,7 @@ export default function App() {
           )}
 
           {currentTab === 'tracking' && (
-            <TrackingView vehicles={vehicles} />
+            <TrackingView vehicles={vehicles} motoristas={motoristas} />
           )}
 
           {currentTab === 'reports' && (

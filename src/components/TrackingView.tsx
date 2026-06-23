@@ -13,9 +13,10 @@ interface OnlineUser {
 
 interface TrackingViewProps {
   vehicles: Vehicle[];
+  motoristas: string[];
 }
 
-export default function TrackingView({ vehicles }: TrackingViewProps) {
+export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [loadingAddress, setLoadingAddress] = useState<Set<string>>(new Set());
 
@@ -74,10 +75,10 @@ export default function TrackingView({ vehicles }: TrackingViewProps) {
         </div>
       </div>
 
-      {/* Live Map */}
+      {/* Live Map — só mostra veículos com motoristas cadastrados */}
       <DriverLiveMap
         coords={null}
-        vehicles={vehicles.filter(v => v.status === 'In Transit' || v.status === 'Assigned')}
+        vehicles={vehicles.filter(v => (v.status === 'In Transit' || v.status === 'Assigned') && motoristas.some(m => m.toLowerCase() === (v.driver || '').toLowerCase()))}
         error={null}
         onRetry={() => {}}
         onlineUsers={onlineUsers}

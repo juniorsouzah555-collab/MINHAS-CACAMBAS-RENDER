@@ -243,8 +243,21 @@ export default function DriverPortal({
     }
   };
 
-  // Pede localização quando o usuário clica no botão
-  const askLocation = () => {
+  // Pede localização automaticamente ao entrar como motorista
+  useEffect(() => {
+    if (!isDriverUser) return;
+    const def = localStorage.getItem('relampago_loc_definitivo');
+    if (def === 'true' && navigator.geolocation) {
+      startWatching();
+      return;
+    }
+    if (!locationPermissionAsked) {
+      askLocation(true);
+    }
+  }, [isDriverUser]);
+
+  // Pede localização (auto se true)
+  const askLocation = (auto = false) => {
     if (!navigator.geolocation) {
       setGeoError("Este navegador não suporta a API de Geolocalização.");
       setLocationPermissionAsked(true);
@@ -259,6 +272,10 @@ export default function DriverPortal({
         });
         setGeoError(null);
         setLocationPermissionAsked(true);
+        if (auto) {
+          localStorage.setItem('relampago_loc_definitivo', 'true');
+          startWatching();
+        }
       },
       (error) => {
         console.warn("Erro ao obter geolocalização:", error);
@@ -286,21 +303,30 @@ export default function DriverPortal({
     );
   };
 
-  // Watch position continuamente (depois de autorizado)
-  useEffect(() => {
-    if (!navigator.geolocation || !userCoords) return;
-    const watchId = navigator.geolocation.watchPosition(
+  // Watch position continuamente
+  const watchIdRef = useRef<number | null>(null);
+  const startWatching = () => {
+    if (!navigator.geolocation) return;
+    if (watchIdRef.current !== null) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         setUserCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
+        localStorage.setItem('relampago_loc_definitivo', 'true');
       },
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [userCoords]);
+  };
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
   // Heartbeat com intervalo (usa ref para evitar reiniciar o timer)
   const coordsRef = useRef(userCoords);
@@ -650,17 +676,10 @@ export default function DriverPortal({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={askLocation}
+            onClick={() => askLocation(true)}
             className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
           >
-            Permitir Acesso à Localização
-          </button>
-          <button
-            type="button"
-            onClick={() => setLocationPermissionAsked(true)}
-            className="w-full py-2.5 bg-transparent hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 cursor-pointer"
-          >
-            Pular, vou definir manualmente
+            Autorizar Definitivamente
           </button>
         </div>
       </div>
@@ -705,17 +724,10 @@ export default function DriverPortal({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => { setGeoError(null); setLocationPermissionAsked(false); }}
+            onClick={() => { setGeoError(null); setLocationPermissionAsked(false); askLocation(true); }}
             className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/30 cursor-pointer"
           >
             Tentar Novamente
-          </button>
-          <button
-            type="button"
-            onClick={() => setGeoError(null)}
-            className="w-full py-2.5 bg-transparent hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 cursor-pointer"
-          >
-            Continuar sem localização
           </button>
         </div>
       </div>
