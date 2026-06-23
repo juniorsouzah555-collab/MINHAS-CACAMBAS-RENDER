@@ -199,11 +199,38 @@ export const sendHeartbeat = async (email: string, lat?: number, lng?: number): 
 export const getOnlineUsers = async (): Promise<{ name: string; lat: number; lng: number }[]> => {
   try {
     const cutoff = Date.now() - 120000;
-    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng').gte('last_seen', cutoff);
+    const { data, error } = await supabase.from('user_approvals').select('name, last_lat, last_lng, status').gte('last_seen', cutoff);
     if (error) console.error('[OU] error', error);
-    console.log('[OU] data', data);
-    return (data || []).filter((u: any) => u.name).map((u: any) => ({ name: u.name, lat: u.last_lat || 0, lng: u.last_lng || 0 }));
+    return (data || []).filter((u: any) => u.name && u.status === 'Ativo' && u.last_lat && u.last_lng).map((u: any) => ({ name: u.name, lat: u.last_lat, lng: u.last_lng }));
   } catch (e) { console.error('[OU] catch', e); return []; }
+};
+
+const addressCache = new Map<string, string>();
+let lastNominatimCall = 0;
+
+export const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const cached = addressCache.get(key);
+  if (cached) return cached;
+
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - lastNominatimCall));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastNominatimCall = Date.now();
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=0`, {
+      headers: { 'User-Agent': 'RelampagoCacambas/1.0' }
+    });
+    if (!res.ok) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const data = await res.json();
+    const addr = data?.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const short = addr.split(',').slice(0, 3).join(',').trim();
+    addressCache.set(key, short);
+    return short;
+  } catch {
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
 };
 
 // Faz upload da foto da nota fiscal pro Supabase Storage e retorna a URL pública.

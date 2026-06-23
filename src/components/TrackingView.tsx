@@ -1,27 +1,49 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Users, RefreshCw, Navigation } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { MapPin, Users, RefreshCw, Navigation, Loader } from 'lucide-react';
 import { Vehicle } from '../types';
-import { getOnlineUsers } from '../lib/supabase';
+import { getOnlineUsers, getAddressFromCoords } from '../lib/supabase';
 import DriverLiveMap from './DriverLiveMap';
+
+interface OnlineUser {
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+}
 
 interface TrackingViewProps {
   vehicles: Vehicle[];
 }
 
 export default function TrackingView({ vehicles }: TrackingViewProps) {
-  const [onlineUsers, setOnlineUsers] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [loadingAddress, setLoadingAddress] = useState<Set<string>>(new Set());
+
+  const fetchAddresses = useCallback(async (users: { name: string; lat: number; lng: number }[]) => {
+    const loading = new Set<string>();
+    const enriched: OnlineUser[] = await Promise.all(
+      users.map(async (u) => {
+        loading.add(u.name);
+        const address = await getAddressFromCoords(u.lat, u.lng);
+        return { ...u, address };
+      })
+    );
+    setLoadingAddress(new Set());
+    setOnlineUsers(enriched);
+  }, []);
+
+  const poll = useCallback(async () => {
+    try {
+      const r = await getOnlineUsers();
+      fetchAddresses(r);
+    } catch {}
+  }, [fetchAddresses]);
 
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const r = await getOnlineUsers();
-        setOnlineUsers(r);
-      } catch {}
-    };
     poll();
     const id = setInterval(poll, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [poll]);
 
   return (
     <div className="space-y-6">
@@ -43,7 +65,7 @@ export default function TrackingView({ vehicles }: TrackingViewProps) {
           </div>
           <button
             type="button"
-            onClick={() => getOnlineUsers().then(setOnlineUsers).catch(() => {})}
+            onClick={poll}
             className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -83,12 +105,17 @@ export default function TrackingView({ vehicles }: TrackingViewProps) {
           ) : (
             onlineUsers.map((u, i) => (
               <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-semibold text-slate-800">{u.name}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold text-slate-800 block truncate">{u.name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
+                      {u.address || <Loader className="w-3 h-3 inline animate-spin" />}
+                    </span>
+                  </div>
                 </div>
                 {u.lat && u.lng && (
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">
                     {u.lat.toFixed(4)}, {u.lng.toFixed(4)}
                   </span>
                 )}
