@@ -1,18 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut, Settings, Plus, X, ExternalLink } from 'lucide-react';
 
 const API_BASE = window.location.origin;
 
 interface BoletoEmail {
-  id: string;
-  subject: string;
-  from: string;
-  date: string;
-  snippet: string;
-  hasAttachment: boolean;
-  attachmentId?: string;
-  filename?: string;
-  mimeType?: string;
+  id: string; subject: string; from: string; date: string; snippet: string;
+  hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
+}
+
+interface Filter {
+  id: number; type: string; value: string;
 }
 
 export default function BoletoView() {
@@ -23,63 +20,98 @@ export default function BoletoView() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [newType, setNewType] = useState<'sender' | 'subject'>('sender');
+  const [newValue, setNewValue] = useState('');
+  const [addingFilter, setAddingFilter] = useState(false);
+
   const fetchBoletos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const r = await fetch(`${API_BASE}/api/gmail?action=fetch`);
       const data = await r.json();
       setConnected(data.connected);
       if (data.emails) setEmails(data.emails);
       if (data.error) setError(data.error);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
   }, []);
 
-  React.useEffect(() => { fetchBoletos(); }, [fetchBoletos]);
+  const fetchFilters = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/gmail?action=getFilters`);
+      const data = await r.json();
+      if (data.filters) setFilters(data.filters);
+    } catch {}
+  }, []);
 
-  const handleConnect = () => {
-    setConnecting(true);
-    window.location.href = `${API_BASE}/api/gmail?action=auth`;
-  };
+  useEffect(() => { fetchBoletos(); }, [fetchBoletos]);
+
+  const handleConnect = () => { setConnecting(true); window.location.href = `${API_BASE}/api/gmail?action=auth`; };
 
   const handleDisconnect = async () => {
-    if (!confirm('Desconectar o Gmail? Os boletos não serão mais buscados automaticamente.')) return;
-    setDisconnecting(true);
-    setError(null);
+    if (!confirm('Desconectar o Gmail?')) return;
+    setDisconnecting(true); setError(null);
     try {
       const r = await fetch(`${API_BASE}/api/gmail?action=disconnect`, { method: 'POST' });
-      const result = await r.json();
-      if (r.ok) {
-        setConnected(false);
-        setEmails([]);
-      } else {
-        setError(result?.error || 'Erro ao desconectar');
-      }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setDisconnecting(false);
-    }
+      if (r.ok) { setConnected(false); setEmails([]); }
+      else setError((await r.json())?.error || 'Erro ao desconectar');
+    } catch (e: any) { setError(e.message); }
+    finally { setDisconnecting(false); }
   };
 
-  const handleDownload = async (msgId: string, attachmentId: string, filename: string) => {
+  const handleDownload = (msgId: string, attachmentId: string, filename: string) => {
+    const url = `${API_BASE}/api/gmail?action=download&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`;
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+  };
+
+  const handleView = (msgId: string, attachmentId: string, filename: string) => {
+    const url = `${API_BASE}/api/gmail?action=view&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleAddFilter = async () => {
+    if (!newValue.trim()) return;
+    setAddingFilter(true);
     try {
-      const url = `${API_BASE}/api/gmail?action=download&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-    } catch {}
+      await fetch(`${API_BASE}/api/gmail?action=addFilter`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: newType, value: newValue.trim() }),
+      });
+      setNewValue('');
+      await fetchFilters();
+    } catch (e: any) { setError(e.message); }
+    finally { setAddingFilter(false); }
+  };
+
+  const handleRemoveFilter = async (id: number) => {
+    try {
+      await fetch(`${API_BASE}/api/gmail?action=removeFilter`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      await fetchFilters();
+    } catch (e: any) { setError(e.message); }
+  };
+
+  const toggleFilters = () => {
+    if (!showFilters) fetchFilters();
+    setShowFilters(!showFilters);
   };
 
   const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch { return dateStr; }
+    try { return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return dateStr; }
+  };
+
+  const domainStyle = (from: string) => {
+    const match = from.match(/@([\w-]+\.\w+)/);
+    if (!match) return 'text-slate-400';
+    const domain = match[1].toLowerCase();
+    const isFiltered = filters.some(f => f.type === 'sender' && from.toLowerCase().includes(f.value.toLowerCase()));
+    return isFiltered ? 'text-emerald-600 font-bold' : 'text-slate-500';
   };
 
   return (
@@ -97,12 +129,8 @@ export default function BoletoView() {
         </div>
         <div className="flex items-center gap-2">
           {connected === true && (
-            <button
-              type="button"
-              onClick={handleDisconnect}
-              disabled={disconnecting}
-              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
-            >
+            <button type="button" onClick={handleDisconnect} disabled={disconnecting}
+              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
               <LogOut className="w-3 h-3" />
               {disconnecting ? 'Desconectando...' : 'Desconectar'}
             </button>
@@ -113,12 +141,15 @@ export default function BoletoView() {
               Conectado
             </span>
           )}
-          <button
-            type="button"
-            onClick={fetchBoletos}
-            disabled={loading}
-            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
-          >
+          {connected === true && (
+            <button type="button" onClick={toggleFilters}
+              className={`border px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${showFilters ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+              <Settings className="w-3 h-3" />
+              Filtros
+            </button>
+          )}
+          <button type="button" onClick={fetchBoletos} disabled={loading}
+            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </button>
@@ -133,6 +164,54 @@ export default function BoletoView() {
         </div>
       )}
 
+      {/* Filters Panel */}
+      {connected === true && showFilters && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filtros de busca</h3>
+          <p className="text-[10px] text-slate-400 -mt-3">
+            Adicione remetentes ou assuntos para buscar. Os PDFs encontrados aparecerão na lista.
+          </p>
+
+          {/* Current filters */}
+          {filters.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {filters.map(f => (
+                <span key={f.id}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">
+                  <span className="uppercase text-[9px] text-slate-400 mr-0.5">
+                    {f.type === 'sender' ? 'DE:' : 'ASS:'}
+                  </span>
+                  {f.value}
+                  <button type="button" onClick={() => handleRemoveFilter(f.id)}
+                    className="ml-0.5 hover:bg-red-200 rounded-full p-0.5 cursor-pointer transition-colors">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Add filter */}
+          <div className="flex items-center gap-2">
+            <select value={newType} onChange={e => setNewType(e.target.value as any)}
+              className="text-[10px] font-bold border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 cursor-pointer">
+              <option value="sender">Remetente</option>
+              <option value="subject">Assunto</option>
+            </select>
+            <input type="text" value={newValue} onChange={e => setNewValue(e.target.value)}
+              placeholder={newType === 'sender' ? 'ex: banco@exemplo.com' : 'ex: boleto mensalidade'}
+              className="flex-1 text-[11px] border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-400 transition-colors"
+              onKeyDown={e => e.key === 'Enter' && handleAddFilter()}
+            />
+            <button type="button" onClick={handleAddFilter} disabled={addingFilter || !newValue.trim()}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50">
+              <Plus className="w-3 h-3" />
+              {addingFilter ? '...' : 'Adicionar'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Connect Gmail Card */}
       {connected === false && !error && (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
@@ -140,14 +219,9 @@ export default function BoletoView() {
           <h3 className="text-base font-bold text-slate-800 mb-2">Conectar Gmail</h3>
           <p className="text-xs text-slate-500 mb-6 max-w-md mx-auto">
             Conecte sua conta do Gmail para buscar automaticamente os boletos que chegam todo mês.
-            Usaremos apenas acesso de leitura para identificar e-mails com boletos anexados.
           </p>
-          <button
-            type="button"
-            onClick={handleConnect}
-            disabled={connecting}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl flex items-center gap-2 mx-auto cursor-pointer transition-colors disabled:opacity-50"
-          >
+          <button type="button" onClick={handleConnect} disabled={connecting}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl flex items-center gap-2 mx-auto cursor-pointer transition-colors disabled:opacity-50">
             <Mail className="w-4 h-4" />
             {connecting ? 'Conectando...' : 'Conectar Gmail'}
           </button>
@@ -163,14 +237,14 @@ export default function BoletoView() {
       )}
 
       {/* Boleto List */}
-      {!loading && connected === true && !error && (
+      {!loading && connected === true && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           {emails.length === 0 ? (
             <div className="p-12 text-center">
               <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-500">Nenhum boleto encontrado</p>
               <p className="text-[10px] text-slate-400 mt-1">
-                Os e-mails com "boleto" ou "fatura" no assunto aparecerão aqui
+                Tente adicionar filtros no botão "Filtros" acima
               </p>
             </div>
           ) : (
@@ -180,22 +254,29 @@ export default function BoletoView() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-800 truncate">{email.subject}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className={`text-[10px] mt-0.5 ${domainStyle(email.from)}`}>
                         {email.from} • {formatDate(email.date)}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{email.snippet}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {email.hasAttachment && email.attachmentId && (
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(email.id, email.attachmentId!, email.filename || 'boleto.pdf')}
-                          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Baixar boleto"
-                        >
-                          <Download className="w-3 h-3" />
-                          {email.filename?.replace(/.pdf$/i, '')?.substring(0, 15) || 'PDF'}
-                        </button>
+                        <>
+                          <button type="button"
+                            onClick={() => handleView(email.id, email.attachmentId!, email.filename || 'boleto.pdf')}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Visualizar boleto">
+                            <ExternalLink className="w-3 h-3" />
+                            Visualizar
+                          </button>
+                          <button type="button"
+                            onClick={() => handleDownload(email.id, email.attachmentId!, email.filename || 'boleto.pdf')}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Baixar boleto">
+                            <Download className="w-3 h-3" />
+                            {email.filename?.replace(/.pdf$/i, '')?.substring(0, 10) || 'PDF'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
