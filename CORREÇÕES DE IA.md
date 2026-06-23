@@ -89,11 +89,70 @@ if (!error) {
 | `motoristas` | Motoristas |
 | `comissoes` | Comissões |
 | `user_approvals` | Usuários do sistema (SettingsView) |
+| `garage_refills` | Abastecimentos da garagem (diesel) |
 
-### Conexão Direta
-- Pooler NÃO funciona (tenant not found)
-- Conexão direta só tem IPv6 — inacessível deste ambiente
-- Apenas REST API (porta 443) funciona via URL do projeto
+#### 11. Garage Diesel Price — Só no localStorage
+
+**Problema**: `garageDieselPrice` e `garageDieselQty` só existiam no `localStorage`. Preço definido no FleetView (web) não aparecia no DriverPortal (mobile) porque cada browser tem seu próprio localStorage.
+
+**Solução**: Armazenar como um registro especial `GARAGE-CONFIG` na tabela `vehicles`:
+- `cost_per_km` → diesel price (decimal)
+- `efficiency` → diesel qty (integer)
+- Usar upsert em todos os pontos de salvamento (FleetView price, add/edit/delete garage refills)
+- Carregar do Supabase no `useEffect` de autenticação em App.tsx
+- Adicionar subscription Realtime para `vehicles` com filtro `id === 'GARAGE-CONFIG'`
+- **Pré-submissão**: `handleFuelSubmit` busca `cost_per_km` do Supabase antes de calcular valor do abastecimento de garagem
+
+### 12. Realtime — Tabelas não estavam na Publicação
+
+**Problema**: As subscriptions Realtime (`lancamentos`, `fuel_logs`, `comissoes`, `vehicles`) nunca recebiam eventos. Apenas refresh manual mostrava dados novos. Causa: tabelas não estavam na publicação `supabase_realtime`.
+
+**Solução**: Usar Supabase Management API com Personal Access Token (PAT) para executar SQL via endpoint `/v1/projects/{ref}/database/query`:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE vehicles;
+ALTER PUBLICATION supabase_realtime ADD TABLE lancamentos;
+ALTER PUBLICATION supabase_realtime ADD TABLE fuel_logs;
+ALTER PUBLICATION supabase_realtime ADD TABLE comissoes;
+ALTER PUBLICATION supabase_realtime ADD TABLE garage_refills;
+```
+
+**PAT (Personal Access Token)**: Gerar em https://supabase.com/dashboard/account/tokens. Formato: `sbp_*`. Usar no header `Authorization: Bearer {pat}`. **Não é o mesmo que service_role key**.
+
+### 13. Capacitor + Background Geolocation
+
+**Problema**: App web/PWA não consegue manter geolocalização quando o navegador é fechado — JavaScript é suspenso pelo sistema operacional. Motorista sumia do mapa após 120s sem heartbeat.
+
+**Solução**: Configurar Capacitor para empacotar o React como app nativo Android com permissão de background location:
+
+**Pacotes instalados**:
+- `@capacitor/core@8`, `@capacitor/cli`, `@capacitor/android`
+- `@capacitor/geolocation` (foreground)
+- `@capacitor-community/background-geolocation` (background)
+
+**Arquivos gerados**:
+- `capacitor.config.ts` — config: appId `com.relampago.motorista`, webDir `dist`
+- `android/` — projeto Android gerado por `npx cap add android`
+- `src/lib/geolocation.ts` — serviço unificado que usa `BackgroundGeolocation.addWatcher()` com `backgroundMessage` quando nativo, `navigator.geolocation` como fallback no browser
+
+**Permissões Android** (em `android/app/src/main/AndroidManifest.xml`):
+```xml
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+**Fluxo de build do APK** (apenas primeira vez):
+```bash
+npm run build && npx cap sync android
+# Depois: Android Studio → Build → Build APK
+# Ou via CLI (se ANDROID_HOME configurado):
+cd android && ./gradlew assembleDebug
+```
+
+**Atualizações futuras**: Apenas `npm run build && npx cap sync android` — o APK carrega o React da Vercel, então código novo chega automaticamente. Não precisa gerar novo APK para updates de funcionalidade.
+
+**Limitação**: O `@capacitor-community/background-geolocation` usa foreground service com notificação persistente. O usuário verá uma notificação "Rastreando localização em tempo real" enquanto o app estiver em background.
 
 ## Fluxo de Dados
 ```
