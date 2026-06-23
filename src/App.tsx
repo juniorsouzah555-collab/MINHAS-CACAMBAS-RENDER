@@ -489,6 +489,19 @@ export default function App() {
         if (payload.eventType === 'DELETE') removeCom(payload.old.id);
         else upsertCom(mapComissao(payload.new));
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') return;
+        const v = payload.new;
+        if (v.id !== 'GARAGE-CONFIG') return;
+        if (v.cost_per_km != null) {
+          setGarageDieselPrice(Number(v.cost_per_km));
+          localStorage.setItem('relampago_garage_diesel_price', String(v.cost_per_km));
+        }
+        if (v.efficiency != null) {
+          setGarageDieselQty(Number(v.efficiency));
+          localStorage.setItem('relampago_garage_diesel_qty', String(v.efficiency));
+        }
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
