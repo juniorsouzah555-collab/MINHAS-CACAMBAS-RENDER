@@ -52,11 +52,12 @@ export default function BoletoView() {
     setError(null);
     try {
       const r = await fetch(`${API_BASE}/api/gmail?action=disconnect`, { method: 'POST' });
+      const result = await r.json();
       if (r.ok) {
         setConnected(false);
         setEmails([]);
       } else {
-        setError('Erro ao desconectar');
+        setError(result?.error || 'Erro ao desconectar');
       }
     } catch (e: any) {
       setError(e.message);
