@@ -211,25 +211,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // DISCONNECT — delete stored token via proxy
+  // DISCONNECT — delete stored token
   if (action === 'disconnect') {
     try {
-      // Get email first
-      let email = '';
-      try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: SB_HEADERS });
-        const list = await r.json();
-        if (list?.[0]?.email) email = list[0].email;
-      } catch {}
-      if (email) {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, {
-          method: 'DELETE',
-          headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
-        });
-        if (!r.ok) {
-          const text = await r.text();
-          return res.status(500).json({ error: text });
-        }
+      // Get email first (SELECT não usa Prefer: return=minimal)
+      const selHeaders = { 'Content-Type': 'application/json', apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` };
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: selHeaders });
+      if (!r.ok) {
+        const text = await r.text();
+        return res.status(500).json({ error: text });
+      }
+      const list = await r.json();
+      const email = list?.[0]?.email;
+      if (!email) return res.json({ ok: true });
+
+      // Delete by email
+      const delR = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, {
+        method: 'DELETE',
+        headers: { ...selHeaders, Prefer: 'return=minimal' },
+      });
+      if (!delR.ok) {
+        const text = await delR.text();
+        return res.status(500).json({ error: text });
       }
       return res.json({ ok: true });
     } catch (e: any) {
