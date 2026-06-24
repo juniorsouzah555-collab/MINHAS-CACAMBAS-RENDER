@@ -541,20 +541,21 @@ export default function BoletoView() {
                         </>
                       )}
                       {!email.hasAttachment && email.boletoLink && (
-                        email.hasProvider ? (
-                          <button type="button" onClick={() => handleDownloadProviderPdf(email)}
-                            disabled={downloadingPdf === email.id}
-                            className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
-                            <Download className="w-4 h-4" />
-                            {downloadingPdf === email.id ? 'Baixando...' : 'Baixar boleto'}
-                          </button>
-                        ) : (
+                        <>
+                          {email.hasProvider && (
+                            <button type="button" onClick={() => handleDownloadProviderPdf(email)}
+                              disabled={downloadingPdf === email.id}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50">
+                              <Download className="w-4 h-4" />
+                              {downloadingPdf === email.id ? 'Baixando...' : 'Baixar boleto'}
+                            </button>
+                          )}
                           <a href={email.boletoLink} target="_blank" rel="noopener noreferrer"
-                            className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors">
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-purple-50 hover:bg-purple-100 text-purple-700">
                             <ExternalLink className="w-4 h-4" />
                             Ver online
                           </a>
-                        )
+                        </>
                       )}
                       {!email.hasAttachment && !email.boletoLink && (
                         <span className="text-xs text-slate-300 italic px-1">Sem PDF</span>
