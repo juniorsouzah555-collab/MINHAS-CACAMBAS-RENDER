@@ -63,6 +63,11 @@ test.describe('Boletos - Lello Download', () => {
     const count = await downloadButtons.count();
     console.log(`"Baixar boleto" buttons found: ${count}`);
 
+    // Check for "Ver online" links
+    const verOnlineLinks = page.locator('a:has-text("Ver online")');
+    const onlineCount = await verOnlineLinks.count();
+    console.log(`"Ver online" links found: ${onlineCount}`);
+
     if (count > 0) {
       // Click the first one
       const [response] = await Promise.all([
@@ -79,6 +84,11 @@ test.describe('Boletos - Lello Download', () => {
       }
 
       await page.screenshot({ path: 'screenshots/after-download.png', fullPage: true });
+    }
+
+    // Verify "Ver online" links are visible alongside download buttons
+    if (onlineCount > 0 && count > 0) {
+      console.log('✓ Both "Baixar boleto" and "Ver online" are visible');
     }
 
     // Check if there's an error message visible

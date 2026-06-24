@@ -535,7 +535,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ ok: true });
     }
 
-    res.status(400).json({ error: 'Unknown action', ver: '3' });
+    res.status(400).json({ error: 'Unknown action' });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
