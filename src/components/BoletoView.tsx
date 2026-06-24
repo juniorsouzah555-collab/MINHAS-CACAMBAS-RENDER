@@ -434,6 +434,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                 const today = new Date().toISOString().slice(0, 10);
                 const isLate = !bill.checked && bill.date < today;
                 const isFiltering = activeBillSender === bill.sender;
+                const emailCount = bill.sender ? emails.filter(e => emailMatchesSender(e, bill.sender!)).length : 0;
                 return (
                 <div key={bill.id} className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isFiltering ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-slate-50'}`}>
                   <button onClick={() => setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b))}
@@ -473,6 +474,11 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                           <span className={`text-sm ${bill.checked ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
                             {bill.name}
                           </span>
+                          {emailCount > 0 && (
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full shrink-0 leading-none">
+                              {emailCount}
+                            </span>
+                          )}
                           {bill.sender && (
                             <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
                               {aliasNameForSender(bill.sender)}
