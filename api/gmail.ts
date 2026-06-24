@@ -258,9 +258,18 @@ async function tryFetchProviderPdf(boletoUrl: string, password: string): Promise
 
     // Lello Resolva Fácil
     if (parsed.hostname.includes('lellocondominios') || parsed.hostname.includes('resolvafacil')) {
-      const token = parsed.searchParams.get('token');
-      const uuid = parsed.searchParams.get('uuid');
+      const token = parsed.searchParams.get('token') || '';
+      let uuid = parsed.searchParams.get('uuid') || '';
       const hashId = parsed.searchParams.get('x-lello-parceiro-hashid') || '';
+
+      // If token is a JWT, decode it to extract the UUID from the payload
+      if (!uuid && token && token.split('.').length === 3) {
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+          uuid = payload.UUID || payload.uuid || '';
+        } catch {}
+      }
+
       if (!token || !uuid) return null;
 
       const apiUrl = `https://api.lellocondominios.com.br/resolvafacil-api/v2/external/primeira-via?token=${encodeURIComponent(token)}&uuid=${encodeURIComponent(uuid)}&digitosDocumento=${encodeURIComponent(password)}`;
@@ -269,7 +278,7 @@ async function tryFetchProviderPdf(boletoUrl: string, password: string): Promise
       });
       if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
         const buffer = Buffer.from(await res.arrayBuffer());
-        return { buffer, filename: `boleto-lello-${uuid.substring(0, 8)}.pdf` };
+        return { buffer, filename: `boleto-lello-${typeof uuid === 'string' ? uuid.substring(0, 8) : ''}.pdf` };
       }
     }
   } catch (e) {
