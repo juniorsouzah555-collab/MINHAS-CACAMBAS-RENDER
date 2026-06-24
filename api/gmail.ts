@@ -172,9 +172,15 @@ function extractBoletoLink(bodies: string[]): string | null {
     if (/mercadopago/.test(u)) s += 40;
     if (/pagar\.me/.test(u)) s += 40;
     if (/\/(?:boleto|fatura|cobranca|2avia|2a-via|segunda-via)\b/.test(u)) s += 50;
+    // Lello / Resolva Fácil patterns
+    if (/resolvafacil/.test(u)) s += 80;
+    if (/\?.*token=/.test(u)) s += 60;
+    if (/\?.*uuid=/.test(u)) s += 50;
+    if (/lellocondominios/.test(u) && /\/api\//.test(u)) s += 70;
     // Penalize image/resource URLs
     if (/customerLogo|logo|\.png|\.jpg|\.gif|\.css|favicon/i.test(u)) s -= 80;
     if (/unsubscribe|tracking|open\?/i.test(u)) s -= 60;
+    if (/prevencao-fraude|prevencao[/-]fraude/i.test(u)) s -= 80;
     return s;
   };
 
