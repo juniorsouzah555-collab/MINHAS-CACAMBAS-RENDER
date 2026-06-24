@@ -302,7 +302,9 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
       if (!detail.ok) continue;
       const data = await detail.json();
       const h = data.payload?.headers || [];
-      const from = h.find((x: any) => x.name === 'From')?.value?.replace(/<[^>]+>/g, '').trim().split('"').join('') || '';
+      const rawFrom = h.find((x: any) => x.name === 'From')?.value || '';
+      const from = rawFrom.replace(/<[^>]+>/g, '').trim().split('"').join('') || '';
+      const fromEmail = rawFrom.match(/<([^>]+)>/)?.[1] || rawFrom.trim();
       const subject = h.find((x: any) => x.name === 'Subject')?.value || '(sem assunto)';
       const date = h.find((x: any) => x.name === 'Date')?.value || '';
 
@@ -320,7 +322,7 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
       // Só inclui se tem PDF anexado OU link válido para gerar o boleto
       if (!attach && !boletoLink) continue;
 
-      const hasProvider = !!boletoLink && providers.some(p => p.sender === from);
+      const hasProvider = !!boletoLink && providers.some(p => p.sender && (p.sender === from || p.sender === fromEmail));
 
       result.push({
         id: msg.id, subject, from, date, snippet: data.snippet || '',
