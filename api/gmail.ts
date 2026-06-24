@@ -331,7 +331,7 @@ async function fetchBoletoEmails(accessToken: string, strict: boolean) {
       const hasProvider = !!boletoLink && providers.some(p => p.sender && (p.sender === from || p.sender === fromEmail));
 
       result.push({
-        id: msg.id, subject, from, date, snippet: data.snippet || '',
+        id: msg.id, subject, from, fromEmail, date, snippet: data.snippet || '',
         hasAttachment: !!attach,
         attachmentId: attach?.body?.attachmentId || attach?.attachmentId,
         filename: attach?.filename, mimeType: attach?.mimeType,
@@ -465,10 +465,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'downloadProviderPdf') {
       const boletoUrl = req.query.url as string;
       const sender = req.query.sender as string;
+      const senderEmail = req.query.senderEmail as string;
       if (!boletoUrl || !sender) return res.status(400).json({ error: 'url and sender required' });
 
       const providers = await getProviders();
-      const provider = providers.find(p => p.sender === sender);
+      const provider = providers.find(p => p.sender === sender || (senderEmail && p.sender === senderEmail));
       if (!provider) return res.status(404).json({ error: 'Provider not found for this sender' });
 
       const pdf = await tryFetchProviderPdf(boletoUrl, provider.password);

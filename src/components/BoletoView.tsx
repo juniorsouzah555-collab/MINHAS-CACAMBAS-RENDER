@@ -4,7 +4,7 @@ import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut,
 const API_BASE = window.location.origin;
 
 interface BoletoEmail {
-  id: string; subject: string; from: string; date: string; snippet: string;
+  id: string; subject: string; from: string; fromEmail?: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
   boletoLink?: string; alias?: string; hasProvider?: boolean;
 }
@@ -112,8 +112,9 @@ export default function BoletoView() {
   const handleDownloadProviderPdf = async (email: BoletoEmail) => {
     setDownloadingPdf(email.id);
     try {
-      const url = `${API_BASE}/api/gmail?action=downloadProviderPdf&sender=${encodeURIComponent(email.from)}&url=${encodeURIComponent(email.boletoLink!)}`;
-      const r = await fetch(url);
+      const params = new URLSearchParams({ action: 'downloadProviderPdf', sender: email.from, url: email.boletoLink! });
+      if (email.fromEmail) params.set('senderEmail', email.fromEmail);
+      const r = await fetch(`${API_BASE}/api/gmail?${params}`);
       if (!r.ok) {
         const err = await r.json();
         setError(err.error || 'Erro ao baixar PDF');
