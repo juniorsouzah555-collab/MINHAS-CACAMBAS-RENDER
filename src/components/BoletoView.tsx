@@ -164,6 +164,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
   };
 
   const handleDownloadProviderPdf = async (email: BoletoEmail) => {
+    markEmailClicked(email.id);
     setDownloadingPdf(email.id);
     try {
       const params = new URLSearchParams({ action: 'downloadProviderPdf', sender: email.from, url: email.boletoLink! });
@@ -204,13 +205,22 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
     finally { setDisconnecting(false); }
   };
 
+  const markEmailClicked = (id: string) => {
+    setEmails(prev => prev.map(e => e.id === id ? { ...e, isNew: false } : e));
+    const seen = loadSeen();
+    seen.add(id);
+    saveSeen(seen);
+  };
+
   const handleDownload = (msgId: string, attachmentId: string, filename: string) => {
+    markEmailClicked(msgId);
     const url = `${API_BASE}/api/gmail?action=download&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`;
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
   };
 
   const handleView = (msgId: string, attachmentId: string, filename: string) => {
+    markEmailClicked(msgId);
     window.open(`${API_BASE}/api/gmail?action=view&msgId=${msgId}&attachmentId=${attachmentId}&filename=${encodeURIComponent(filename)}`, '_blank');
   };
 
@@ -434,7 +444,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                 const today = new Date().toISOString().slice(0, 10);
                 const isLate = !bill.checked && bill.date < today;
                 const isFiltering = activeBillSender === bill.sender;
-                const emailCount = bill.sender ? emails.filter(e => emailMatchesSender(e, bill.sender!)).length : 0;
+                const emailCount = bill.sender ? emails.filter(e => e.isNew && emailMatchesSender(e, bill.sender!)).length : 0;
                 return (
                 <div key={bill.id} className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isFiltering ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-slate-50'}`}>
                   <button onClick={() => setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b))}
@@ -797,7 +807,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                               {downloadingPdf === email.id ? 'Baixando...' : 'Baixar boleto'}
                             </button>
                           )}
-                          <a href={email.boletoLink} target="_blank" rel="noopener noreferrer"
+                          <a href={email.boletoLink} target="_blank" rel="noopener noreferrer" onClick={() => markEmailClicked(email.id)}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-purple-50 hover:bg-purple-100 text-purple-700">
                             <ExternalLink className="w-4 h-4" />
                             Ver online
