@@ -26,11 +26,12 @@ interface SidebarProps {
   setCurrentTab: (tab: string) => void;
   onOpenNewDispatch: () => void;
   transitCount: number;
+  unseenBoletos?: number;
   userRole?: string;
   userEmail?: string;
 }
 
-export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, userRole, userEmail }: SidebarProps) {
+export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, unseenBoletos, userRole, userEmail }: SidebarProps) {
   const isDriver = (userRole?.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com');
 
   const navItems = [
@@ -41,7 +42,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'disposal', name: 'Cadastro', icon: Trash2 },
     { id: 'finance', name: 'Financeiro', icon: DollarSign },
     { id: 'commissions', name: 'Comissões', icon: Percent },
-    { id: 'boletos', name: 'Boletos', icon: Receipt },
+    { id: 'boletos', name: 'Boletos', icon: Receipt, badge: unseenBoletos },
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }

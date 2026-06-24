@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut, Settings, Plus, X, ExternalLink, Trash2, Edit3 } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut, Settings, Plus, X, ExternalLink, Trash2, Edit3, Bell, ChevronDown, ChevronRight, CheckSquare, Square, Pencil, Check, BookOpen } from 'lucide-react';
 
 const API_BASE = window.location.origin;
 
@@ -7,6 +7,7 @@ interface BoletoEmail {
   id: string; subject: string; from: string; fromEmail?: string; date: string; snippet: string;
   hasAttachment: boolean; attachmentId?: string; filename?: string; mimeType?: string;
   boletoLink?: string; alias?: string; hasProvider?: boolean;
+  isNew?: boolean;
 }
 
 interface Filter {
@@ -17,7 +18,21 @@ interface Alias {
   id: number; sender: string; alias: string;
 }
 
-export default function BoletoView() {
+interface Props {
+  onNewBoletosCount?: (count: number) => void;
+}
+
+const SEEN_KEY = 'seen_boletos';
+
+function loadSeen(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch { return new Set(); }
+}
+
+function saveSeen(ids: Set<string>) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...ids])); } catch {}
+}
+
+export default function BoletoView({ onNewBoletosCount }: Props) {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [emails, setEmails] = useState<BoletoEmail[]>([]);
   const [aliases, setAliases] = useState<Alias[]>([]);
@@ -26,6 +41,33 @@ export default function BoletoView() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'strict' | 'broad'>('strict');
+  const [days, setDays] = useState(30);
+
+  const BILLS_KEY = 'boleto_plano_contas';
+  interface Bill { id: string; name: string; date: string; checked: boolean; sender?: string; }
+  const [billsOpen, setBillsOpen] = useState(true);
+  const [bills, setBills] = useState<Bill[]>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(BILLS_KEY) || '[]');
+      return raw.map((b: any) => ({ ...b, date: b.date || new Date(Date.now() + 5*86400000).toISOString().slice(0, 10) }));
+    } catch { return []; }
+  });
+  const [newBillName, setNewBillName] = useState('');
+  const [newBillDate, setNewBillDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 5);
+    return d.toISOString().slice(0, 10);
+  });
+  const [newBillSender, setNewBillSender] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editSender, setEditSender] = useState('');
+
+  const [activeBillSender, setActiveBillSender] = useState<string | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(BILLS_KEY, JSON.stringify(bills)); } catch {}
+  }, [bills]);
 
   const [filters, setFilters] = useState<Filter[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -49,15 +91,27 @@ export default function BoletoView() {
     const m = mode || searchMode;
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/gmail?action=fetch&mode=${m}`);
+      const r = await fetch(`${API_BASE}/api/gmail?action=fetch&mode=${m}&days=${days}`);
       const data = await r.json();
       setConnected(data.connected);
-      if (data.emails) setEmails(data.emails);
+      if (data.emails) {
+        const seen = loadSeen();
+        let newCount = 0;
+        const marked = data.emails.map((e: BoletoEmail) => {
+          const isNew = !seen.has(e.id);
+          if (isNew) newCount++;
+          return { ...e, isNew };
+        });
+        const allIds = new Set<string>(data.emails.map((e: BoletoEmail) => e.id));
+        saveSeen(new Set<string>([...seen, ...allIds]));
+        setEmails(marked);
+        onNewBoletosCount?.(newCount);
+      }
       if (data.aliases) setAliases(data.aliases);
       if (data.error) setError(data.error);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
-  }, [searchMode]);
+  }, [searchMode, days, onNewBoletosCount]);
 
   const fetchFilters = useCallback(async () => {
     try {
@@ -251,6 +305,22 @@ export default function BoletoView() {
     return email.from;
   };
 
+  const emailMatchesSender = (email: BoletoEmail, sender: string): boolean => {
+    if (!sender) return true;
+    const s = sender.toLowerCase();
+    return (email.from?.toLowerCase().includes(s) || email.fromEmail?.toLowerCase().includes(s)) ?? false;
+  };
+
+  // Helper to get alias name from sender
+  const aliasNameForSender = (sender: string): string => {
+    const alias = aliases.find(a => sender && (a.sender === sender || a.sender.includes(sender) || sender.includes(a.sender)));
+    return alias ? alias.alias : sender;
+  };
+
+  const filteredEmails = activeBillSender ? emails.filter(e => emailMatchesSender(e, activeBillSender)) : emails;
+
+  const clearBillFilter = () => setActiveBillSender(null);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -306,6 +376,156 @@ export default function BoletoView() {
           </button>
         </div>
       </div>
+
+      {/* Days Filter */}
+      {connected === true && (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button type="button" onClick={() => { setDays(7); fetchBoletos(); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${days === 7 ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              7 dias
+            </button>
+            <button type="button" onClick={() => { setDays(15); fetchBoletos(); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${days === 15 ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              15 dias
+            </button>
+            <button type="button" onClick={() => { setDays(30); fetchBoletos(); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${days === 30 ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              30 dias
+            </button>
+            <button type="button" onClick={() => { setDays(60); fetchBoletos(); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${days === 60 ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              60 dias
+            </button>
+            <button type="button" onClick={() => { setDays(90); fetchBoletos(); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${days === 90 ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              90 dias
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">últimos {days} dias</span>
+        </div>
+      )}
+
+      {/* Plano de Contas */}
+      {connected === true && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setBillsOpen(!billsOpen)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-emerald-600" />
+              <span className="text-base font-bold text-slate-800">Plano de Contas</span>
+              {bills.length > 0 && (
+                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {bills.filter(b => !b.checked).length}/{bills.length}
+                </span>
+              )}
+            </div>
+            {billsOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {billsOpen && (
+            <div className="px-6 pb-4 space-y-1">
+              {bills.length === 0 && (
+                <p className="text-sm text-slate-400 italic py-2">Nenhuma conta cadastrada.</p>
+              )}
+              {[...bills].sort((a, b) => a.date.localeCompare(b.date)).map(bill => {
+                const today = new Date().toISOString().slice(0, 10);
+                const isLate = !bill.checked && bill.date < today;
+                const isFiltering = activeBillSender === bill.sender;
+                return (
+                <div key={bill.id} className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isFiltering ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-slate-50'}`}>
+                  <button onClick={() => setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b))}
+                    className="shrink-0 cursor-pointer text-slate-400 hover:text-emerald-500 transition-colors">
+                    {bill.checked
+                      ? <CheckSquare className="w-5 h-5 text-emerald-500" />
+                      : <Square className="w-5 h-5" />
+                    }
+                  </button>
+
+                  {editingId === bill.id ? (
+                    <div className="flex items-center gap-1 flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { const t = editName.trim(); if (t) { setBills(prev => prev.map(b => b.id === bill.id ? { ...b, name: t, date: editDate, sender: editSender } : b)); } setEditingId(null); } if (e.key === 'Escape') setEditingId(null); }}
+                        className="flex-1 text-sm bg-slate-100 text-slate-800 px-2 py-1 rounded outline-none border border-slate-300"
+                        autoFocus
+                      />
+                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                        className="text-sm bg-slate-100 text-slate-800 px-2 py-1 rounded outline-none border border-slate-300 w-32" />
+                      <select value={editSender} onChange={e => setEditSender(e.target.value)}
+                        className="text-xs bg-slate-100 text-slate-700 px-2 py-1.5 rounded outline-none border border-slate-300 cursor-pointer max-w-[120px]">
+                        <option value="">Sem filtro</option>
+                        {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
+                      </select>
+                      <button onClick={() => { const t = editName.trim(); if (t) { setBills(prev => prev.map(b => b.id === bill.id ? { ...b, name: t, date: editDate, sender: editSender } : b)); } setEditingId(null); }}
+                        className="shrink-0 cursor-pointer text-emerald-500 hover:text-emerald-400 transition-colors">
+                        <Check className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm ${bill.checked ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
+                            {bill.name}
+                          </span>
+                          {bill.sender && (
+                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                              {aliasNameForSender(bill.sender)}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-[11px] ${bill.checked ? 'text-slate-300' : isLate ? 'text-red-500' : 'text-slate-400'}`}>
+                          {new Date(bill.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                          {isLate && <span className="ml-1 text-red-500">(atrasado)</span>}
+                        </span>
+                      </div>
+                      {bill.sender && (
+                        <button onClick={() => setActiveBillSender(isFiltering ? null : bill.sender!)}
+                          className={`shrink-0 cursor-pointer transition-colors ${isFiltering ? 'text-emerald-600' : 'text-slate-300 hover:text-emerald-500 opacity-0 group-hover:opacity-100'}`}
+                          title={isFiltering ? 'Limpar filtro' : `Filtrar por ${aliasNameForSender(bill.sender)}`}>
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => { setEditingId(bill.id); setEditName(bill.name); setEditDate(bill.date); setEditSender(bill.sender || ''); }}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-500 transition-all">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setBills(prev => prev.filter(b => b.id !== bill.id))}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-red-500 transition-all">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              );})}
+              <div className="flex items-center gap-2 pt-2">
+                <input type="text" value={newBillName} onChange={e => setNewBillName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { const n = newBillName.trim(); if (n) { setBills(prev => [...prev, { id: Date.now().toString(), name: n, date: newBillDate, checked: false, sender: newBillSender || undefined }]); setNewBillName(''); } }}}
+                  placeholder="Nome da conta..."
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 transition-colors" />
+                <input type="date" value={newBillDate} onChange={e => setNewBillDate(e.target.value)}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 transition-colors" />
+                <select value={newBillSender} onChange={e => setNewBillSender(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-emerald-400 transition-colors cursor-pointer bg-white text-slate-700">
+                  <option value="">Sem filtro</option>
+                  {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
+                </select>
+                <button onClick={() => { const n = newBillName.trim(); if (n) { setBills(prev => [...prev, { id: Date.now().toString(), name: n, date: newBillDate, checked: false, sender: newBillSender || undefined }]); setNewBillName(''); } }}
+                  disabled={!newBillName.trim()}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50">
+                  <Plus className="w-4 h-4" />
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -493,7 +713,19 @@ export default function BoletoView() {
       {/* Boleto List */}
       {!loading && connected === true && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          {emails.length === 0 ? (
+          {activeBillSender && (
+            <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 border-b border-emerald-200">
+              <FileText className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-700">
+                Filtrando por: {aliasNameForSender(activeBillSender)}
+              </span>
+              <button onClick={clearBillFilter}
+                className="ml-auto text-xs font-bold text-emerald-600 hover:text-emerald-500 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-md cursor-pointer transition-colors">
+                Limpar filtro
+              </button>
+            </div>
+          )}
+          {filteredEmails.length === 0 ? (
             <div className="p-16 text-center">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-lg font-semibold text-slate-500">
@@ -506,9 +738,18 @@ export default function BoletoView() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {emails.map(email => (
-                <div key={email.id} className="px-6 py-5 hover:bg-slate-50 transition-colors group">
+            <div>
+              {filteredEmails.some(e => e.isNew) && (
+                <div className="flex items-center gap-2 px-6 py-3 bg-amber-50 border-b border-amber-200">
+                  <Bell className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-bold text-amber-700">
+                    {filteredEmails.filter(e => e.isNew).length} novo(s) boleto(s)
+                  </span>
+                </div>
+              )}
+              <div className="divide-y divide-slate-100">
+              {filteredEmails.map(email => (
+                <div key={email.id} className={`px-6 py-5 hover:bg-slate-50 transition-colors group ${email.isNew ? 'bg-amber-50/40 border-l-4 border-l-amber-400' : ''}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <p className="text-base font-bold text-slate-800 truncate leading-snug">{email.subject}</p>
@@ -569,6 +810,7 @@ export default function BoletoView() {
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           )}
         </div>

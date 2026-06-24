@@ -91,7 +91,7 @@ function raw(value: string): string {
   return value.includes(' ') ? `"${value}"` : value;
 }
 
-async function buildSearchQuery(strict: boolean) {
+async function buildSearchQuery(strict: boolean, days: number = 30) {
   const defaultTerms = [
     q('subject', 'boleto'), q('subject', 'fatura'), q('subject', '2\u00aa via'),
     q('subject', 'segunda via'), q('subject', 'cobran\u00e7a'), q('subject', 'boleto eletr\u00f4nico'),
@@ -103,15 +103,16 @@ async function buildSearchQuery(strict: boolean) {
     if (f.type === 'sender') filterTerms.push(q('from', f.value));
     if (f.type === 'body') filterTerms.push(raw(f.value));
   }
+  const age = `newer_than:${days}d`;
   if (strict) {
     // Modo restrito: busca SÓ pelos remetentes cadastrados (filtro sender)
     const senderFilters = filters.filter(f => f.type === 'sender');
     if (senderFilters.length === 0) return null;
     const terms = senderFilters.map(f => q('from', f.value));
-    return `(${terms.join(' OR ')}) newer_than:180d`;
+    return `(${terms.join(' OR ')}) ${age}`;
   }
   // Modo abrangente: termos padrão + filtros do usuário
-  return `(${[...defaultTerms, ...filterTerms].join(' OR ')}) newer_than:180d`;
+  return `(${[...defaultTerms, ...filterTerms].join(' OR ')}) ${age}`;
 }
 
 interface BoletoEmail {
@@ -186,7 +187,46 @@ function extractBoletoLink(bodies: string[]): string | null {
 
   const scored = allUrls.map(u => ({ url: u, score: score(u) })).filter(x => x.score > 0);
   scored.sort((a, b) => b.score - a.score);
-  return scored[0]?.url || null;
+  let best = scored[0]?.url || null;
+
+  // For Resolva Fácil URLs, unescape HTML entities and add uuid from JWT if missing
+  if (best && (/resolvafacil/.test(best) || /lellocondominios/.test(best))) {
+    try {
+      // Unescape HTML entities like &amp; → &
+      let cleaned = best.replace(/&amp;/g, '&');
+      const parsed = new URL(cleaned);
+      const token = parsed.searchParams.get('token') || '';
+
+      // Extract uuid from JWT payload if not in URL
+      if (token && !parsed.searchParams.has('uuid') && token.split('.').length === 3) {
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+          const uuid = payload.UUID || payload.uuid || '';
+          if (uuid) parsed.searchParams.set('uuid', uuid);
+        } catch {}
+      }
+
+      // Extract x-lello-parceiro-hashid from email body if not in URL
+      if (!parsed.searchParams.has('x-lello-parceiro-hashid')) {
+        for (const body of bodies) {
+          const hashMatch = body.match(/x-lello-parceiro-hashid[=:]\s*([a-f0-9-]+)/i);
+          if (hashMatch) {
+            parsed.searchParams.set('x-lello-parceiro-hashid', hashMatch[1]);
+            break;
+          }
+        }
+      }
+
+      // Prefer /boletos?token= over /prestacao-contas
+      if (parsed.pathname.includes('/prestacao-contas') && token) {
+        parsed.pathname = parsed.pathname.replace('/prestacao-contas', '/boletos');
+      }
+
+      best = parsed.toString();
+    } catch {}
+  }
+
+  return best;
 }
 
 async function getAliases() {
@@ -270,15 +310,42 @@ async function tryFetchProviderPdf(boletoUrl: string, password: string): Promise
         } catch {}
       }
 
-      if (!token || !uuid) return null;
+      if (!token) return null;
 
-      const apiUrl = `https://api.lellocondominios.com.br/resolvafacil-api/v2/external/primeira-via?token=${encodeURIComponent(token)}&uuid=${encodeURIComponent(uuid)}&digitosDocumento=${encodeURIComponent(password)}`;
-      const res = await fetch(apiUrl, {
-        headers: hashId ? { 'x-lello-parceiro-hashid': hashId } : {},
-      });
-      if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
-        const buffer = Buffer.from(await res.arrayBuffer());
-        return { buffer, filename: `boleto-lello-${typeof uuid === 'string' ? uuid.substring(0, 8) : ''}.pdf` };
+      // Strategy 1: POST /primeira-via/boleto with Bearer token (used by SPA manual download)
+      if (token.split('.').length === 3) {
+        try {
+          const postRes = await fetch('https://api.lellocondominios.com.br/resolvafacil-api/v2/external/primeira-via/boleto', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              ...(hashId ? { 'x-lello-parceiro-hashid': hashId } : {}),
+            },
+            body: JSON.stringify({ cpf: password }),
+          });
+          if (postRes.ok && postRes.headers.get('content-type')?.includes('pdf')) {
+            const buffer = Buffer.from(await postRes.arrayBuffer());
+            return { buffer, filename: `boleto-lello.pdf` };
+          }
+          if (postRes.status !== 404 && postRes.status !== 410) {
+            console.error('[PROVIDER] POST /primeira-via/boleto failed', postRes.status);
+          }
+        } catch (e) {
+          console.error('[PROVIDER] POST /primeira-via/boleto error', e);
+        }
+      }
+
+      // Strategy 2: GET /primeira-via with query params (legacy, may return 500)
+      if (uuid) {
+        const apiUrl = `https://api.lellocondominios.com.br/resolvafacil-api/v2/external/primeira-via?token=${encodeURIComponent(token)}&uuid=${encodeURIComponent(uuid)}&digitosDocumento=${encodeURIComponent(password)}`;
+        const res = await fetch(apiUrl, {
+          headers: hashId ? { 'x-lello-parceiro-hashid': hashId } : {},
+        });
+        if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          return { buffer, filename: `boleto-lello-${typeof uuid === 'string' ? uuid.substring(0, 8) : ''}.pdf` };
+        }
       }
     }
   } catch (e) {
@@ -287,8 +354,8 @@ async function tryFetchProviderPdf(boletoUrl: string, password: string): Promise
   return null;
 }
 
-async function fetchBoletoEmails(accessToken: string, strict: boolean) {
-  const query = await buildSearchQuery(strict);
+async function fetchBoletoEmails(accessToken: string, strict: boolean, days: number = 30) {
+  const query = await buildSearchQuery(strict, days);
   if (!query) return []; // strict mode sem filtros → vazio
   console.log('[GMAIL] query:', query);
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`, {
@@ -392,8 +459,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const tok = await getAccessToken();
       if (!tok) return res.json({ connected: false, emails: [], mode: req.query.mode || 'broad' });
       const strict = req.query.mode === 'strict';
-      const [emails, aliases] = await Promise.all([fetchBoletoEmails(tok.token, strict), getAliases()]);
-      return res.json({ connected: true, emails, aliases, mode: strict ? 'strict' : 'broad' });
+      const days = parseInt(req.query.days as string) || 30;
+      const [emails, aliases] = await Promise.all([fetchBoletoEmails(tok.token, strict, days), getAliases()]);
+      return res.json({ connected: true, emails, aliases, mode: strict ? 'strict' : 'broad', days });
     }
 
     // DOWNLOAD or VIEW (view opens inline, download saves)

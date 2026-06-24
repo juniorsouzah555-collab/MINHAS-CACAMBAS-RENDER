@@ -1502,6 +1502,7 @@ export default function App() {
 
   // Filter dynamic badges counts
   const transitBadgeCount = vehicles.filter(v => v.status === 'In Transit').length;
+  const [boletosBadgeCount, setBoletosBadgeCount] = useState(0);
 
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
@@ -1599,17 +1600,18 @@ export default function App() {
     <div className="bg-slate-50 min-h-screen text-slate-800 font-sans flex antialiased selection:bg-purple-500/20">
       
       {/* Sidebar navigation drawer */}
-      <Sidebar 
-        currentTab={currentTab} 
-        setCurrentTab={(tab) => {
-          setCurrentTab(tab);
-          setSearchTerm(''); // clear local searches
-        }} 
-        onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
-        transitCount={transitBadgeCount}
-        userRole={currentUserRole}
-        userEmail={currentUserEmail}
-      />
+        <Sidebar 
+          currentTab={currentTab} 
+          setCurrentTab={(tab) => {
+            setCurrentTab(tab);
+            setSearchTerm(''); // clear local searches
+          }} 
+          onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
+          transitCount={transitBadgeCount}
+          unseenBoletos={boletosBadgeCount}
+          userRole={currentUserRole}
+          userEmail={currentUserEmail}
+        />
 
       {/* Main workspace arena */}
       <div className="flex-1 md:ml-[280px] min-h-screen flex flex-col justify-between overflow-x-hidden">
@@ -1721,7 +1723,7 @@ export default function App() {
           )}
 
           {currentTab === 'boletos' && (
-            <BoletoView />
+            <BoletoView onNewBoletosCount={setBoletosBadgeCount} />
           )}
 
           {currentTab === 'reports' && (
