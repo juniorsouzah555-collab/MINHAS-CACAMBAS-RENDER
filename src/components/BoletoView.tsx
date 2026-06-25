@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { FileText, Mail, Download, RefreshCw, AlertCircle, CheckCircle2, LogOut, Settings, Plus, X, ExternalLink, Trash2, Edit3, Bell, ChevronDown, ChevronRight, CheckSquare, Square, Pencil, Check, BookOpen } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const API_BASE = window.location.origin;
 
@@ -43,15 +44,9 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
   const [searchMode, setSearchMode] = useState<'strict' | 'broad'>('strict');
   const [days, setDays] = useState(30);
 
-  const BILLS_KEY = 'boleto_plano_contas';
   interface Bill { id: string; name: string; date: string; checked: boolean; sender?: string; }
   const [billsOpen, setBillsOpen] = useState(true);
-  const [bills, setBills] = useState<Bill[]>(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(BILLS_KEY) || '[]');
-      return raw.map((b: any) => ({ ...b, date: b.date || new Date(Date.now() + 5*86400000).toISOString().slice(0, 10) }));
-    } catch { return []; }
-  });
+  const [bills, setBills] = useState<Bill[]>([]);
   const [newBillName, setNewBillName] = useState('');
   const [newBillDate, setNewBillDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 5);
@@ -66,8 +61,36 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
   const [activeBillSender, setActiveBillSender] = useState<string | null>(null);
 
   useEffect(() => {
-    try { localStorage.setItem(BILLS_KEY, JSON.stringify(bills)); } catch {}
-  }, [bills]);
+    supabase.from('plano_contas').select('*').order('date').then(({ data, error }) => {
+      if (error) { console.error('Erro ao carregar plano de contas:', error); return; }
+      if (data) setBills(data.map((b: any) => ({ id: b.id, name: b.name, date: b.date, checked: b.checked, sender: b.sender || undefined })));
+    });
+  }, []);
+
+  const addBill = (name: string, date: string, sender: string) => {
+    const id = Date.now().toString();
+    setBills(prev => [...prev, { id, name, date, checked: false, sender: sender || undefined }]);
+    supabase.from('plano_contas').insert([{ id, name, date, checked: false, sender: sender || null }])
+      .then(({ error }) => { if (error) console.error('Erro ao salvar conta:', error); });
+  };
+
+  const editBill = (id: string, name: string, date: string, sender: string) => {
+    setBills(prev => prev.map(b => b.id === id ? { ...b, name, date, sender } : b));
+    supabase.from('plano_contas').update({ name, date, sender: sender || null }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('Erro ao atualizar conta:', error); });
+  };
+
+  const toggleBillChecked = (bill: Bill) => {
+    setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b));
+    supabase.from('plano_contas').update({ checked: !bill.checked }).eq('id', bill.id)
+      .then(({ error }) => { if (error) console.error('Erro ao atualizar conta:', error); });
+  };
+
+  const deleteBill = (id: string) => {
+    setBills(prev => prev.filter(b => b.id !== id));
+    supabase.from('plano_contas').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('Erro ao excluir conta:', error); });
+  };
 
   const [filters, setFilters] = useState<Filter[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -447,7 +470,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                 const emailCount = bill.sender ? emails.filter(e => e.isNew && emailMatchesSender(e, bill.sender!)).length : 0;
                 return (
                 <div key={bill.id} className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isFiltering ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-slate-50'}`}>
-                  <button onClick={() => setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b))}
+                  <button onClick={() => toggleBillChecked(bill)}
                     className="shrink-0 cursor-pointer text-slate-400 hover:text-emerald-500 transition-colors">
                     {bill.checked
                       ? <CheckSquare className="w-5 h-5 text-emerald-500" />
@@ -461,7 +484,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                         type="text"
                         value={editName}
                         onChange={e => setEditName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') { const t = editName.trim(); if (t) { setBills(prev => prev.map(b => b.id === bill.id ? { ...b, name: t, date: editDate, sender: editSender } : b)); } setEditingId(null); } if (e.key === 'Escape') setEditingId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { const t = editName.trim(); if (t) { editBill(bill.id, t, editDate, editSender); } setEditingId(null); } if (e.key === 'Escape') setEditingId(null); }}
                         className="flex-1 text-sm bg-slate-100 text-slate-800 px-2 py-1 rounded outline-none border border-slate-300"
                         autoFocus
                       />
@@ -472,7 +495,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                         <option value="">Sem filtro</option>
                         {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
                       </select>
-                      <button onClick={() => { const t = editName.trim(); if (t) { setBills(prev => prev.map(b => b.id === bill.id ? { ...b, name: t, date: editDate, sender: editSender } : b)); } setEditingId(null); }}
+                      <button onClick={() => { const t = editName.trim(); if (t) { editBill(bill.id, t, editDate, editSender); } setEditingId(null); }}
                         className="shrink-0 cursor-pointer text-emerald-500 hover:text-emerald-400 transition-colors">
                         <Check className="w-4 h-4" />
                       </button>
@@ -511,7 +534,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                         className="shrink-0 opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-500 transition-all">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setBills(prev => prev.filter(b => b.id !== bill.id))}
+                      <button onClick={() => deleteBill(bill.id)}
                         className="shrink-0 opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-red-500 transition-all">
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -521,7 +544,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
               );})}
               <div className="flex items-center gap-2 pt-2">
                 <input type="text" value={newBillName} onChange={e => setNewBillName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { const n = newBillName.trim(); if (n) { setBills(prev => [...prev, { id: Date.now().toString(), name: n, date: newBillDate, checked: false, sender: newBillSender || undefined }]); setNewBillName(''); } }}}
+                  onKeyDown={e => { if (e.key === 'Enter') { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender); setNewBillName(''); } } }}
                   placeholder="Nome da conta..."
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 transition-colors" />
                 <input type="date" value={newBillDate} onChange={e => setNewBillDate(e.target.value)}
@@ -531,7 +554,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                   <option value="">Sem filtro</option>
                   {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
                 </select>
-                <button onClick={() => { const n = newBillName.trim(); if (n) { setBills(prev => [...prev, { id: Date.now().toString(), name: n, date: newBillDate, checked: false, sender: newBillSender || undefined }]); setNewBillName(''); } }}
+                <button onClick={() => { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender); setNewBillName(''); } }}
                   disabled={!newBillName.trim()}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50">
                   <Plus className="w-4 h-4" />
