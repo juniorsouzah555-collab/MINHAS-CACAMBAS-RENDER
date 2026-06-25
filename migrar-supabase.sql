@@ -144,6 +144,16 @@ CREATE TABLE IF NOT EXISTS "garage_refills" (
   "created_at" timestamp DEFAULT now()
 );
 
+-- Tabela: plano_contas (contas/boletos a pagar, antes só em localStorage)
+CREATE TABLE IF NOT EXISTS "plano_contas" (
+  "id" text PRIMARY KEY NOT NULL,
+  "name" text NOT NULL,
+  "date" text NOT NULL,
+  "checked" boolean DEFAULT false,
+  "sender" text,
+  "created_at" timestamp DEFAULT now()
+);
+
 -- Desabilitar RLS em todas as tabelas para acesso com anon key
 ALTER TABLE "bota_foras" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "dispatches" DISABLE ROW LEVEL SECURITY;
@@ -156,3 +166,4 @@ ALTER TABLE "motoristas" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "comissoes" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "user_approvals" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "garage_refills" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "plano_contas" DISABLE ROW LEVEL SECURITY;
