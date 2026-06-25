@@ -416,6 +416,9 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured()) return;
 
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const mapLancamento = (l: any) => ({
       id: l.id,
       botaForaId: l.bota_fora_id,
@@ -475,51 +478,76 @@ export default function App() {
     const upsertCom = upsertById(setComissoes);
     const removeCom = removeById(setComissoes);
 
-    const channel = supabase
-      .channel('app-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos' }, (payload: any) => {
-        if (payload.eventType === 'DELETE') removeLan(payload.old.id);
-        else upsertLan(mapLancamento(payload.new));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fuel_logs' }, (payload: any) => {
-        if (payload.eventType === 'DELETE') removeFuel(payload.old.id);
-        else upsertFuel(mapFuelLog(payload.new));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comissoes' }, (payload: any) => {
-        if (payload.eventType === 'DELETE') removeCom(payload.old.id);
-        else upsertCom(mapComissao(payload.new));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload: any) => {
-        if (payload.eventType === 'DELETE') return;
-        const v = payload.new;
-        if (v.id !== 'GARAGE-CONFIG') return;
-        if (v.cost_per_km != null) {
-          setGarageDieselPrice(Number(v.cost_per_km));
-          localStorage.setItem('relampago_garage_diesel_price', String(v.cost_per_km));
-        }
-        if (v.efficiency != null) {
-          setGarageDieselQty(Number(v.efficiency));
-          localStorage.setItem('relampago_garage_diesel_qty', String(v.efficiency));
-        }
-      })
-      .subscribe((status) => {
-        if (status !== 'SUBSCRIBED') return;
-        // Busca inicial do garage config assim que o canal conectar
-        supabase.from('vehicles').select('cost_per_km, efficiency').eq('id', 'GARAGE-CONFIG').maybeSingle().then(({ data }) => {
-          if (!data) return;
-          if (data.cost_per_km != null) {
-            setGarageDieselPrice(Number(data.cost_per_km));
-            localStorage.setItem('relampago_garage_diesel_price', String(data.cost_per_km));
-          }
-          if (data.efficiency != null) {
-            setGarageDieselQty(Number(data.efficiency));
-            localStorage.setItem('relampago_garage_diesel_qty', String(data.efficiency));
-          }
-        });
-      });
+    // Para motoristas, restringe o canal aos próprios registros (reduz egress:
+    // sem isso, cada motorista recebia em tempo real os lançamentos/abastecimentos/
+    // comissões de TODOS os outros motoristas só pra descartar depois no client).
+    // Admin continua sem filtro, pois precisa ver a frota inteira.
+    const resolveDriverFilter = async (): Promise<string | null> => {
+      if (!isDriverUser()) return null;
+      if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
+      try {
+        const { data } = await supabase.auth.getUser();
+        const linked = data?.user?.user_metadata?.linkedDriver;
+        if (linked) return linked;
+      } catch {}
+      return null;
+    };
 
-    return () => { supabase.removeChannel(channel); };
-  }, [isAuthenticated]);
+    resolveDriverFilter().then((driverName) => {
+      if (cancelled) return;
+
+      const lanFilter = driverName ? `driver_name=eq.${driverName}` : undefined;
+      const fuelFilter = driverName ? `driver=eq.${driverName}` : undefined;
+      const comFilter = driverName ? `motorista=eq.${driverName}` : undefined;
+
+      channel = supabase
+        .channel('app-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos', filter: lanFilter }, (payload: any) => {
+          if (payload.eventType === 'DELETE') removeLan(payload.old.id);
+          else upsertLan(mapLancamento(payload.new));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'fuel_logs', filter: fuelFilter }, (payload: any) => {
+          if (payload.eventType === 'DELETE') removeFuel(payload.old.id);
+          else upsertFuel(mapFuelLog(payload.new));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'comissoes', filter: comFilter }, (payload: any) => {
+          if (payload.eventType === 'DELETE') removeCom(payload.old.id);
+          else upsertCom(mapComissao(payload.new));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: 'id=eq.GARAGE-CONFIG' }, (payload: any) => {
+          if (payload.eventType === 'DELETE') return;
+          const v = payload.new;
+          if (v.cost_per_km != null) {
+            setGarageDieselPrice(Number(v.cost_per_km));
+            localStorage.setItem('relampago_garage_diesel_price', String(v.cost_per_km));
+          }
+          if (v.efficiency != null) {
+            setGarageDieselQty(Number(v.efficiency));
+            localStorage.setItem('relampago_garage_diesel_qty', String(v.efficiency));
+          }
+        })
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') return;
+          // Busca inicial do garage config assim que o canal conectar
+          supabase.from('vehicles').select('cost_per_km, efficiency').eq('id', 'GARAGE-CONFIG').maybeSingle().then(({ data }) => {
+            if (!data) return;
+            if (data.cost_per_km != null) {
+              setGarageDieselPrice(Number(data.cost_per_km));
+              localStorage.setItem('relampago_garage_diesel_price', String(data.cost_per_km));
+            }
+            if (data.efficiency != null) {
+              setGarageDieselQty(Number(data.efficiency));
+              localStorage.setItem('relampago_garage_diesel_qty', String(data.efficiency));
+            }
+          });
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, currentUserEmail, currentUserRole]);
 
   // Sincroniza automaticamente cada estado com localStorage sempre que muda
   useEffect(() => { try { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); } catch (e) { console.warn('Persist vehicles failed:', e); } }, [vehicles]);
