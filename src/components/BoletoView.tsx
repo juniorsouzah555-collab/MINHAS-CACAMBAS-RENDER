@@ -68,7 +68,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
   }, []);
 
   const addBill = (name: string, date: string, sender: string) => {
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
     setBills(prev => [...prev, { id, name, date, checked: false, sender: sender || undefined }]);
     supabase.from('plano_contas').insert([{ id, name, date, checked: false, sender: sender || null }])
       .then(({ error }) => { if (error) console.error('Erro ao salvar conta:', error); });
