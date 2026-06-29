@@ -22,7 +22,12 @@ import {
   AlertTriangle,
   FileCheck,
   Archive,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  X,
+  Banknote
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { Invoice, DailyFuelData, OperatingCostStructure, BotaFora, Lancamento } from '../types';
@@ -36,6 +41,9 @@ interface FinanceViewProps {
   onAddInvoice: (invoice: Omit<Invoice, 'id'>) => void;
   onUpdateInvoiceStatus: (id: string, status: Invoice['status']) => void;
   onDeleteInvoice: (id: string) => void;
+  onBaixaLancamento: (id: string, valorAbatimento?: number) => void;
+  onReverterBaixaLancamento: (id: string) => void;
+  onBaixaTotal: (lancamentoIds: string[], totalDebito: number, valorPagoTotal: number) => void;
   searchTerm: string;
 }
 
@@ -58,6 +66,9 @@ export default function FinanceView({
   onAddInvoice,
   onUpdateInvoiceStatus,
   onDeleteInvoice,
+  onBaixaLancamento,
+  onReverterBaixaLancamento,
+  onBaixaTotal,
   searchTerm
 }: FinanceViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'INVOICES' | 'BOTA_FORAS' | 'COSTS'>('INVOICES');
@@ -65,6 +76,13 @@ export default function FinanceView({
   
   // Local search specifically for Bota Foras
   const [botaForaSearchQuery, setBotaForaSearchQuery] = useState('');
+  
+  // Detailed bota fora view state
+  const [selectedBotaForaId, setSelectedBotaForaId] = useState<string | null>(null);
+  const [lanFilterStatus, setLanFilterStatus] = useState<'ALL' | 'Pago' | 'Pendente'>('ALL');
+
+  // Baixa total state
+  const [valorPagoTotal, setValorPagoTotal] = useState('');
 
   // New Invoice form states
   const [clientName, setClientName] = useState('');
@@ -480,7 +498,7 @@ export default function FinanceView({
       )}
 
       {/* NEW SUB TAB: Financeiro dos Bota Foras (Satisfies requirement 4!) */}
-      {activeSubTab === 'BOTA_FORAS' && (
+      {activeSubTab === 'BOTA_FORAS' && !selectedBotaForaId && (
         <div className="space-y-6">
           
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
@@ -507,7 +525,12 @@ export default function FinanceView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
               {filteredBotaForasFinance.map(btf => {
                 return (
-                  <div key={btf.id} className="bg-slate-50 hover:bg-white border-2 border-slate-200 hover:border-purple-300 hover:shadow-lg rounded-2xl p-5 space-y-4 transition-all duration-300 relative overflow-hidden group">
+                  <button
+                    key={btf.id}
+                    type="button"
+                    onClick={() => setSelectedBotaForaId(btf.id)}
+                    className="text-left bg-slate-50 hover:bg-white border-2 border-slate-200 hover:border-purple-300 hover:shadow-lg rounded-2xl p-5 space-y-4 transition-all duration-300 relative overflow-hidden group cursor-pointer"
+                  >
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
                     
                     <div className="flex justify-between items-start pt-1">
@@ -520,9 +543,8 @@ export default function FinanceView({
                         <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">CNPJ: {btf.cnpj}</span>
                       </div>
 
-                      {/* Cumulative total valor */}
                       <div className="text-right bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl">
-                        <span className="text-[8px] text-emerald-800 uppercase font-black tracking-wider block">Total Recebido</span>
+                        <span className="text-[8px] text-emerald-800 uppercase font-black tracking-wider block">Total</span>
                         <strong className="text-base font-black text-emerald-700 font-mono block mt-0.5">
                           R$ {btf.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </strong>
@@ -537,9 +559,8 @@ export default function FinanceView({
                           <span className="text-slate-900 font-black">{btf.totalCacambas} un.</span>
                         </strong>
                       </div>
-
                       <div className="space-y-0.5 text-right border-l border-slate-100 pl-4">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Envios de Caçambas</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Lançamentos</span>
                         <strong className="text-slate-800 font-sans text-sm flex items-center justify-end gap-1.5 mt-0.5">
                           <Activity className="w-4 h-4 text-indigo-500 shrink-0" />
                           <span className="text-slate-900 font-black">{btf.lancamentosCount} logs</span>
@@ -547,11 +568,16 @@ export default function FinanceView({
                       </div>
                     </div>
 
-                    <div className="text-[10px] text-slate-500 bg-slate-100 p-2 rounded-lg font-medium flex items-center gap-1.5">
-                      <span className="text-purple-650 font-bold uppercase shrink-0 text-[8px] border border-purple-305 px-1 py-0.2 rounded bg-white">Endereço</span>
-                      <span className="truncate" title={btf.endereco}>{btf.endereco}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] text-slate-500 bg-slate-100 p-2 rounded-lg font-medium flex items-center gap-1.5 flex-1 mr-2 truncate">
+                        <span className="text-purple-650 font-bold uppercase shrink-0 text-[8px] border border-purple-305 px-1 py-0.2 rounded bg-white">Endereço</span>
+                        <span className="truncate">{btf.endereco}</span>
+                      </div>
+                      <span className="text-purple-600 text-xs font-bold flex items-center gap-1 shrink-0">
+                        Detalhes <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
 
@@ -563,14 +589,220 @@ export default function FinanceView({
             </div>
           </div>
 
-          {/* Quick info */}
           <div className="bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-500 flex items-start gap-2 max-w-2xl">
             <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              Caso deseje auditar individualmente transações com datas específicas do período selecionado por bota foras na barra de pesquisa, gere o relatório consolidado na aba **Relatórios**.
+              Clique em um Bota Fora para ver os lançamentos individuais e dar baixa com abatimento opcional.
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Detailed view for a specific Bota Fora */}
+      {activeSubTab === 'BOTA_FORAS' && selectedBotaForaId && (
+        <div className="space-y-6">
+          {(() => {
+            const btf = botaForas.find(b => b.id === selectedBotaForaId);
+            if (!btf) return null;
+            const btfLancamentos = lancamentos.filter(l => l.botaForaId === selectedBotaForaId);
+            const filteredLancamentos = btfLancamentos.filter(l => {
+              if (lanFilterStatus === 'ALL') return true;
+              if (lanFilterStatus === 'Pago') return l.pago;
+              if (lanFilterStatus === 'Pendente') return !l.pago;
+              return true;
+            });
+            const totalValor = btfLancamentos.reduce((s, l) => s + l.valor, 0);
+            const totalPago = btfLancamentos.filter(l => l.pago).reduce((s, l) => s + (l.valorPago ?? l.valor), 0);
+            const totalPendente = btfLancamentos.filter(l => !l.pago).reduce((s, l) => s + l.valor, 0);
+
+            return (
+              <>
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedBotaForaId(null); setLanFilterStatus('ALL'); }}
+                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer transition-colors"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{btf.id}</span>
+                          <h4 className="font-sans font-bold text-sm text-slate-900">{btf.nome}</h4>
+                        </div>
+                        <span className="text-[10px] text-slate-400">CNPJ: {btf.cnpj} | {btf.endereco}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Lançado</span>
+                      <strong className="text-lg font-black text-slate-900 font-mono">R$ {totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      <span className="text-[10px] text-slate-400">{btfLancamentos.length} lançamentos</span>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+                      <span className="text-[9px] font-bold text-emerald-700 uppercase block">Total Pago</span>
+                      <strong className="text-lg font-black text-emerald-700 font-mono">R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      <span className="text-[10px] text-emerald-600">{btfLancamentos.filter(l => l.pago).length} baixados</span>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                      <span className="text-[9px] font-bold text-amber-700 uppercase block">Total Pendente</span>
+                      <strong className="text-lg font-black text-amber-700 font-mono">R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      <span className="text-[10px] text-amber-600">{btfLancamentos.filter(l => !l.pago).length} pendentes</span>
+                    </div>
+                  </div>
+
+                  {/* Filter and list */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1 bg-slate-100 p-0.5 rounded">
+                      {['ALL', 'Pendente', 'Pago'].map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setLanFilterStatus(s as any)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded cursor-pointer transition-colors ${
+                            lanFilterStatus === s ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          {s === 'ALL' ? 'Todos' : s}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">{filteredLancamentos.length} registro(s)</span>
+                  </div>
+
+                  {/* Lancamentos list */}
+                  <div className="space-y-2 pr-1">
+                    {filteredLancamentos.map(lan => {
+                      const isPago = lan.pago;
+                      return (
+                        <div key={lan.id} className={`border rounded-xl p-4 transition-all ${
+                          isPago ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200 hover:border-purple-300'
+                        }`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="font-mono text-[10px] font-bold text-slate-500">{lan.id}</span>
+                                <span className="text-[10px] text-slate-400">{lan.data}</span>
+                                {lan.driverName && <span className="text-[10px] text-slate-400">Motorista: {lan.driverName}</span>}
+                                {lan.vehicleId && <span className="text-[10px] text-slate-400">Veículo: {lan.vehicleId}</span>}
+                              </div>
+                              <p className="text-xs text-slate-600">{lan.quantidadeCacambas} caçamba(s) - {lan.observacao || 'Sem observação'}</p>
+                              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-sm text-slate-900">R$ {lan.valor.toFixed(2)}</span>
+                                {isPago && (
+                                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Pago {lan.valorPago !== undefined && lan.valorPago !== lan.valor && (
+                                      <span className="text-emerald-500">(abatimento R$ {(lan.valor - lan.valorPago).toFixed(2)})</span>
+                                    )}
+                                  </span>
+                                )}
+                                {isPago && lan.dataPagamento && (
+                                  <span className="text-[10px] text-slate-400">em {lan.dataPagamento}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isPago && (
+                                <button
+                                  type="button"
+                                  onClick={() => onReverterBaixaLancamento(lan.id)}
+                                  className="flex items-center gap-1 bg-slate-200 hover:bg-slate-300 text-slate-600 text-[10px] font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-colors"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  Reverter
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {filteredLancamentos.length === 0 && (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        Nenhum lançamento encontrado para este Bota Fora.
+                      </div>
+                    )}
+
+                    {/* Total footer com baixa */}
+                    {btfLancamentos.length > 0 && (() => {
+                      const pendentes = btfLancamentos.filter(l => !l.pago);
+                      const totalDebito = pendentes.reduce((s, l) => s + l.valor, 0);
+                      const valorPago = parseFloat(valorPagoTotal) || 0;
+                      const abatimento = Math.max(0, totalDebito - valorPago);
+
+                      return (
+                        <div className="bg-slate-900 rounded-xl p-5 text-white space-y-4">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300">
+                              <strong className="text-white">{btfLancamentos.length}</strong> lançamentos
+                            </span>
+                            <span className="text-slate-300">
+                              Total Débito: <strong className="text-white font-mono">R$ {totalDebito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                            </span>
+                            <span className="text-emerald-300">
+                              Já Pago: <strong className="text-emerald-200 font-mono">R$ {btfLancamentos.filter(l => l.pago).reduce((s, l) => s + (l.valorPago ?? l.valor), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                            </span>
+                          </div>
+
+                          {pendentes.length > 0 && (
+                            <>
+                              <div className="border-t border-slate-700 pt-4 flex items-end gap-4">
+                                <div className="flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Quanto pagou? (R$)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max={totalDebito}
+                                    value={valorPagoTotal}
+                                    onChange={e => setValorPagoTotal(e.target.value)}
+                                    placeholder={totalDebito.toFixed(2)}
+                                    className="w-full bg-slate-800 border border-slate-600 p-2.5 rounded text-sm font-mono font-bold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder-slate-500"
+                                  />
+                                </div>
+                                <div className="text-center">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Abatimento</label>
+                                  <div className="bg-slate-800 border border-slate-600 p-2.5 rounded text-sm font-mono font-bold text-amber-400 min-w-[120px] text-center">
+                                    R$ {abatimento.toFixed(2)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    disabled={!valorPagoTotal || valorPago <= 0}
+                                    onClick={() => {
+                                      onBaixaTotal(pendentes.map(l => l.id), totalDebito, valorPago);
+                                      setValorPagoTotal('');
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-5 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 h-[38px]"
+                                  >
+                                    <Banknote className="w-4 h-4" />
+                                    Dar Baixa
+                                  </button>
+                                </div>
+                              </div>
+                              {valorPago > 0 && abatimento > 0 && (
+                                <div className="bg-amber-900/30 border border-amber-700/50 p-2 rounded text-[10px] text-amber-300 text-center">
+                                  Abatimento de <strong>R$ {abatimento.toFixed(2)}</strong> — Débito de R$ {totalDebito.toFixed(2)} pago com R$ {valorPago.toFixed(2)}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

@@ -18,7 +18,8 @@ import {
   Percent,
   Smartphone,
   MapPin,
-  Receipt
+  Receipt,
+  Wrench
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -45,6 +46,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'boletos', name: 'Boletos', icon: Receipt, badge: unseenBoletos },
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
+    { id: 'manutencao', name: 'Manutenção', icon: Wrench },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }
   ].filter(item => {
     if (isDriver) {

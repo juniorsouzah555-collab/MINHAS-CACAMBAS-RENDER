@@ -35,6 +35,9 @@ export const lancamentos = pgTable('lancamentos', {
   lat: real('lat'),
   lng: real('lng'),
   observacao: text('observacao'),
+  pago: boolean('pago').default(false),
+  valorPago: real('valor_pago'),
+  dataPagamento: text('data_pagamento'),
 });
 
 // Define 'vehicles' table
@@ -126,6 +129,22 @@ export const comissoes = pgTable('comissoes', {
   vaziasColocadas: integer('vazias_colocadas'),
   retiradas: integer('retiradas'),
   data: text('data').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Define 'manutencoes' table
+export const manutencoes = pgTable('manutencoes', {
+  id: text('id').primaryKey(),
+  vehicleId: text('vehicle_id').notNull(),
+  tipo: text('tipo').notNull(), // 'Preventiva' | 'Corretiva' | 'Elétrica' | 'Mecânica' | 'Pneus' | 'Óleo' | 'Outro'
+  descricao: text('descricao').notNull(),
+  data: text('data').notNull(),
+  kmAtual: integer('km_atual'),
+  proximoKm: integer('proximo_km'),
+  custo: real('custo').notNull(),
+  oficina: text('oficina').notNull(),
+  observacao: text('observacao'),
+  status: text('status').notNull(), // 'Pendente' | 'Em Andamento' | 'Concluído'
   createdAt: timestamp('created_at').defaultNow(),
 });
 

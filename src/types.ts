@@ -27,6 +27,9 @@ export interface Lancamento {
   lat?: number;
   lng?: number;
   observacao?: string;
+  pago?: boolean;
+  valorPago?: number;
+  dataPagamento?: string;
 }
 
 export interface Vehicle {
@@ -132,5 +135,20 @@ export interface ComissaoMotorista {
   createdAt: string;
   lat?: number;
   lng?: number;
+}
+
+export interface Manutencao {
+  id: string;
+  vehicleId: string;
+  tipo: 'Preventiva' | 'Corretiva' | 'Elétrica' | 'Mecânica' | 'Pneus' | 'Óleo' | 'Outro';
+  descricao: string;
+  data: string;
+  kmAtual?: number;
+  proximoKm?: number;
+  custo: number;
+  oficina: string;
+  observacao?: string;
+  status: 'Pendente' | 'Em Andamento' | 'Concluído';
+  createdAt: string;
 }
 

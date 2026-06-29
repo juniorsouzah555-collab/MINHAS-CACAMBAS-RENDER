@@ -27,7 +27,8 @@ import {
   BotaFora,
   Lancamento,
   ComissaoMotorista,
-  GarageRefill
+  GarageRefill,
+  Manutencao
 } from './types';
 import { 
   INITIAL_VEHICLES, 
@@ -59,6 +60,7 @@ import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 import TrackingView from './components/TrackingView';
 import BoletoView from './components/BoletoView';
+import ManutencaoView from './components/ManutencaoView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -117,6 +119,12 @@ export default function App() {
       { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
       { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
     ];
+  });
+
+  // Manutenções state
+  const [manutencoes, setManutencoes] = useState<Manutencao[]>(() => {
+    try { const s = localStorage.getItem('relampago_manutencoes'); if (s) return JSON.parse(s); } catch {}
+    return [];
   });
 
   // Registered Motoristas (Drivers) state
@@ -231,7 +239,10 @@ export default function App() {
                 createdAt: l.created_at || l.createdAt,
                 lat: l.lat,
                 lng: l.lng,
-                observacao: l.observacao || l.observation
+                observacao: l.observacao || l.observation,
+                pago: l.pago === true,
+                valorPago: l.valor_pago !== undefined ? l.valor_pago : undefined,
+                dataPagamento: l.data_pagamento || undefined
               })));
             }
 
@@ -335,6 +346,25 @@ export default function App() {
               })));
             }
 
+            // Load manutencoes from Supabase
+            const { data: listMan, error: errMan } = await supabase.from('manutencoes').select('*').order('created_at', { ascending: false });
+            if (!errMan && listMan) {
+              setManutencoes(listMan.map((m: any) => ({
+                id: m.id,
+                vehicleId: m.vehicle_id || m.vehicleId,
+                tipo: m.tipo,
+                descricao: m.descricao,
+                data: m.data,
+                kmAtual: m.km_atual !== undefined ? m.km_atual : m.kmAtual,
+                proximoKm: m.proximo_km !== undefined ? m.proximo_km : m.proximoKm,
+                custo: m.custo,
+                oficina: m.oficina,
+                observacao: m.observacao,
+                status: m.status,
+                createdAt: m.created_at || m.createdAt
+              })));
+            }
+
             // Load garage config from vehicles table (special sentinel record)
             const { data: configVehicle, error: errConfig } = await supabase.from('vehicles').select('*').eq('type', 'garage_config').maybeSingle();
             if (!errConfig && configVehicle) {
@@ -400,6 +430,7 @@ export default function App() {
           loadFallback('relampago_lancamentos', setLancamentos);
           loadFallback('relampago_comissoes', setComissoes);
           loadFallback('relampago_motoristas', setMotoristas);
+          loadFallback('relampago_manutencoes', setManutencoes);
         }
       };
       loadDatabaseData();
@@ -432,7 +463,10 @@ export default function App() {
       createdAt: l.created_at,
       lat: l.lat,
       lng: l.lng,
-      observacao: l.observacao
+      observacao: l.observacao,
+      pago: l.pago === true,
+      valorPago: l.valor_pago !== undefined ? l.valor_pago : undefined,
+      dataPagamento: l.data_pagamento || undefined
     });
     const mapFuelLog = (f: any) => ({
       id: f.id,
@@ -566,6 +600,7 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); } catch (e) { console.warn('Persist lancamentos failed:', e); } }, [lancamentos]);
   useEffect(() => { try { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); } catch (e) { console.warn('Persist comissoes failed:', e); } }, [comissoes]);
   useEffect(() => { try { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); } catch (e) { console.warn('Persist motoristas failed:', e); } }, [motoristas]);
+  useEffect(() => { try { localStorage.setItem('relampago_manutencoes', JSON.stringify(manutencoes)); } catch (e) { console.warn('Persist manutencoes failed:', e); } }, [manutencoes]);
   useEffect(() => { if (isAuthenticated) localStorage.setItem('relampago_auth_tab', currentTab); }, [currentTab, isAuthenticated]);
 
   // Garage Diesel Tank States
@@ -791,6 +826,77 @@ export default function App() {
     );
   };
   
+  // Action: Add Manutenção
+  const handleAddManutencao = (newMan: Omit<Manutencao, 'id' | 'createdAt'>) => {
+    const generatedId = `MAN-${Date.now()}`;
+    const freshRecord: Manutencao = {
+      ...newMan,
+      id: generatedId,
+      createdAt: new Date().toISOString()
+    };
+    setManutencoes(prev => [freshRecord, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('manutencoes').insert([{
+        id: freshRecord.id,
+        vehicle_id: freshRecord.vehicleId,
+        tipo: freshRecord.tipo,
+        descricao: freshRecord.descricao,
+        data: freshRecord.data,
+        km_atual: freshRecord.kmAtual ?? null,
+        proximo_km: freshRecord.proximoKm ?? null,
+        custo: freshRecord.custo,
+        oficina: freshRecord.oficina,
+        observacao: freshRecord.observacao ?? null,
+        status: freshRecord.status,
+        created_at: freshRecord.createdAt
+      }]).then(({ error }) => {
+        if (error) console.error("Supabase error saving manutencao:", error);
+      });
+      // Update vehicle's last maintenance date
+      supabase.from('vehicles').update({
+        last_maintenance_date: freshRecord.data
+      }).eq('id', freshRecord.vehicleId).then();
+    }
+
+    handleShowToast(
+      "Manutenção Registrada",
+      `Manutenção ${freshRecord.tipo} registrada para o veículo ${freshRecord.vehicleId}.`,
+      "success"
+    );
+  };
+
+  // Action: Update Manutenção
+  const handleUpdateManutencao = (updated: Manutencao) => {
+    setManutencoes(prev => prev.map(m => m.id === updated.id ? updated : m));
+    if (isSupabaseConfigured()) {
+      supabase.from('manutencoes').update({
+        vehicle_id: updated.vehicleId,
+        tipo: updated.tipo,
+        descricao: updated.descricao,
+        data: updated.data,
+        km_atual: updated.kmAtual ?? null,
+        proximo_km: updated.proximoKm ?? null,
+        custo: updated.custo,
+        oficina: updated.oficina,
+        observacao: updated.observacao ?? null,
+        status: updated.status
+      }).eq('id', updated.id).then(({ error }) => {
+        if (error) console.error("Supabase error updating manutencao:", error);
+      });
+    }
+    handleShowToast("Manutenção Atualizada", "O registro de manutenção foi alterado.", "success");
+  };
+
+  // Action: Delete Manutenção
+  const handleDeleteManutencao = (id: string) => {
+    setManutencoes(prev => prev.filter(m => m.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase.from('manutencoes').delete().eq('id', id).then();
+    }
+    handleShowToast("Manutenção Removida", "O registro de manutenção foi excluído.", "info");
+  };
+
   // Charts Telemetry State
   const [fuelTrend, setFuelTrend] = useState(FUEL_TREND_DATA);
   const [costStructure, setCostStructure] = useState(COST_STRUCTURE_DATA);
@@ -1295,6 +1401,81 @@ export default function App() {
     handleShowToast("Lançamento Excluído", `O extrato ${id} foi removido do histórico de operações.`, "info");
   };
 
+  // Action: Dar baixa em lote (todos os pendentes de um Bota Fora)
+  const handleBaixaTotal = (lancamentoIds: string[], totalDebito: number, valorPagoTotal: number) => {
+    const abatimentoTotal = totalDebito - valorPagoTotal;
+    setLancamentos(prev => prev.map(lan => {
+      if (!lancamentoIds.includes(lan.id)) return lan;
+      const propAbat = totalDebito > 0 ? (lan.valor / totalDebito) * abatimentoTotal : 0;
+      const vp = lan.valor - propAbat;
+      return {
+        ...lan,
+        pago: true,
+        valorPago: Math.max(0, vp),
+        dataPagamento: new Date().toISOString().split('T')[0]
+      };
+    }));
+    if (isSupabaseConfigured()) {
+      lancamentoIds.forEach(id => {
+        const lan = lancamentos.find(l => l.id === id);
+        if (!lan) return;
+        const propAbat = totalDebito > 0 ? (lan.valor / totalDebito) * abatimentoTotal : 0;
+        const vp = lan.valor - propAbat;
+        proxyUpdate('lancamentos', {
+          pago: true,
+          valor_pago: Math.max(0, vp),
+          data_pagamento: new Date().toISOString().split('T')[0]
+        }, `id=eq.${id}`);
+      });
+    }
+    handleShowToast(
+      "Baixa Realizada",
+      `Pagamento de R$ ${valorPagoTotal.toFixed(2)} | Débito: R$ ${totalDebito.toFixed(2)} | Abatimento: R$ ${Math.max(0, abatimentoTotal).toFixed(2)}`,
+      "success"
+    );
+  };
+
+  // Action: Dar baixa em Lançamento (com valor de abatimento opcional)
+  const handleBaixaLancamento = (id: string, valorAbatimento?: number) => {
+    setLancamentos(prev => prev.map(lan => {
+      if (lan.id !== id) return lan;
+      const valorPago = valorAbatimento !== undefined ? lan.valor - valorAbatimento : lan.valor;
+      return {
+        ...lan,
+        pago: true,
+        valorPago: Math.max(0, valorPago),
+        dataPagamento: new Date().toISOString().split('T')[0]
+      };
+    }));
+    if (isSupabaseConfigured()) {
+      const lan = lancamentos.find(l => l.id === id);
+      const valorPago = valorAbatimento !== undefined ? (lan?.valor || 0) - valorAbatimento : (lan?.valor || 0);
+      proxyUpdate('lancamentos', {
+        pago: true,
+        valor_pago: Math.max(0, valorPago),
+        data_pagamento: new Date().toISOString().split('T')[0]
+      }, `id=eq.${id}`);
+    }
+    handleShowToast("Baixa Realizada", `Lançamento ${id} quitado com sucesso.`, "success");
+  };
+
+  // Action: Reverter baixa de Lançamento
+  const handleReverterBaixaLancamento = (id: string) => {
+    setLancamentos(prev => prev.map(lan => {
+      if (lan.id !== id) return lan;
+      const { pago, valorPago, dataPagamento, ...rest } = lan;
+      return rest;
+    }));
+    if (isSupabaseConfigured()) {
+      proxyUpdate('lancamentos', {
+        pago: false,
+        valor_pago: null,
+        data_pagamento: null
+      }, `id=eq.${id}`);
+    }
+    handleShowToast("Baixa Revertida", `O pagamento do lançamento ${id} foi estornado.`, "info");
+  };
+
   // Action: Add new Vehicle
   const handleAddVehicle = (newVehicle: Omit<Vehicle, 'status' | 'efficiency' | 'fuelUsed' | 'costPerKm' | 'trend' | 'isActive' | 'lat' | 'lng' | 'speed'>) => {
     const lat = Math.floor(120 + Math.random() * 100);
@@ -1708,6 +1889,9 @@ export default function App() {
               }}
               onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
               onDeleteInvoice={handleDeleteInvoice}
+              onBaixaLancamento={handleBaixaLancamento}
+              onReverterBaixaLancamento={handleReverterBaixaLancamento}
+              onBaixaTotal={handleBaixaTotal}
               searchTerm={searchTerm}
             />
           )}
@@ -1810,6 +1994,16 @@ export default function App() {
               onAddGarageRefill={handleAddGarageRefill}
               onDeleteGarageRefill={handleDeleteGarageRefill}
               onEditGarageRefill={handleEditGarageRefill}
+            />
+          )}
+
+          {currentTab === 'manutencao' && (
+            <ManutencaoView
+              manutencoes={manutencoes}
+              vehicles={vehicles}
+              onAddManutencao={handleAddManutencao}
+              onUpdateManutencao={handleUpdateManutencao}
+              onDeleteManutencao={handleDeleteManutencao}
             />
           )}
 
