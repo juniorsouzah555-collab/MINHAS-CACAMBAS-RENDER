@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminDb } from './lib/firebase-admin';
+import { adminDb } from './lib/firebase-admin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ ok: true });
       }
       case 'update': {
-        let query: FirebaseFirestore.Query = colRef;
+        let query: any = colRef;
         if (filter) {
           const [field, op, value] = parseFilter(filter);
           if (op === 'eq') query = query.where(field, '==', value);
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ ok: true });
       }
       case 'select': {
-        let query: FirebaseFirestore.Query = colRef;
+        let query: any = colRef;
         if (filter) {
           const [field, op, value] = parseFilter(filter);
           if (op === 'eq') query = query.where(field, '==', value);
@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ data: docs });
       }
       case 'delete': {
-        let query: FirebaseFirestore.Query = colRef;
+        let query: any = colRef;
         if (filter) {
           const [field, op, value] = parseFilter(filter);
           if (op === 'eq') query = query.where(field, '==', value);

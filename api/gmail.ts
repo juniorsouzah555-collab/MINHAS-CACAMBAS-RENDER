@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminDb } from './lib/firebase-admin';
+import { adminDb } from './lib/firebase-admin.js';
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
@@ -17,7 +17,7 @@ async function getDoc(table: string, field: string, value: string): Promise<any 
 
 async function getDocs(table: string, constraints?: { field: string; op: string; value: any }[]): Promise<any[]> {
   try {
-    let query: FirebaseFirestore.Query = adminDb.collection(table);
+    let query: any = adminDb.collection(table);
     if (constraints) {
       for (const c of constraints) {
         query = query.where(c.field, c.op as any, c.value);
