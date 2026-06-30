@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "devCommand": "npx tsx server.ts",
   "framework": "vite",
+  "nodeVersion": "20.x",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
