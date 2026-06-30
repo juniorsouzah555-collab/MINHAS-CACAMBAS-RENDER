@@ -1,24 +1,23 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { getStorage } from 'firebase-admin/storage';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const admin = require('firebase-admin');
 
 function getAdminApp() {
-  if (getApps().length > 0) return getApps()[0];
+  if (admin.apps.length > 0) return admin.apps[0];
 
   const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (key) {
     try {
-      return initializeApp({ credential: cert(JSON.parse(key)) });
+      return admin.initializeApp({ credential: admin.credential.cert(JSON.parse(key)) });
     } catch (e) {
       console.error('[FirebaseAdmin] Failed:', e);
     }
   }
 
-  return initializeApp({ projectId: 'cacambas-4ecdb' });
+  return admin.initializeApp({ projectId: 'cacambas-4ecdb' });
 }
 
 const adminApp = getAdminApp();
-export const adminDb = getFirestore(adminApp);
-export const adminAuth = getAuth(adminApp);
-export const adminStorage = getStorage(adminApp);
+export const adminDb = admin.firestore(adminApp);
+export const adminAuth = admin.auth(adminApp);
+export const adminStorage = admin.storage(adminApp);
