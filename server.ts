@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 import express from "express";
+import Groq from 'groq-sdk';
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from './src/db/index.ts';
@@ -560,6 +563,178 @@ app.post('/api/auth/update-password', async (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── Bancário: Patrimônio ───
+interface PatrimonioItem {
+  id: string; nome: string; tipo: string; dataAquisicao: string;
+  valorAquisicao: number; valorResidual: number; vidaUtil: number;
+  depreciacaoAnual: number; depreciacaoAcumulada: number; valorContabil: number;
+  localizacao?: string; observacao?: string; createdAt: string;
+}
+const memoryPatrimonio: PatrimonioItem[] = [];
+
+app.get('/api/bancario/patrimonio', (req, res) => res.json(memoryPatrimonio));
+app.post('/api/bancario/patrimonio', (req, res) => {
+  const p: PatrimonioItem = { ...req.body };
+  memoryPatrimonio.push(p);
+  res.json({ success: true, item: p });
+});
+app.delete('/api/bancario/patrimonio/:id', (req, res) => {
+  const idx = memoryPatrimonio.findIndex(p => p.id === req.params.id);
+  if (idx !== -1) memoryPatrimonio.splice(idx, 1);
+  res.json({ success: true });
+});
+
+// ─── Bancário: Planos ───
+interface PlanoItem {
+  id: string; descricao: string; instituicao?: string;
+  valorTotal: number; numeroParcelas: number; parcelasPagas: number;
+  valorParcela: number; dataInicio: string; dataFim?: string;
+  categoria?: string; subcategoria?: string;
+  status: string; mostrarDashboard: boolean; createdAt: string;
+}
+const memoryPlanos: PlanoItem[] = [];
+
+app.get('/api/bancario/planos', (req, res) => res.json(memoryPlanos));
+app.post('/api/bancario/planos', (req, res) => {
+  const p: PlanoItem = { ...req.body };
+  memoryPlanos.push(p);
+  res.json({ success: true, plano: p });
+});
+app.delete('/api/bancario/planos/:id', (req, res) => {
+  const idx = memoryPlanos.findIndex(p => p.id === req.params.id);
+  if (idx !== -1) memoryPlanos.splice(idx, 1);
+  res.json({ success: true });
+});
+
+// ─── Bancário: Clientes ───
+interface ClienteItem {
+  id: string; tipo: string; nome: string; documento: string;
+  telefone: string; email?: string; endereco?: string;
+  observacao?: string; createdAt: string;
+}
+const memoryClientes: ClienteItem[] = [];
+
+app.get('/api/bancario/clientes', (req, res) => res.json(memoryClientes));
+app.post('/api/bancario/clientes', (req, res) => {
+  const c: ClienteItem = { ...req.body };
+  memoryClientes.push(c);
+  res.json({ success: true, cliente: c });
+});
+app.delete('/api/bancario/clientes/:id', (req, res) => {
+  const idx = memoryClientes.findIndex(c => c.id === req.params.id);
+  if (idx !== -1) memoryClientes.splice(idx, 1);
+  res.json({ success: true });
+});
+
+// ─── Bancário: Categorização local + IA ───
+// Mapa de palavras-chave → categoria/subcategoria/centro de custo
+const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string; centroCusto?: string }[] = [
+  { words: ['combustivel', 'diesel', 'gasolina', 'etanol', 'abastec', 'posto', 'shell', 'ipiranga', 'br'], categoria: 'Combustível', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
+  { words: ['manutencao', 'oficina', 'mecanico', 'peca', 'pneu', 'oleo', 'troca oleo', 'filtro', 'suspensao', 'freio'], categoria: 'Manutenção de Frota', centroCusto: 'Frota' },
+  { words: ['seguro', 'seguradora'], categoria: 'Seguro', centroCusto: 'Frota' },
+  { words: ['ipva', 'licenciamento', 'detran', 'emplacamento'], categoria: 'IPVA / Licenciamento', centroCusto: 'Frota' },
+  { words: ['pedagio', 'sem parar', 'conectcar', 'tag'], categoria: 'Pedágios', centroCusto: 'Operacional' },
+  { words: ['salario', 'salário', 'folha', 'proventos', 'holerite'], categoria: 'Salários', centroCusto: 'Administrativo' },
+  { words: ['pro labore', 'prolabore'], categoria: 'Pró-Labore', centroCusto: 'Administrativo' },
+  { words: ['aluguel', 'locacao imovel'], categoria: 'Aluguel', centroCusto: 'Administrativo' },
+  { words: ['agua', 'luz', 'energia', 'telefone', 'celular', 'concessionaria'], categoria: 'Água, Luz, Telefone', centroCusto: 'Administrativo' },
+  { words: ['internet', 'ti', 'sistema', 'software', 'hospedagem', 'dominio', 'saas'], categoria: 'Internet / TI', centroCusto: 'Administrativo' },
+  { words: ['escritorio', 'material', 'papelaria', 'impressao'], categoria: 'Material de Escritório', centroCusto: 'Administrativo' },
+  { words: ['marketing', 'publicidade', 'anuncio', 'google ads', 'facebook', 'instagram', 'divulgacao'], categoria: 'Marketing', centroCusto: 'Vendas' },
+  { words: ['comissao', 'comissão'], categoria: 'Comissões', centroCusto: 'Vendas' },
+  { words: ['tarifa', 'taxa bancaria', 'cora', 'custo cartao', 'maquininha', 'anel', 'ted', 'doc', 'pix'], categoria: 'Tarifas Bancárias', centroCusto: 'Administrativo' },
+  { words: ['juros', 'multa atraso', 'encargos'], categoria: 'Juros', centroCusto: 'Administrativo' },
+  { words: ['simples nacional', 'das', 'fgts', 'inss', 'irpj', 'csll', 'pis', 'cofins'], categoria: 'Simples Nacional', centroCusto: 'Administrativo' },
+  { words: ['iss', 'issqn'], categoria: 'ISS', centroCusto: 'Administrativo' },
+  { words: ['recebimento', 'pagamento cliente', 'transferencia recebida', 'servico prestado'], categoria: 'Receita de Serviços', centroCusto: 'Operacional' },
+  { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba'], categoria: 'Locação de Caçambas', centroCusto: 'Operacional' },
+  { words: ['transporte', 'descarte', 'aterra', 'residuo', 'entulho'], categoria: 'Transporte e Descarte', centroCusto: 'Operacional' },
+  { words: ['multa', 'infracao', 'transito'], categoria: 'Outras Receitas', centroCusto: 'Administrativo' },
+];
+
+function localCategorize(descricao: string): { categoria: string; subcategoria: string | null; centroCusto: string | null } {
+  const lower = (descricao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  for (const rule of KEYWORD_RULES) {
+    for (const word of rule.words) {
+      if (lower.includes(word)) {
+        return { categoria: rule.categoria, subcategoria: rule.subcategoria || null, centroCusto: rule.centroCusto || null };
+      }
+    }
+  }
+  return { categoria: 'PENDENTE', subcategoria: null, centroCusto: null };
+}
+
+app.post('/api/bancario/categorize', async (req, res) => {
+  const { transacoes, categorias: catsList, subcategorias: subsList, centrosCusto: ccsList } = req.body;
+  if (!transacoes || !Array.isArray(transacoes) || transacoes.length === 0) {
+    return res.status(400).json({ error: 'transacoes array is required' });
+  }
+
+  const cache = new Map<string, { categoria: string; subcategoria: string | null; centroCusto: string | null }>();
+
+  // Tenta Groq (6000 req/min, limite generoso)
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const groq = new Groq({ apiKey: groqKey });
+      const catsStr = (catsList || []).join(',') || 'N/A';
+      const subsStr = (subsList || []).join(',') || 'N/A';
+      const ccsStr = (ccsList || []).join(',') || 'N/A';
+
+      const batchPrompt = transacoes.map((t: any) =>
+        `ID:${t.id} | "${t.descricao}" | R$${t.valor} | ${t.tipo}`
+      ).join('\n');
+
+      const systemPrompt = `Você é um categorizador financeiro brasileiro. Para cada transação, responda APENAS um JSON array de objetos com {id, c, s, cc}.
+c = categoria (escolha entre: ${catsStr})
+s = subcategoria (escolha entre: ${subsStr}) ou null
+cc = centro de custo (escolha entre: ${ccsStr}) ou null
+Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
+
+      const response = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: batchPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+      });
+
+      const rawText = response.choices?.[0]?.message?.content || '';
+      if (rawText) {
+        const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item.id && item.c) {
+              const key = (transacoes.find((t: any) => t.id === item.id)?.descricao || '').toLowerCase().trim();
+              cache.set(key, {
+                categoria: item.c !== 'PENDENTE' ? item.c : 'PENDENTE',
+                subcategoria: item.s || null,
+                centroCusto: item.cc || null,
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[GROQ] error, falling back to local:', (e as any)?.message || e);
+    }
+  }
+
+  // Preenche o que faltou com matching local
+  const results = transacoes.map((t: any) => {
+    const key = (t.descricao || '').toLowerCase().trim();
+    if (cache.has(key)) return { id: t.id, ...cache.get(key)! };
+    const result = localCategorize(t.descricao);
+    cache.set(key, result);
+    return { id: t.id, ...result };
+  });
+
+  res.json({ results });
 });
 
 async function startServer() {

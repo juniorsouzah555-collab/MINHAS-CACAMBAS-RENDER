@@ -596,12 +596,12 @@ export default function DriverPortal({
     const driversOnMap = new Set(filtered.map(v => v.driver));
     const onlineMap = new Map(onlineUsers.map(u => [u.name, u]));
     console.log('[MV] onlineMap', [...onlineMap.entries()], 'activeNames', activeNames);
-    activeNames.forEach((name, i) => {
+    activeNames.forEach((name: string, i: number) => {
       if (!driversOnMap.has(name)) {
         driversOnMap.add(name);
-        const o = onlineMap.get(name);
-        const useLat = o && o.lat ? o.lat : 0.15 + i * 0.04;
-        const useLng = o && o.lng ? o.lng : 0.15 + i * 0.04;
+        const o = onlineMap.get(name) as { lat?: number; lng?: number } | undefined;
+        const useLat = o?.lat ?? 0.15 + i * 0.04;
+        const useLng = o?.lng ?? 0.15 + i * 0.04;
         console.log('[MV] synth for', name, 'online=', o, 'lat=', useLat, 'lng=', useLng);
         filtered.push({
           id: `syn-${i}`, driver: name,

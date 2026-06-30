@@ -19,6 +19,7 @@ import {
   Smartphone,
   MapPin,
   Receipt,
+  Landmark,
   Wrench
 } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'finance', name: 'Financeiro', icon: DollarSign },
     { id: 'commissions', name: 'Comissões', icon: Percent },
     { id: 'boletos', name: 'Boletos', icon: Receipt, badge: unseenBoletos },
+    { id: 'bancario', name: 'Bancários', icon: Landmark },
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'manutencao', name: 'Manutenção', icon: Wrench },

@@ -34,7 +34,7 @@ export interface Lancamento {
 
 export interface Vehicle {
   id: string;
-  status: 'In Transit' | 'Loading' | 'Maintenance' | 'Available';
+  status: 'In Transit' | 'Loading' | 'Maintenance' | 'Available' | 'Assigned';
   efficiency: number; // in Km/L
   fuelUsed: number;   // MTD in L
   costPerKm: number;  // in USD
@@ -149,6 +149,117 @@ export interface Manutencao {
   oficina: string;
   observacao?: string;
   status: 'Pendente' | 'Em Andamento' | 'Concluído';
+  createdAt: string;
+}
+
+export interface GrupoConta {
+  id: string;
+  nome: string;
+  tipo: 'RECEITA' | 'DESPESA';
+}
+export interface CategoriaConta {
+  id: string;
+  grupoId: string;
+  nome: string;
+}
+export interface SubcategoriaConta {
+  id: string;
+  categoriaId: string;
+  nome: string;
+}
+export interface ExtratoTransacao {
+  id: string;
+  data: string;
+  descricao: string;
+  valor: number;
+  tipo: 'CREDITO' | 'DEBITO';
+  saldo?: number;
+  categoria?: string;
+  subcategoria?: string;
+  centroCustoId?: string;
+  status: 'PENDENTE' | 'CATEGORIZADO' | 'IGNORADO' | 'CONCILIADO';
+  importacaoId: string;
+  observacao?: string;
+  createdAt: string;
+}
+export interface ImportacaoExtrato {
+  id: string;
+  nomeArquivo: string;
+  banco: string;
+  dataInicio: string;
+  dataFim: string;
+  totalLinhas: number;
+  categorizadas: number;
+  pendentes: number;
+  status: 'PROCESSANDO' | 'CONCLUIDO' | 'ERRO';
+  createdAt: string;
+}
+export interface CentroCusto {
+  id: string;
+  nome: string;
+  codigo: string;
+  descricao?: string;
+  ativo: boolean;
+  createdAt: string;
+}
+export interface Conciliacao {
+  id: string;
+  transacaoId: string;
+  lancamentoId?: string;
+  data: string;
+  valor: number;
+  status: 'PENDENTE' | 'CONCILIADO' | 'DIVERGENTE';
+  observacao?: string;
+  createdAt: string;
+}
+export interface RegraCategorizacao {
+  id: string;
+  padrao: string;
+  categoria: string;
+  subcategoria: string;
+  centroCustoId?: string;
+  createdAt: string;
+}
+export interface PatrimonioItem {
+  id: string;
+  nome: string;
+  tipo: 'IMOVEL' | 'VEICULO' | 'MAQUINA' | 'EQUIPAMENTO' | 'MOVEIS' | 'OUTROS';
+  dataAquisicao: string;
+  valorAquisicao: number;
+  valorResidual: number;
+  vidaUtil: number;
+  depreciacaoAnual: number;
+  depreciacaoAcumulada: number;
+  valorContabil: number;
+  localizacao?: string;
+  observacao?: string;
+  createdAt: string;
+}
+export interface PlanoPagamento {
+  id: string;
+  descricao: string;
+  instituicao?: string;
+  valorTotal: number;
+  numeroParcelas: number;
+  parcelasPagas: number;
+  valorParcela: number;
+  dataInicio: string;
+  dataFim?: string;
+  categoria?: string;
+  subcategoria?: string;
+  status: 'ATIVO' | 'CONCLUIDO' | 'CANCELADO';
+  mostrarDashboard: boolean;
+  createdAt: string;
+}
+export interface Cliente {
+  id: string;
+  tipo: 'PF' | 'PJ';
+  nome: string;
+  documento: string;
+  telefone: string;
+  email?: string;
+  endereco?: string;
+  observacao?: string;
   createdAt: string;
 }
 

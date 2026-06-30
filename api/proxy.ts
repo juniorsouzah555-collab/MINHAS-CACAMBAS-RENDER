@@ -1,14 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-const headers = {
-  'Content-Type': 'application/json',
-  'apikey': KEY,
-  'Authorization': `Bearer ${KEY}`,
-  'Prefer': 'return=minimal'
-};
+import { adminDb } from './lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,45 +9,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!table || !action) return res.status(400).json({ error: 'table and action are required' });
 
   try {
-    let url = `${SUPABASE_URL}/rest/v1/${table}`;
-    let method = 'GET';
-    let body: string | undefined;
+    const colRef = adminDb.collection(table);
 
     switch (action) {
-      case 'insert':
-        method = 'POST';
-        body = JSON.stringify(data);
-        break;
-      case 'update':
-        if (!filter) return res.status(400).json({ error: 'filter is required for update' });
-        url += `?${filter}`;
-        method = 'PATCH';
-        body = JSON.stringify(data);
-        break;
-      case 'select':
-        if (filter) url += `?${filter}`;
-        method = 'GET';
-        break;
-      case 'delete':
-        if (!filter) return res.status(400).json({ error: 'filter is required for delete' });
-        url += `?${filter}`;
-        method = 'DELETE';
-        break;
+      case 'insert': {
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          const id = item.id || colRef.doc().id;
+          await colRef.doc(id).set({ ...item, id, createdAt: item.createdAt || new Date().toISOString() });
+        }
+        return res.json({ ok: true });
+      }
+      case 'update': {
+        let query: FirebaseFirestore.Query = colRef;
+        if (filter) {
+          const [field, op, value] = parseFilter(filter);
+          if (op === 'eq') query = query.where(field, '==', value);
+          else if (op === 'gte') query = query.where(field, '>=', value);
+        }
+        const snapshot = await query.get();
+        const batch = adminDb.batch();
+        snapshot.docs.forEach(doc => batch.update(doc.ref, data));
+        await batch.commit();
+        return res.json({ ok: true });
+      }
+      case 'select': {
+        let query: FirebaseFirestore.Query = colRef;
+        if (filter) {
+          const [field, op, value] = parseFilter(filter);
+          if (op === 'eq') query = query.where(field, '==', value);
+        }
+        const snapshot = await query.get();
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        return res.json({ data: docs });
+      }
+      case 'delete': {
+        let query: FirebaseFirestore.Query = colRef;
+        if (filter) {
+          const [field, op, value] = parseFilter(filter);
+          if (op === 'eq') query = query.where(field, '==', value);
+        }
+        const snapshot = await query.get();
+        const batch = adminDb.batch();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        return res.json({ ok: true });
+      }
       default:
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
-
-    const r = await fetch(url, { method, headers, body });
-    if (!r.ok) {
-      const text = await r.text();
-      return res.status(r.status).json({ error: text });
-    }
-    if (action === 'select') {
-      const data = await r.json();
-      return res.json({ data });
-    }
-    res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+}
+
+function parseFilter(filter: string): [string, string, any] {
+  // Supports: field=eq.value or field=gte.value
+  const match = filter.match(/^(\w+)=\.?(eq|gte|lte|gt|lt|neq)\.(.+)$/);
+  if (match) return [match[1], match[2], isNaN(Number(match[3])) ? match[3] : Number(match[3])];
+  // Default: field=eq.value
+  const parts = filter.split('=');
+  return [parts[0], 'eq', parts.slice(1).join('=')];
 }

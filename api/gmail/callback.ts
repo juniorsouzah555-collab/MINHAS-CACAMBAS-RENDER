@@ -1,10 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { adminDb } from '../lib/firebase-admin';
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
 const REDIRECT_URI = 'https://relampago-cacambas-novo.vercel.app/api/gmail/callback';
-const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { code, error: oauthError } = req.query;
@@ -27,14 +26,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const email = profile.emailAddress || 'admin';
 
     if (tokens.refresh_token) {
-      const headers = { 'Content-Type': 'application/json', apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` };
-      const existing = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}&select=email&limit=1`, { headers });
-      const body = { refresh_token: tokens.refresh_token, access_token: tokens.access_token, expires_at: Date.now() + tokens.expires_in * 1000 };
-      const existingData = await existing.json();
-      if (existingData?.length > 0) {
-        await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, { method: 'PATCH', headers: { ...headers, Prefer: 'return=minimal' }, body: JSON.stringify(body) });
+      const existing = await adminDb.collection('gmail_tokens').where('email', '==', email).get();
+      const tokenData = { refresh_token: tokens.refresh_token, access_token: tokens.access_token, expires_at: Date.now() + tokens.expires_in * 1000 };
+      if (!existing.empty) {
+        await existing.docs[0].ref.update(tokenData);
       } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens`, { method: 'POST', headers: { ...headers, Prefer: 'return=minimal' }, body: JSON.stringify({ email, ...body }) });
+        await adminDb.collection('gmail_tokens').doc(email).set({ email, ...tokenData });
       }
     }
     res.redirect('/?gmail=connected');

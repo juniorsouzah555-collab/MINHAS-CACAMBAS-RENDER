@@ -1,42 +1,30 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+import { adminAuth, adminDb } from '../lib/firebase-admin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
   try {
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const results: any[] = [];
 
     // 1. Deleta do user_approvals
-    const { error: delApprovalError } = await admin
-      .from('user_approvals')
-      .delete()
-      .eq('email', email);
-    if (delApprovalError) results.push({ step: 'delete-approvals', error: delApprovalError.message });
-    else results.push({ step: 'delete-approvals', ok: true });
+    try {
+      const snap = await adminDb.collection('user_approvals').where('email', '==', email).get();
+      const batch = adminDb.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      results.push({ step: 'delete-approvals', ok: true });
+    } catch (e: any) { results.push({ step: 'delete-approvals', error: e.message }); }
 
-    // 2. Busca usuario no Auth pelo email
-    const { data: users, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
-    if (listError) {
-      results.push({ step: 'list-users', error: listError.message });
-    } else {
-      const user = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-      if (user) {
-        // 3. Deleta do Auth
-        const { error: delAuthError } = await admin.auth.admin.deleteUser(user.id);
-        if (delAuthError) results.push({ step: 'delete-auth', error: delAuthError.message });
-        else results.push({ step: 'delete-auth', ok: true });
-      } else {
-        results.push({ step: 'user-not-found-in-auth' });
-      }
-    }
+    // 2. Deleta do Auth
+    try {
+      const user = await adminAuth.getUserByEmail(email);
+      await adminAuth.deleteUser(user.uid);
+      results.push({ step: 'delete-auth', ok: true });
+    } catch (e: any) { results.push({ step: 'delete-auth', error: e.message }); }
 
-    res.json({ ok: results.some(r => r.ok || r.step === 'user-not-found-in-auth'), results });
+    res.json({ ok: results.some(r => r.ok), results });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

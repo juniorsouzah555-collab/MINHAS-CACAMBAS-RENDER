@@ -1,34 +1,70 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { adminDb } from './lib/firebase-admin';
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
 const REDIRECT_URI = 'https://relampago-cacambas-novo.vercel.app/api/gmail/callback';
-const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const SB_H = { 'Content-Type': 'application/json', apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` };
+// ---- FIRESTORE HELPERS ----
+
+async function getDoc(table: string, field: string, value: string): Promise<any | null> {
+  try {
+    const snap = await adminDb.collection(table).where(field, '==', value).get();
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  } catch { return null; }
+}
+
+async function getDocs(table: string, constraints?: { field: string; op: string; value: any }[]): Promise<any[]> {
+  try {
+    let query: FirebaseFirestore.Query = adminDb.collection(table);
+    if (constraints) {
+      for (const c of constraints) {
+        query = query.where(c.field, c.op as any, c.value);
+      }
+    }
+    const snap = await query.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { return []; }
+}
+
+async function upsertDoc(table: string, data: any, field?: string) {
+  try {
+    if (field && data[field]) {
+      const snap = await adminDb.collection(table).where(field, '==', data[field]).get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.update(data);
+        return;
+      }
+    }
+    const id = data.id || adminDb.collection(table).doc().id;
+    await adminDb.collection(table).doc(id).set({ ...data, id });
+  } catch {}
+}
+
+async function deleteDocs(table: string, field: string, value: string) {
+  try {
+    const snap = await adminDb.collection(table).where(field, '==', value).get();
+    const batch = adminDb.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  } catch {}
+}
+
+async function deleteDocById(table: string, id: string) {
+  try {
+    await adminDb.collection(table).doc(id).delete();
+  } catch {}
+}
 
 // ---- TOKEN STORAGE ----
 
 async function getStoredToken(email: string) {
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}&select=refresh_token,access_token,expires_at&limit=1`, { headers: SB_H });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data?.[0] || null;
-  } catch { return null; }
+  return getDoc('gmail_tokens', 'email', email);
 }
 
 async function upsertToken(email: string, refreshToken: string, accessToken: string, expiresAt: number) {
-  try {
-    const body = { refresh_token: refreshToken, access_token: accessToken, expires_at: expiresAt };
-    const existing = await getStoredToken(email);
-    if (existing) {
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, { method: 'PATCH', headers: { ...SB_H, Prefer: 'return=minimal' }, body: JSON.stringify(body) });
-    } else {
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens`, { method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' }, body: JSON.stringify({ email, ...body }) });
-    }
-  } catch {}
+  await upsertDoc('gmail_tokens', { email, refresh_token: refreshToken, access_token: accessToken, expires_at: expiresAt }, 'email');
 }
 
 async function refreshAccessToken(refreshToken: string) {
@@ -46,10 +82,8 @@ async function refreshAccessToken(refreshToken: string) {
 
 async function getFirstEmail(): Promise<string | null> {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?select=email&limit=1`, { headers: SB_H });
-    if (!r.ok) return null;
-    const list = await r.json();
-    return list?.[0]?.email || null;
+    const docs = await getDocs('gmail_tokens');
+    return docs?.[0]?.email || null;
   } catch { return null; }
 }
 
@@ -72,11 +106,7 @@ async function getAccessToken(): Promise<{ token: string; email: string } | null
 // ---- FILTERS ----
 
 async function getFilters() {
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?select=id,type,value&order=id.asc`, { headers: SB_H });
-    if (!r.ok) return [];
-    return await r.json();
-  } catch { return []; }
+  return getDocs('gmail_filters', [{ field: 'type', op: '!=', value: 'provider' }]);
 }
 
 // ---- SEARCH ----
@@ -231,18 +261,15 @@ function extractBoletoLink(bodies: string[]): string | null {
 
 async function getAliases() {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?select=*&order=id.asc`, { headers: SB_H });
-    if (!r.ok) return [];
-    return await r.json();
+    const docs = await getDocs('gmail_aliases');
+    return docs;
   } catch { return []; }
 }
 
 async function getHiddenIds() {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_hidden?select=message_id`, { headers: SB_H });
-    if (!r.ok) return new Set<string>();
-    const data = await r.json();
-    return new Set(data.map((x: any) => x.message_id));
+    const docs = await getDocs('gmail_hidden');
+    return new Set(docs.map((x: any) => x.message_id));
   } catch { return new Set(); }
 }
 
@@ -268,26 +295,23 @@ interface BoletoProvider {
 
 async function getProviders(): Promise<BoletoProvider[]> {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?type=eq.provider&select=id,value&order=id.asc`, { headers: SB_H });
-    if (!r.ok) return [];
-    const rows = await r.json() as { id: number; value: string }[];
-    return rows.map(r => ({ id: r.id, ...JSON.parse(r.value) })).filter(p => p.sender && p.password);
+    const rows = await getDocs('gmail_filters', [{ field: 'type', op: '==', value: 'provider' }]);
+    return rows.map(r => ({ id: r.id, ...JSON.parse(r.value || '{}') })).filter(p => p.sender && p.password);
   } catch { return []; }
 }
 
 async function addProvider(sender: string, password: string) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters`, {
-      method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
-      body: JSON.stringify({ type: 'provider', value: JSON.stringify({ sender, password }) }),
-    });
+    const data = { type: 'provider', value: JSON.stringify({ sender, password }) };
+    const id = adminDb.collection('gmail_filters').doc().id;
+    await adminDb.collection('gmail_filters').doc(id).set({ ...data, id });
     return true;
   } catch { return false; }
 }
 
-async function removeProvider(id: number) {
+async function removeProvider(id: string) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+    await adminDb.collection('gmail_filters').doc(id).delete();
     return true;
   } catch { return false; }
 }
@@ -485,7 +509,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'disconnect') {
       const email = await getFirstEmail();
       if (email) {
-        await fetch(`${SUPABASE_URL}/rest/v1/gmail_tokens?email=eq.${encodeURIComponent(email)}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+        await deleteDocs('gmail_tokens', 'email', email);
       }
       return res.json({ ok: true });
     }
@@ -501,10 +525,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'addFilter' && req.method === 'POST') {
       const { type, value } = req.body;
       if (!type || !value) return res.status(400).json({ error: 'type and value required' });
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters`, {
-        method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
-        body: JSON.stringify({ type, value }),
-      });
+      const id = adminDb.collection('gmail_filters').doc().id;
+      await adminDb.collection('gmail_filters').doc(id).set({ type, value, id });
       return res.json({ ok: true });
     }
 
@@ -512,7 +534,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'removeFilter' && req.method === 'POST') {
       const id = req.body?.id || req.query.id;
       if (!id) return res.status(400).json({ error: 'id required' });
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_filters?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+      await deleteDocById('gmail_filters', id);
       return res.json({ ok: true });
     }
 
@@ -534,7 +556,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'removeProvider' && req.method === 'POST') {
       const id = req.body?.id || req.query.id;
       if (!id) return res.status(400).json({ error: 'id required' });
-      await removeProvider(Number(id));
+      await removeProvider(id);
       return res.json({ ok: true });
     }
 
@@ -561,10 +583,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'hideEmail' && req.method === 'POST') {
       const { messageId } = req.body;
       if (!messageId) return res.status(400).json({ error: 'messageId required' });
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_hidden`, {
-        method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
-        body: JSON.stringify({ message_id: messageId }),
-      });
+      const id = adminDb.collection('gmail_hidden').doc().id;
+      await adminDb.collection('gmail_hidden').doc(id).set({ message_id: messageId, id });
       return res.json({ ok: true });
     }
 
@@ -578,20 +598,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'saveAlias' && req.method === 'POST') {
       const { sender, alias } = req.body;
       if (!sender || !alias) return res.status(400).json({ error: 'sender and alias required' });
-      // Upsert: try insert, conflict on sender -> update
-      const existing = await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?sender=eq.${encodeURIComponent(sender)}&select=id&limit=1`, { headers: SB_H });
-      const existingData = await existing.json();
-      if (existingData?.[0]?.id) {
-        await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?id=eq.${existingData[0].id}`, {
-          method: 'PATCH', headers: { ...SB_H, Prefer: 'return=minimal' },
-          body: JSON.stringify({ alias }),
-        });
-      } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases`, {
-          method: 'POST', headers: { ...SB_H, Prefer: 'return=minimal' },
-          body: JSON.stringify({ sender, alias }),
-        });
-      }
+      await upsertDoc('gmail_aliases', { sender, alias }, 'sender');
       return res.json({ ok: true });
     }
 
@@ -599,7 +606,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'deleteAlias' && req.method === 'POST') {
       const id = req.body?.id || req.query.id;
       if (!id) return res.status(400).json({ error: 'id required' });
-      await fetch(`${SUPABASE_URL}/rest/v1/gmail_aliases?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_H, Prefer: 'return=minimal' } });
+      await deleteDocById('gmail_aliases', id);
       return res.json({ ok: true });
     }
 

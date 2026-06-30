@@ -60,6 +60,7 @@ import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
 import TrackingView from './components/TrackingView';
 import BoletoView from './components/BoletoView';
+import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
 
 export default function App() {
@@ -1936,6 +1937,10 @@ export default function App() {
 
           {currentTab === 'boletos' && (
             <BoletoView onNewBoletosCount={setBoletosBadgeCount} />
+          )}
+
+          {currentTab === 'bancario' && (
+            <BancarioView />
           )}
 
           {currentTab === 'reports' && (

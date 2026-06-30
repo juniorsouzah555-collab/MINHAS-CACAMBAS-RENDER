@@ -60,36 +60,49 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
 
   const [activeBillSender, setActiveBillSender] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.from('plano_contas').select('*').order('date').then(({ data, error }) => {
-      if (error) { console.error('Erro ao carregar plano de contas:', error); return; }
-      if (data) setBills(data.map((b: any) => ({ id: b.id, name: b.name, date: b.date, checked: b.checked, sender: b.sender || undefined })));
-    });
+  const loadBills = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('plano_contas').select('*').order('date', { ascending: true });
+      if (error) { console.error('[PlanoContas] Load error:', error); return; }
+      setBills((data || []).map((b: any) => ({ id: b.id, name: b.name, date: b.date, checked: b.checked, sender: b.sender || undefined })));
+    } catch (e) { console.error('[PlanoContas] Load exception:', e); }
   }, []);
 
-  const addBill = (name: string, date: string, sender: string) => {
-    const id = crypto.randomUUID();
-    setBills(prev => [...prev, { id, name, date, checked: false, sender: sender || undefined }]);
-    supabase.from('plano_contas').insert([{ id, name, date, checked: false, sender: sender || null }])
-      .then(({ error }) => { if (error) console.error('Erro ao salvar conta:', error); });
+  useEffect(() => {
+    loadBills();
+    const channel = supabase
+      .channel('plano-contas-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plano_contas' }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          setBills(prev => [...prev, { id: payload.new.id, name: payload.new.name, date: payload.new.date, checked: payload.new.checked, sender: payload.new.sender || undefined }]);
+        } else if (payload.eventType === 'UPDATE') {
+          setBills(prev => prev.map(b => b.id === payload.new.id ? { ...b, name: payload.new.name, date: payload.new.date, checked: payload.new.checked, sender: payload.new.sender || undefined } : b));
+        } else if (payload.eventType === 'DELETE') {
+          setBills(prev => prev.filter(b => b.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loadBills]);
+
+  const addBill = async (name: string, date: string, sender?: string) => {
+    const { error } = await supabase.from('plano_contas').insert({ name, date, checked: false, sender: sender || null });
+    if (error) console.error('[PlanoContas] Insert error:', error);
   };
 
-  const editBill = (id: string, name: string, date: string, sender: string) => {
-    setBills(prev => prev.map(b => b.id === id ? { ...b, name, date, sender } : b));
-    supabase.from('plano_contas').update({ name, date, sender: sender || null }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('Erro ao atualizar conta:', error); });
+  const updateBill = async (id: string, name: string, date: string, checked: boolean, sender?: string) => {
+    const { error } = await supabase.from('plano_contas').update({ name, date, checked, sender: sender || null }).eq('id', id);
+    if (error) console.error('[PlanoContas] Update error:', error);
   };
 
-  const toggleBillChecked = (bill: Bill) => {
-    setBills(prev => prev.map(b => b.id === bill.id ? { ...b, checked: !b.checked } : b));
-    supabase.from('plano_contas').update({ checked: !bill.checked }).eq('id', bill.id)
-      .then(({ error }) => { if (error) console.error('Erro ao atualizar conta:', error); });
+  const toggleBill = async (id: string, checked: boolean) => {
+    const { error } = await supabase.from('plano_contas').update({ checked }).eq('id', id);
+    if (error) console.error('[PlanoContas] Toggle error:', error);
   };
 
-  const deleteBill = (id: string) => {
-    setBills(prev => prev.filter(b => b.id !== id));
-    supabase.from('plano_contas').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('Erro ao excluir conta:', error); });
+  const deleteBill = async (id: string) => {
+    const { error } = await supabase.from('plano_contas').delete().eq('id', id);
+    if (error) console.error('[PlanoContas] Delete error:', error);
   };
 
   const [filters, setFilters] = useState<Filter[]>([]);
@@ -470,7 +483,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                 const emailCount = bill.sender ? emails.filter(e => e.isNew && emailMatchesSender(e, bill.sender!)).length : 0;
                 return (
                 <div key={bill.id} className={`group flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isFiltering ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-slate-50'}`}>
-                  <button onClick={() => toggleBillChecked(bill)}
+                  <button onClick={() => toggleBill(bill.id, !bill.checked)}
                     className="shrink-0 cursor-pointer text-slate-400 hover:text-emerald-500 transition-colors">
                     {bill.checked
                       ? <CheckSquare className="w-5 h-5 text-emerald-500" />
@@ -484,7 +497,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                         type="text"
                         value={editName}
                         onChange={e => setEditName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') { const t = editName.trim(); if (t) { editBill(bill.id, t, editDate, editSender); } setEditingId(null); } if (e.key === 'Escape') setEditingId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { const t = editName.trim(); if (t) { updateBill(bill.id, t, editDate, bill.checked, editSender || undefined); } setEditingId(null); } if (e.key === 'Escape') setEditingId(null); }}
                         className="flex-1 text-sm bg-slate-100 text-slate-800 px-2 py-1 rounded outline-none border border-slate-300"
                         autoFocus
                       />
@@ -495,7 +508,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                         <option value="">Sem filtro</option>
                         {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
                       </select>
-                      <button onClick={() => { const t = editName.trim(); if (t) { editBill(bill.id, t, editDate, editSender); } setEditingId(null); }}
+                      <button onClick={() => { const t = editName.trim(); if (t) { updateBill(bill.id, t, editDate, bill.checked, editSender || undefined); } setEditingId(null); }}
                         className="shrink-0 cursor-pointer text-emerald-500 hover:text-emerald-400 transition-colors">
                         <Check className="w-4 h-4" />
                       </button>
@@ -544,7 +557,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
               );})}
               <div className="flex items-center gap-2 pt-2">
                 <input type="text" value={newBillName} onChange={e => setNewBillName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender); setNewBillName(''); } } }}
+                  onKeyDown={e => { if (e.key === 'Enter') { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender || undefined); setNewBillName(''); } } }}
                   placeholder="Nome da conta..."
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-400 transition-colors" />
                 <input type="date" value={newBillDate} onChange={e => setNewBillDate(e.target.value)}
@@ -554,7 +567,7 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
                   <option value="">Sem filtro</option>
                   {aliases.map(a => <option key={a.id} value={a.sender}>{a.alias}</option>)}
                 </select>
-                <button onClick={() => { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender); setNewBillName(''); } }}
+                <button onClick={() => { const n = newBillName.trim(); if (n) { addBill(n, newBillDate, newBillSender || undefined); setNewBillName(''); } }}
                   disabled={!newBillName.trim()}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50">
                   <Plus className="w-4 h-4" />
