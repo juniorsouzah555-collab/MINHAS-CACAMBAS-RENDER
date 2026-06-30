@@ -1,34 +1,25 @@
-// Static import to ensure Vercel includes firebase-admin in the bundle
-import type { app, firestore, auth, storage } from 'firebase-admin';
-
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const admin: {
-  apps: any[];
-  initializeApp: Function;
-  credential: { cert: Function };
-  firestore: Function;
-  auth: Function;
-  storage: Function;
-} = require('firebase-admin');
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
 
 function getAdminApp() {
-  if (admin.apps.length > 0) return admin.apps[0];
+  if (getApps().length > 0) return getApps()[0];
 
   const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (key) {
     try {
-      return admin.initializeApp({ credential: admin.credential.cert(JSON.parse(key)) });
+      return initializeApp({ credential: cert(JSON.parse(key)) });
     } catch (e) {
-      console.error('[FBA] init error:', e);
+      console.error('[FBA] Failed to initialize with service account:', e);
     }
   }
 
-  return admin.initializeApp({ projectId: 'cacambas-4ecdb' });
+  return initializeApp({ projectId: 'cacambas-4ecdb' });
 }
 
 const adminApp = getAdminApp();
-export const adminDb = admin.firestore(adminApp);
-export const adminAuth = admin.auth(adminApp);
-export const adminStorage = admin.storage(adminApp);
+export const adminDb = getFirestore(adminApp);
+export const adminAuth = getAuth(adminApp);
+export const adminStorage = getStorage(adminApp);
+export { FieldValue };
