@@ -34,8 +34,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         false, ['sign']
       );
     } catch (e: any) {
-      const hexStart = der.slice(0, 32).toString('hex');
-      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length, hexStart, bodyLen: body.length });
+      // Try with correct padding
+      const pad = (4 - (body.length % 4)) % 4;
+      const paddedBody = body + '='.repeat(pad);
+      const der2 = Buffer.from(paddedBody, 'base64');
+      const hexStart = der.slice(0, 16).toString('hex');
+      const tailChars = body.slice(-8).split('').map((c: string) => c.charCodeAt(0));
+      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length, der2Len: der2.length, hexStart, bodyLen: body.length, pad, tailChars });
     }
 
     try {
