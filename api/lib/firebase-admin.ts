@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-const subtle = globalThis.crypto.subtle;
+import { importPKCS8, SignJWT } from 'jose';
 
 const PROJECT_ID = 'cacambas-4ecdb';
 
 let cachedToken: { value: string; exp: number } | null = null;
 let cachedSA: any = null;
-let cachedKey: any = null;
 
 function getSA(): any {
   if (cachedSA) return cachedSA;
@@ -15,46 +14,14 @@ function getSA(): any {
   return cachedSA;
 }
 
-function b64url(s: string): string {
-  return Buffer.from(s).toString('base64url');
-}
-
 async function signJwt(payload: Record<string, any>): Promise<string> {
   const sa = getSA();
   let pem = sa.private_key;
   if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n');
-  const match = pem.match(/-----BEGIN[^-]+-----([\s\S]+?)-----END[^-]+-----/);
-  if (!match) throw new Error('No PEM match');
-  const b64 = match[1].replace(/\s/g, '');
-  const der = Buffer.from(b64, 'base64');
-
-  if (!cachedKey) {
-    const info = `derLen:${der.length} firstHex:${der.slice(0,12).toString('hex')}`;
-    const { createPrivateKey } = await import('node:crypto');
-    let nodeKey: any;
-    try {
-      nodeKey = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
-    } catch (e: any) {
-      throw new Error(`createPrivateKey fail: ${e.message} (${info})`);
-    }
-    try {
-      cachedKey = await subtle.importKey(
-        'pkcs8',
-        nodeKey.export({ format: 'der', type: 'pkcs8' }),
-        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-        false,
-        ['sign']
-      );
-    } catch (e: any) {
-      throw new Error(`subtle.importKey fail: ${e.message} (${info})`);
-    }
-  }
-
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const body = b64url(JSON.stringify(payload));
-  const message = new TextEncoder().encode(`${header}.${body}`);
-  const sig = await subtle.sign({ name: 'RSASSA-PKCS1-v1_5' }, cachedKey, message);
-  return `${header}.${body}.${Buffer.from(sig).toString('base64url')}`;
+  const key = await importPKCS8(pem, 'RS256');
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(key);
 }
 
 async function getAccessToken(): Promise<string> {
