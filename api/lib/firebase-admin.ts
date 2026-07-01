@@ -1,4 +1,5 @@
-import { randomUUID, createSign, createPrivateKey } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { importPKCS8, SignJWT } from 'jose';
 
 const PROJECT_ID = 'cacambas-4ecdb';
 
@@ -25,28 +26,20 @@ function normalizePem(raw: string): string {
   return `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----\n`;
 }
 
-function b64url(s: string): string {
-  return Buffer.from(s).toString('base64url');
-}
-
-function signJwt(payload: Record<string, any>): string {
+async function signJwt(payload: Record<string, any>): Promise<string> {
   const sa = getSA();
   const pem = normalizePem(sa.private_key);
-  const keyObj = createPrivateKey(pem);
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const body = b64url(JSON.stringify(payload));
-  const signing = `${header}.${body}`;
-  const signer = createSign('RSA-SHA256');
-  signer.update(signing);
-  const sig = signer.sign(keyObj, 'base64url');
-  return `${signing}.${sig}`;
+  const key = await importPKCS8(pem, 'RS256');
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(key);
 }
 
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.exp) return cachedToken.value;
   const sa = getSA();
   const now = Math.floor(Date.now() / 1000);
-  const jwt = signJwt({
+  const jwt = await signJwt({
     iss: sa.client_email,
     scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/identitytoolkit',
     aud: 'https://oauth2.googleapis.com/token',
