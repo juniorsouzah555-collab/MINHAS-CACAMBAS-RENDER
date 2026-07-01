@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let keyObj: any;
     try {
-      keyObj = createPrivateKey({ key: pem, format: 'pem', type: 'pkcs8' });
+      keyObj = createPrivateKey(pem);
     } catch (e: any) {
       return res.json({ ok: false, step: 'create_key', error: e.message, pemStart: pem.slice(0, 80) });
     }
