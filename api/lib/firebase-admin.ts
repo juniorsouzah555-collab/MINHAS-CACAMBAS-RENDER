@@ -32,7 +32,7 @@ function b64url(s: string): string {
 function signJwt(payload: Record<string, any>): string {
   const sa = getSA();
   const pem = normalizePem(sa.private_key);
-  const keyObj = createPrivateKey({ key: pem, format: 'pem', type: 'pkcs8' });
+  const keyObj = createPrivateKey(pem);
   const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const body = b64url(JSON.stringify(payload));
   const signing = `${header}.${body}`;
