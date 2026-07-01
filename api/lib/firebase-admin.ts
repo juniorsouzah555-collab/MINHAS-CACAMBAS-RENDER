@@ -24,12 +24,23 @@ async function signJwt(payload: Record<string, any>): Promise<string> {
   // Normalize: convert literal \n to real newlines
   if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n');
 
-  // Extract base64 body, strip ALL whitespace, decode with Buffer (not atob)
+  // Extract base64 body, strip ALL whitespace, pad and decode with Buffer (not atob)
   const body = pem
     .replace(/-----BEGIN PRIVATE KEY-----/, '')
     .replace(/-----END PRIVATE KEY-----/, '')
     .replace(/\s/g, '');
-  const der = Buffer.from(body, 'base64');
+  const pad = (4 - (body.length % 4)) % 4;
+  let der = Buffer.from(body + '='.repeat(pad), 'base64');
+
+  // Parse outer SEQUENCE to strip any trailing bytes that subtle.importKey rejects
+  if (der[0] === 0x30) {
+    let hdrLen = 2;
+    let seqLen: number;
+    if (der[1] === 0x82) { seqLen = (der[2] << 8) | der[3]; hdrLen = 4; }
+    else if (der[1] === 0x81) { seqLen = der[2]; hdrLen = 3; }
+    else seqLen = der[1];
+    der = der.slice(0, hdrLen + seqLen);
+  }
 
   // Import key using Web Crypto with DER bytes — avoids createPrivateKey AND atob
   const cryptoKey = await globalThis.crypto.subtle.importKey(
