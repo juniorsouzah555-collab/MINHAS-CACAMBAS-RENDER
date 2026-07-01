@@ -20,22 +20,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       sa = JSON.parse(raw);
     } catch (e: any) {
-      return res.json({ ok: false, step: 'json_parse', error: e.message, rawStart: raw.slice(0, 30) });
+      return res.json({ ok: false, step: 'json_parse', error: e.message });
     }
 
     const rawPem = sa.private_key;
-    let pem: string;
+    const pem = normalizePem(rawPem);
+
+    // Extract body and check for invalid chars
+    const body = pem
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\s/g, '');
+
+    const validBase64 = /^[A-Za-z0-9+/=]+$/.test(body);
+    const invalidChars = body.split('').filter(c => !/[A-Za-z0-9+/=]/.test(c)).slice(0, 5);
+
+    // Try Buffer.from to decode base64 manually
+    let bufferOk = false;
+    let bufferErr = '';
     try {
-      pem = normalizePem(rawPem);
+      const buf = Buffer.from(body, 'base64');
+      bufferOk = buf.length > 0;
     } catch (e: any) {
-      return res.json({ ok: false, step: 'normalize_pem', error: e.message });
+      bufferErr = e.message;
+    }
+
+    if (!validBase64) {
+      return res.json({
+        ok: false, step: 'base64_check',
+        validBase64, invalidChars: invalidChars.map(c => c.charCodeAt(0)),
+        bodyLen: body.length, bufferOk, bufferErr
+      });
     }
 
     let key: any;
     try {
       key = await importPKCS8(pem, 'RS256');
     } catch (e: any) {
-      return res.json({ ok: false, step: 'import_key', error: e.message, pemStart: pem.slice(0, 80) });
+      return res.json({
+        ok: false, step: 'import_key', error: e.message,
+        validBase64, bodyLen: body.length, pemLen: pem.length,
+        hasLiteralSlashN: rawPem.includes('\\n'),
+        lineCount: pem.split('\n').length
+      });
     }
 
     try {
