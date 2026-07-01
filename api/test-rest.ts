@@ -34,7 +34,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         false, ['sign']
       );
     } catch (e: any) {
-      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length });
+      const hexStart = der.slice(0, 32).toString('hex');
+      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length, hexStart, bodyLen: body.length });
     }
 
     try {
