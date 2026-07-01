@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createSign, createPrivateKey } from 'node:crypto';
+import { importPKCS8, SignJWT } from 'jose';
 
 function normalizePem(raw: string): string {
   let pem = raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
@@ -31,18 +31,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ ok: false, step: 'normalize_pem', error: e.message });
     }
 
-    let keyObj: any;
+    let key: any;
     try {
-      keyObj = createPrivateKey(pem);
+      key = await importPKCS8(pem, 'RS256');
     } catch (e: any) {
-      return res.json({ ok: false, step: 'create_key', error: e.message, pemStart: pem.slice(0, 80) });
+      return res.json({ ok: false, step: 'import_key', error: e.message, pemStart: pem.slice(0, 80) });
     }
 
     try {
-      const signer = createSign('RSA-SHA256');
-      signer.update('test');
-      const sig = signer.sign(keyObj, 'base64url');
-      res.json({ ok: true, env: true, sigLen: sig.length });
+      const now = Math.floor(Date.now() / 1000);
+      const jwt = await new SignJWT({ iss: 'test', aud: 'test', exp: now + 60, iat: now })
+        .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+        .sign(key);
+      res.json({ ok: true, env: true, sigLen: jwt.length });
     } catch (e: any) {
       return res.json({ ok: false, step: 'sign', error: e.message });
     }
