@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { importPKCS8, SignJWT } from 'jose';
 
 const PROJECT_ID = 'cacambas-4ecdb';
 
@@ -14,25 +13,43 @@ function getSA(): any {
   return cachedSA;
 }
 
-function normalizePem(raw: string): string {
-  // After JSON.parse the key may still have literal \n or mixed whitespace
-  let pem = raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
-  // Extract raw base64 body, strip all whitespace, rebuild with 64-char lines
-  const body = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s/g, '');
-  const lines = (body.match(/.{1,64}/g) || []).join('\n');
-  return `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----\n`;
+function b64url(input: string | Uint8Array): string {
+  const buf = typeof input === 'string' ? Buffer.from(input) : Buffer.from(input);
+  return buf.toString('base64url');
 }
 
 async function signJwt(payload: Record<string, any>): Promise<string> {
   const sa = getSA();
-  const pem = normalizePem(sa.private_key);
-  const key = await importPKCS8(pem, 'RS256');
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
-    .sign(key);
+  let pem: string = sa.private_key;
+  // Normalize: convert literal \n to real newlines
+  if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n');
+
+  // Extract base64 body, strip ALL whitespace, decode with Buffer (not atob)
+  const body = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s/g, '');
+  const der = Buffer.from(body, 'base64');
+
+  // Import key using Web Crypto with DER bytes — avoids createPrivateKey AND atob
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    'pkcs8',
+    der,
+    { name: 'RSASSA-PKCS1-v1_5', hash: { name: 'SHA-256' } },
+    false,
+    ['sign'],
+  );
+
+  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const bod = b64url(JSON.stringify(payload));
+  const signing = `${header}.${bod}`;
+  const sigBytes = await globalThis.crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    Buffer.from(signing),
+  );
+  const sig = Buffer.from(sigBytes).toString('base64url');
+  return `${signing}.${sig}`;
 }
 
 async function getAccessToken(): Promise<string> {
@@ -100,7 +117,6 @@ const opMap: Record<string, string> = {
 
 class DocRef {
   constructor(private col: string, public docId: string) {}
-
   get id() { return this.docId; }
 
   async get() {
@@ -136,26 +152,13 @@ class QueryBuilder {
 
   constructor(private col: string) {}
 
-  where(field: string, op: string, value: any) {
-    this.conditions.push({ field, op, value });
-    return this;
-  }
-
-  orderBy(field: string, dir?: 'asc' | 'desc') {
-    this.orderByField = field;
-    this.orderDir = dir === 'desc' ? 'DESCENDING' : 'ASCENDING';
-    return this;
-  }
-
-  limit(n: number) {
-    this.limitCount = n;
-    return this;
-  }
+  where(field: string, op: string, value: any) { this.conditions.push({ field, op, value }); return this; }
+  orderBy(field: string, dir?: 'asc' | 'desc') { this.orderByField = field; this.orderDir = dir === 'desc' ? 'DESCENDING' : 'ASCENDING'; return this; }
+  limit(n: number) { this.limitCount = n; return this; }
 
   async get() {
     const token = await getAccessToken();
     const sq: any = { from: [{ collectionId: this.col }] };
-
     if (this.conditions.length > 0) {
       sq.where = {
         compositeFilter: {
@@ -170,19 +173,12 @@ class QueryBuilder {
         },
       };
     }
-
-    if (this.orderByField) {
-      sq.orderBy = [{ field: { fieldPath: this.orderByField }, direction: this.orderDir }];
-    }
+    if (this.orderByField) sq.orderBy = [{ field: { fieldPath: this.orderByField }, direction: this.orderDir }];
     if (this.limitCount) sq.limit = this.limitCount;
 
     const res = await fetch(
       `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ structuredQuery: sq }),
-      },
+      { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ structuredQuery: sq }) },
     );
     const data: any = await res.json();
     if (!Array.isArray(data)) return { docs: [], empty: true, size: 0, forEach: (_fn: any) => {} };
@@ -193,42 +189,21 @@ class QueryBuilder {
       return { id, data: () => ({ id, ...fromDoc(d.document) }), ref, exists: true };
     });
 
-    return {
-      docs,
-      empty: docs.length === 0,
-      size: docs.length,
-      forEach: (fn: (d: any) => void) => docs.forEach(fn),
-    };
+    return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn: (d: any) => void) => docs.forEach(fn) };
   }
 }
 
 class CollectionRef {
   constructor(private name: string) {}
-
-  doc(id?: string) {
-    return new DocRef(this.name, id ?? randomUUID());
-  }
-
-  where(field: string, op: string, value: any) {
-    return new QueryBuilder(this.name).where(field, op, value);
-  }
-
-  orderBy(field: string, dir?: 'asc' | 'desc') {
-    return new QueryBuilder(this.name).orderBy(field, dir);
-  }
-
-  limit(n: number) {
-    return new QueryBuilder(this.name).limit(n);
-  }
-
-  async get() {
-    return new QueryBuilder(this.name).get();
-  }
+  doc(id?: string) { return new DocRef(this.name, id ?? randomUUID()); }
+  where(field: string, op: string, value: any) { return new QueryBuilder(this.name).where(field, op, value); }
+  orderBy(field: string, dir?: 'asc' | 'desc') { return new QueryBuilder(this.name).orderBy(field, dir); }
+  limit(n: number) { return new QueryBuilder(this.name).limit(n); }
+  async get() { return new QueryBuilder(this.name).get(); }
 }
 
 class WriteBatch {
   private ops: (() => Promise<void>)[] = [];
-
   update(ref: DocRef, data: Record<string, any>) { this.ops.push(() => ref.update(data)); }
   delete(ref: DocRef) { this.ops.push(() => ref.delete()); }
   async commit() { for (const op of this.ops) await op(); }
