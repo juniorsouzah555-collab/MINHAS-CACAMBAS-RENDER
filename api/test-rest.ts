@@ -24,23 +24,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ ok: false, step: 'base64_invalid', codes: bad.slice(0, 5).map(c => c.charCodeAt(0)), bodyLen: body.length });
     }
 
-    const der = Buffer.from(body, 'base64');
+    // Pad base64 to multiple of 4, then decode
+    const pad = (4 - (body.length % 4)) % 4;
+    const der = Buffer.from(body + '='.repeat(pad), 'base64');
+
+    // Parse outer SEQUENCE length from DER to strip any trailing bytes
+    function exactDer(buf: Buffer): Buffer {
+      if (buf[0] !== 0x30) return buf;
+      let len: number;
+      if (buf[1] === 0x82) len = (buf[2] << 8) | buf[3];
+      else if (buf[1] === 0x81) len = buf[2];
+      else len = buf[1];
+      const hdrLen = buf[1] >= 0x80 ? 2 + (buf[1] & 0x7f) : 2;
+      return buf.slice(0, hdrLen + len);
+    }
+
+    const trimmedDer = exactDer(der);
 
     let cryptoKey: CryptoKey;
     try {
       cryptoKey = await globalThis.crypto.subtle.importKey(
-        'pkcs8', der,
+        'pkcs8', trimmedDer,
         { name: 'RSASSA-PKCS1-v1_5', hash: { name: 'SHA-256' } },
         false, ['sign']
       );
     } catch (e: any) {
-      // Try with correct padding
-      const pad = (4 - (body.length % 4)) % 4;
-      const paddedBody = body + '='.repeat(pad);
-      const der2 = Buffer.from(paddedBody, 'base64');
-      const hexStart = der.slice(0, 16).toString('hex');
-      const tailChars = body.slice(-8).split('').map((c: string) => c.charCodeAt(0));
-      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length, der2Len: der2.length, hexStart, bodyLen: body.length, pad, tailChars });
+      return res.json({ ok: false, step: 'import_pkcs8', error: e.message, derLen: der.length, trimmedLen: trimmedDer.length, bodyLen: body.length });
     }
 
     try {
