@@ -260,7 +260,7 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
 
 async function startServer() {
   await initializeDatabase();
-  initDatabase();
+  await initDatabase();
   await seedDatabaseIfEmpty();
 
   if (process.env.NODE_ENV !== "production") {
