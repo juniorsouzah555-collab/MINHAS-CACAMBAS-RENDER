@@ -3,7 +3,7 @@ import {
   getFirestore, Firestore, collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, updateDoc, query, where, orderBy, limit, Timestamp, onSnapshot, Unsubscribe, DocumentData, QueryConstraint, or, and, writeBatch, increment
 } from 'firebase/firestore';
 import {
-  getAuth, Auth, signInWithEmailAndPassword, signOut as fbSignOut, createUserWithEmailAndPassword, updatePassword, sendEmailVerification, deleteUser as fbDeleteUser, User
+  getAuth, Auth, signInWithEmailAndPassword, signInAnonymously, signOut as fbSignOut, createUserWithEmailAndPassword, updatePassword, sendEmailVerification, deleteUser as fbDeleteUser, User
 } from 'firebase/auth';
 import {
   getStorage, FirebaseStorage, ref, uploadBytes, getDownloadURL, deleteObject
@@ -34,6 +34,6 @@ try {
 
 export { db, auth, storage };
 export {
-  collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, updateDoc, query, where, orderBy, limit, Timestamp, onSnapshot, signInWithEmailAndPassword, fbSignOut, createUserWithEmailAndPassword, updatePassword, sendEmailVerification, fbDeleteUser, ref, uploadBytes, getDownloadURL, deleteObject, or, and, writeBatch, increment
+  collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, updateDoc, query, where, orderBy, limit, Timestamp, onSnapshot, signInWithEmailAndPassword, signInAnonymously, fbSignOut, createUserWithEmailAndPassword, updatePassword, sendEmailVerification, fbDeleteUser, ref, uploadBytes, getDownloadURL, deleteObject, or, and, writeBatch, increment
 };
 export type { Firestore, Auth, Unsubscribe, DocumentData, User, FirebaseStorage };
