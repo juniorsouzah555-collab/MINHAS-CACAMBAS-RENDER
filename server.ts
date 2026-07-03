@@ -13,7 +13,7 @@ import { INITIAL_VEHICLES, INITIAL_FUEL_LOGS, INITIAL_ALERTS, INITIAL_INVOICES, 
 import { adminDb, adminAuth } from './api/lib/firebase-admin.ts';
 
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'relampago-jwt-secret-dev';
 const APP_PASSWORD = process.env.APP_PASSWORD || 'admin123';
