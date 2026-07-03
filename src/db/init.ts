@@ -1,4 +1,4 @@
-import { sqliteDb } from './index.ts';
+import { libsqlClient } from './index.ts';
 
 const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS bota_foras (id TEXT PRIMARY KEY, nome TEXT NOT NULL, cnpj TEXT NOT NULL, telefone TEXT NOT NULL, endereco TEXT NOT NULL, valor_padrao_descarte REAL, created_at TEXT)`,
@@ -27,11 +27,8 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS plano_contas (id TEXT PRIMARY KEY, codigo TEXT NOT NULL, nome TEXT NOT NULL, tipo TEXT NOT NULL, created_at TEXT)`,
 ];
 
-export function initDatabase() {
-  const sqlite = sqliteDb;
-  const result = sqlite.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='vehicles'`);
-  if (result.length > 0 && result[0].values.length > 0) return;
+export async function initDatabase() {
   for (const sql of CREATE_TABLES) {
-    sqlite.run(sql);
+    await libsqlClient.execute(sql);
   }
 }
