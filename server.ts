@@ -3,633 +3,332 @@ dotenv.config({ path: '.env.local' });
 import express from "express";
 import Groq from 'groq-sdk';
 import path from "path";
+import jwt from 'jsonwebtoken';
 import { createServer as createViteServer } from "vite";
-import { db } from './src/db/index.ts';
-
-const SUPABASE_URL = 'https://wxxyvsidghvidqbypmmp.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eHl2c2lkZ2h2aWRxYnlwbW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjE3MDk3NCwiZXhwIjoyMDk3NzQ2OTc0fQ.W-_oZBbh63zechy6uj43lHlTiqIqMIrTscyWxsT-_RI';
-import { 
-  vehicles as vehiclesTable, 
-  fuelLogs as fuelLogsTable, 
-  maintenanceAlerts as alertsTable, 
-  invoices as invoicesTable, 
-  dispatches as dispatchesTable, 
-  botaForas as botaForasTable, 
-  lancamentos as lancamentosTable 
-} from './src/db/schema.ts';
-import { count, eq } from 'drizzle-orm';
-
-// Mock initial data to seed database
-import { 
-  INITIAL_VEHICLES, 
-  INITIAL_FUEL_LOGS, 
-  INITIAL_ALERTS, 
-  INITIAL_INVOICES, 
-  INITIAL_DISPATCHES, 
-  INITIAL_BOTA_FORAS, 
-  INITIAL_LANCAMENTOS 
-} from './src/mockData.ts';
+import { db, initializeDatabase } from './src/db/index.ts';
+import { initDatabase } from './src/db/init.ts';
+import { count } from 'drizzle-orm';
+import { vehicles as vehiclesTable, fuelLogs as fuelLogsTable, maintenanceAlerts as alertsTable, invoices as invoicesTable, dispatches as dispatchesTable, botaForas as botaForasTable, lancamentos as lancamentosTable } from './src/db/schema.ts';
+import { INITIAL_VEHICLES, INITIAL_FUEL_LOGS, INITIAL_ALERTS, INITIAL_INVOICES, INITIAL_DISPATCHES, INITIAL_BOTA_FORAS, INITIAL_LANCAMENTOS } from './src/mockData.ts';
+import { adminDb, adminAuth } from './api/lib/firebase-admin.ts';
 
 const app = express();
 const PORT = 3000;
 
+const JWT_SECRET = process.env.JWT_SECRET || 'relampago-jwt-secret-dev';
+const APP_PASSWORD = process.env.APP_PASSWORD || 'admin123';
+
 app.use(express.json());
 
-// API controller paths
+function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token required' });
+  }
+  try {
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", database: "connected" });
+  res.json({ status: "ok", database: "sqlite" });
 });
 
-// In-memory database fallback when PostgreSQL connection is down/unconfigured
-let useMemoryDb = !process.env.SQL_HOST;
+app.post("/api/auth/login", (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  if (password !== APP_PASSWORD) return res.status(401).json({ error: 'Invalid password' });
+  const token = jwt.sign({ authenticated: true, time: Date.now() }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token });
+});
 
-const memoryVehicles = [...INITIAL_VEHICLES];
-const memoryFuelLogs = [...INITIAL_FUEL_LOGS];
-const memoryAlerts = [...INITIAL_ALERTS];
-const memoryInvoices = [...INITIAL_INVOICES];
-const memoryDispatches = [...INITIAL_DISPATCHES];
-const memoryBotaForas = [...INITIAL_BOTA_FORAS];
-const memoryLancamentos = [...INITIAL_LANCAMENTOS];
-
-// Seed database on demand or during startup if DB is empty
-async function seedDatabaseIfEmpty() {
-  if (useMemoryDb) {
-    console.log("Memory DB fallback active. Skipping Postgres seeding.");
-    return;
+app.get("/api/auth/check", (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.json({ valid: false });
+  try {
+    jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    res.json({ valid: true });
+  } catch {
+    res.json({ valid: false });
   }
+});
+
+async function seedDatabaseIfEmpty() {
   try {
     const counts = await db.select({ value: count() }).from(vehiclesTable);
     if (!counts || counts[0].value === 0) {
-      console.log("Database tables are empty. Seeding initial fleet data...");
-
-      // Seed Vehicles
+      console.log("Seeding initial fleet data...");
       for (const vehicle of INITIAL_VEHICLES) {
         await db.insert(vehiclesTable).values({
-          id: vehicle.id,
-          status: vehicle.status,
-          efficiency: vehicle.efficiency,
-          fuelUsed: vehicle.fuelUsed,
-          costPerKm: vehicle.costPerKm,
-          driver: vehicle.driver,
-          trend: JSON.stringify(vehicle.trend),
-          lastMaintenanceDate: vehicle.lastMaintenanceDate || null,
-          speed: vehicle.speed || 0,
-          lat: vehicle.lat,
-          lng: vehicle.lng,
-          isActive: vehicle.isActive,
-          type: vehicle.type || 'Caminhão',
-          initialKm: vehicle.initialKm || null,
+          id: vehicle.id, status: vehicle.status, efficiency: vehicle.efficiency,
+          fuelUsed: vehicle.fuelUsed, costPerKm: vehicle.costPerKm, driver: vehicle.driver,
+          trend: JSON.stringify(vehicle.trend), lastMaintenanceDate: vehicle.lastMaintenanceDate || null,
+          speed: vehicle.speed || 0, lat: vehicle.lat, lng: vehicle.lng,
+          isActive: vehicle.isActive, type: vehicle.type || 'Caminhão', initialKm: vehicle.initialKm || null,
         });
       }
-
-      // Seed Bota Foras
       for (const bf of INITIAL_BOTA_FORAS) {
         await db.insert(botaForasTable).values({
-          id: bf.id,
-          nome: bf.nome,
-          cnpj: bf.cnpj,
-          telefone: bf.telefone,
-          endereco: bf.endereco,
-          valorPadraoDescarte: bf.valorPadraoDescarte || null,
+          id: bf.id, nome: bf.nome, cnpj: bf.cnpj, telefone: bf.telefone,
+          endereco: bf.endereco, valorPadraoDescarte: bf.valorPadraoDescarte || null,
         });
       }
-
-      // Seed Lancamentos
       for (const lan of INITIAL_LANCAMENTOS) {
         await db.insert(lancamentosTable).values({
-          id: lan.id,
-          botaForaId: lan.botaForaId,
-          botaForaNome: lan.botaForaNome,
-          quantidadeCacambas: lan.quantidadeCacambas,
-          valor: lan.valor,
-          data: lan.data,
-          driverName: lan.driverName || null,
-          vehicleId: lan.vehicleId || null,
-          status: lan.status,
+          id: lan.id, botaForaId: lan.botaForaId, botaForaNome: lan.botaForaNome,
+          quantidadeCacambas: lan.quantidadeCacambas, valor: lan.valor, data: lan.data,
+          driverName: lan.driverName || null, vehicleId: lan.vehicleId || null, status: lan.status,
         });
       }
-
-      // Seed Fuel Logs
       for (const fuel of INITIAL_FUEL_LOGS) {
         await db.insert(fuelLogsTable).values({
-          id: fuel.id,
-          vehicleId: fuel.vehicleId,
-          quantidadeLitros: fuel.quantidadeLitros,
-          kmInicial: fuel.kmInicial || null,
-          kmFinal: fuel.kmFinal || null,
-          valorPago: fuel.valorPago,
-          data: fuel.data,
-          driver: fuel.driver || null,
-          mediaKmL: fuel.mediaKmL || null,
-          tipo: fuel.tipo || 'POSTO',
-          isRetiradaDiversa: fuel.isRetiradaDiversa || false,
+          id: fuel.id, vehicleId: fuel.vehicleId, quantidadeLitros: fuel.quantidadeLitros,
+          kmInicial: fuel.kmInicial || null, kmFinal: fuel.kmFinal || null, valorPago: fuel.valorPago,
+          data: fuel.data, driver: fuel.driver || null, mediaKmL: fuel.mediaKmL || null,
+          tipo: fuel.tipo || 'POSTO', isRetiradaDiversa: fuel.isRetiradaDiversa || false,
         });
       }
-
-      // Seed Invoices
       for (const inv of INITIAL_INVOICES) {
         await db.insert(invoicesTable).values({
-          id: inv.id,
-          clientName: inv.clientName,
-          entityCode: inv.entityCode,
-          serviceDesc: inv.serviceDesc,
-          issueDate: inv.issueDate,
-          dueDate: inv.dueDate,
-          amount: inv.amount,
-          status: inv.status,
+          id: inv.id, clientName: inv.clientName, entityCode: inv.entityCode,
+          serviceDesc: inv.serviceDesc, issueDate: inv.issueDate, dueDate: inv.dueDate,
+          amount: inv.amount, status: inv.status,
         });
       }
-
-      // Seed Dispatches
       for (const disp of INITIAL_DISPATCHES) {
         await db.insert(dispatchesTable).values({
-          id: disp.id,
-          vehicleId: disp.vehicleId,
-          driverName: disp.driverName,
-          clientName: disp.clientName,
-          origin: disp.origin,
-          destination: disp.destination,
-          payloadType: disp.payloadType,
-          weight: disp.weight,
-          status: disp.status,
+          id: disp.id, vehicleId: disp.vehicleId, driverName: disp.driverName,
+          clientName: disp.clientName, origin: disp.origin, destination: disp.destination,
+          payloadType: disp.payloadType, weight: disp.weight, status: disp.status,
         });
       }
-
-      // Seed Maintenance Alerts
       for (const alert of INITIAL_ALERTS) {
         await db.insert(alertsTable).values({
-          id: alert.id,
-          vehicleId: alert.vehicleId,
-          title: alert.title,
-          message: alert.message,
-          timeAgo: alert.timeAgo,
-          severity: alert.severity,
-          type: alert.type,
-          resolved: alert.resolved,
+          id: alert.id, vehicleId: alert.vehicleId, title: alert.title, message: alert.message,
+          timeAgo: alert.timeAgo, severity: alert.severity, type: alert.type, resolved: alert.resolved,
         });
       }
-
-      console.log("Database seeded successfully with initial fleet data!");
+      console.log("Database seeded successfully!");
     }
   } catch (error) {
-    console.error("Failed to seed database on startup, falling back to Memory DB:", error);
-    useMemoryDb = true;
+    console.error("Failed to seed database:", error);
   }
 }
 
-// REST Endpoints to synchronize state securely
-
-// Vehicles Endpoints
-app.get("/api/vehicles", async (req, res) => {
+app.post('/api/auth/signup', authMiddleware, async (req, res) => {
   try {
-    if (useMemoryDb) {
-      return res.json(memoryVehicles);
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ ok: false, error: 'email and password required' });
+    const user = await adminAuth.createUser({ email, password });
+    res.json({ ok: true, userId: user.uid });
+  } catch (e: any) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/auth/confirm-email', authMiddleware, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ ok: false });
+    const user = await adminAuth.getUserByEmail(email);
+    if (!user) return res.json({ ok: false });
+    await adminAuth.updateUser(user.uid, { emailVerified: true });
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
+});
+
+app.post('/api/auth/confirm-user', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ ok: false });
+    await adminAuth.updateUser(userId, { emailVerified: true });
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
+});
+
+app.post('/api/auth/delete-user', authMiddleware, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ ok: false });
+    const user = await adminAuth.getUserByEmail(email);
+    if (user) await adminAuth.deleteUser(user.uid);
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
+});
+
+app.post('/api/auth/update-password', authMiddleware, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ ok: false });
+    const user = await adminAuth.getUserByEmail(email);
+    if (!user) return res.json({ ok: false });
+    await adminAuth.updateUser(user.uid, { password });
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
+});
+
+app.post('/api/auth/link-driver', authMiddleware, async (req, res) => {
+  try {
+    const { email, linkedDriver } = req.body;
+    if (!email || !linkedDriver) return res.status(400).json({ ok: false });
+    const user = await adminAuth.getUserByEmail(email);
+    if (user) {
+      await adminAuth.updateUser(user.uid, { displayName: linkedDriver });
     }
-    const list = await db.select().from(vehiclesTable);
-    const parsed = list.map(v => ({
-      ...v,
-      trend: v.trend ? JSON.parse(v.trend) : []
-    }));
-    res.json(parsed);
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
+});
+
+app.post('/api/proxy', authMiddleware, async (req, res) => {
+  try {
+    const { table, action, data, filter } = req.body;
+    if (!table || !action) return res.status(400).json({ error: 'table and action required' });
+
+    if (action === 'insert' && data) {
+      const id = data.id || crypto.randomUUID();
+      await adminDb.collection(table).doc(id).set(data);
+      return res.json({ success: true, id });
+    }
+
+    if (action === 'update' && data) {
+      const id = filter?.split('=')[1] || data.id;
+      if (!id) return res.status(400).json({ error: 'id required for update' });
+      await adminDb.collection(table).doc(id).set(data);
+      return res.json({ success: true });
+    }
+
+    if (action === 'delete') {
+      const id = filter?.split('=')[1];
+      if (!id) return res.status(400).json({ error: 'id required for delete' });
+      await adminDb.collection(table).doc(id).delete();
+      return res.json({ success: true });
+    }
+
+    res.status(400).json({ error: 'invalid action' });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.post("/api/vehicles", async (req, res) => {
+app.get("/api/vehicles", authMiddleware, async (req, res) => {
+  try {
+    const list = await db.select().from(vehiclesTable);
+    const parsed = list.map(v => ({ ...v, trend: v.trend ? JSON.parse(v.trend) : [] }));
+    res.json(parsed);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/vehicles", authMiddleware, async (req, res) => {
   try {
     const v = req.body;
-    if (useMemoryDb) {
-      const idx = memoryVehicles.findIndex(item => item.id === v.id);
-      if (idx !== -1) {
-        memoryVehicles[idx] = { ...memoryVehicles[idx], ...v };
-      } else {
-        memoryVehicles.push(v);
-      }
-      return res.json({ success: true, vehicle: v });
-    }
     await db.insert(vehiclesTable).values({
-      id: v.id,
-      status: v.status || 'Available',
-      efficiency: Number(v.efficiency) || 0,
-      fuelUsed: Number(v.fuelUsed) || 0,
-      costPerKm: Number(v.costPerKm) || 0,
-      driver: v.driver || 'Não Atribuído',
-      trend: JSON.stringify(v.trend || []),
-      lastMaintenanceDate: v.lastMaintenanceDate || null,
-      speed: Number(v.speed) || 0,
-      lat: Number(v.lat) || 0,
-      lng: Number(v.lng) || 0,
-      isActive: v.isActive !== false,
-      type: v.type || 'Caminhão',
-      initialKm: Number(v.initialKm) || 0,
+      id: v.id, status: v.status || 'Available', efficiency: Number(v.efficiency) || 0,
+      fuelUsed: Number(v.fuelUsed) || 0, costPerKm: Number(v.costPerKm) || 0,
+      driver: v.driver || 'Não Atribuído', trend: JSON.stringify(v.trend || []),
+      lastMaintenanceDate: v.lastMaintenanceDate || null, speed: Number(v.speed) || 0,
+      lat: Number(v.lat) || 0, lng: Number(v.lng) || 0, isActive: v.isActive !== false,
+      type: v.type || 'Caminhão', initialKm: Number(v.initialKm) || 0,
     });
     res.json({ success: true, vehicle: v });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Bota Foras Endpoints
-app.get("/api/botaforas", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryBotaForas);
-    }
-    const list = await db.select().from(botaForasTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/botaforas", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(botaForasTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/botaforas", async (req, res) => {
+app.post("/api/botaforas", authMiddleware, async (req, res) => {
   try {
     const bf = req.body;
-    if (useMemoryDb) {
-      memoryBotaForas.push(bf);
-      return res.json({ success: true, botafora: bf });
-    }
     await db.insert(botaForasTable).values({
-      id: bf.id,
-      nome: bf.nome,
-      cnpj: bf.cnpj,
-      telefone: bf.telefone,
-      endereco: bf.endereco,
+      id: bf.id, nome: bf.nome, cnpj: bf.cnpj, telefone: bf.telefone, endereco: bf.endereco,
       valorPadraoDescarte: bf.valorPadraoDescarte ? Number(bf.valorPadraoDescarte) : null,
     });
     res.json({ success: true, botafora: bf });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Lancamentos Endpoints
-app.get("/api/lancamentos", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryLancamentos);
-    }
-    const list = await db.select().from(lancamentosTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/lancamentos", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(lancamentosTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/lancamentos", async (req, res) => {
+app.post("/api/lancamentos", authMiddleware, async (req, res) => {
   try {
     const lan = req.body;
-    if (useMemoryDb) {
-      memoryLancamentos.push(lan);
-      if (lan.vehicleId) {
-        const vehicle = memoryVehicles.find(v => v.id === lan.vehicleId);
-        if (vehicle) {
-          vehicle.status = 'In Transit';
-          vehicle.speed = 55;
-          vehicle.lat = Math.floor(100 + Math.random() * 150);
-          vehicle.lng = Math.floor(250 + Math.random() * 600);
-        }
-      }
-      return res.json({ success: true, lancamento: lan });
-    }
     await db.insert(lancamentosTable).values({
-      id: lan.id,
-      botaForaId: lan.botaForaId,
-      botaForaNome: lan.botaForaNome,
-      quantidadeCacambas: Number(lan.quantidadeCacambas),
-      valor: Number(lan.valor),
-      data: lan.data,
-      driverName: lan.driverName || null,
-      vehicleId: lan.vehicleId || null,
-      status: lan.status || 'Concluido',
-      lat: lan.lat !== undefined ? Number(lan.lat) : null,
+      id: lan.id, botaForaId: lan.botaForaId, botaForaNome: lan.botaForaNome,
+      quantidadeCacambas: Number(lan.quantidadeCacambas), valor: Number(lan.valor), data: lan.data,
+      driverName: lan.driverName || null, vehicleId: lan.vehicleId || null,
+      status: lan.status || 'Concluido', lat: lan.lat !== undefined ? Number(lan.lat) : null,
       lng: lan.lng !== undefined ? Number(lan.lng) : null,
     });
     res.json({ success: true, lancamento: lan });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Fuel Logs Endpoints
-app.get("/api/fuel-logs", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryFuelLogs);
-    }
-    const list = await db.select().from(fuelLogsTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/fuel-logs", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(fuelLogsTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/fuel-logs", async (req, res) => {
+app.post("/api/fuel-logs", authMiddleware, async (req, res) => {
   try {
     const f = req.body;
-    if (useMemoryDb) {
-      memoryFuelLogs.push(f);
-      return res.json({ success: true, log: f });
-    }
     await db.insert(fuelLogsTable).values({
-      id: f.id,
-      vehicleId: f.vehicleId,
-      quantidadeLitros: Number(f.quantidadeLitros),
+      id: f.id, vehicleId: f.vehicleId, quantidadeLitros: Number(f.quantidadeLitros),
       kmInicial: f.kmInicial ? Number(f.kmInicial) : null,
-      kmFinal: f.kmFinal ? Number(f.kmFinal) : null,
-      valorPago: Number(f.valorPago),
-      data: f.data,
-      driver: f.driver || null,
-      mediaKmL: f.mediaKmL ? Number(f.mediaKmL) : null,
-      tipo: f.tipo || 'POSTO',
-      isRetiradaDiversa: f.isRetiradaDiversa || false,
-      lat: f.lat !== undefined ? Number(f.lat) : null,
-      lng: f.lng !== undefined ? Number(f.lng) : null,
+      kmFinal: f.kmFinal ? Number(f.kmFinal) : null, valorPago: Number(f.valorPago), data: f.data,
+      driver: f.driver || null, mediaKmL: f.mediaKmL ? Number(f.mediaKmL) : null,
+      tipo: f.tipo || 'POSTO', isRetiradaDiversa: f.isRetiradaDiversa || false,
+      lat: f.lat !== undefined ? Number(f.lat) : null, lng: f.lng !== undefined ? Number(f.lng) : null,
     });
     res.json({ success: true, log: f });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Alerts Endpoints
-app.get("/api/alerts", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryAlerts);
-    }
-    const list = await db.select().from(alertsTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/alerts", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(alertsTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Invoices Endpoints
-app.get("/api/invoices", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryInvoices);
-    }
-    const list = await db.select().from(invoicesTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/invoices", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(invoicesTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/invoices", async (req, res) => {
+app.post("/api/invoices", authMiddleware, async (req, res) => {
   try {
     const inv = req.body;
-    if (useMemoryDb) {
-      memoryInvoices.push(inv);
-      return res.json({ success: true, invoice: inv });
-    }
     await db.insert(invoicesTable).values({
-      id: inv.id,
-      clientName: inv.clientName,
-      entityCode: inv.entityCode,
-      serviceDesc: inv.serviceDesc,
-      issueDate: inv.issueDate,
-      dueDate: inv.dueDate,
-      amount: Number(inv.amount),
-      status: inv.status || 'PENDING',
+      id: inv.id, clientName: inv.clientName, entityCode: inv.entityCode,
+      serviceDesc: inv.serviceDesc, issueDate: inv.issueDate, dueDate: inv.dueDate,
+      amount: Number(inv.amount), status: inv.status || 'PENDING',
     });
     res.json({ success: true, invoice: inv });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Dispatched Endpoints
-app.get("/api/dispatches", async (req, res) => {
-  try {
-    if (useMemoryDb) {
-      return res.json(memoryDispatches);
-    }
-    const list = await db.select().from(dispatchesTable);
-    res.json(list);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+app.get("/api/dispatches", authMiddleware, async (req, res) => {
+  try { res.json(await db.select().from(dispatchesTable)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/dispatches", async (req, res) => {
+app.post("/api/dispatches", authMiddleware, async (req, res) => {
   try {
     const d = req.body;
-    if (useMemoryDb) {
-      memoryDispatches.push(d);
-      const vehicle = memoryVehicles.find(v => v.id === d.vehicleId);
-      if (vehicle) {
-        vehicle.status = 'In Transit';
-        vehicle.speed = 62;
-        vehicle.lat = Math.floor(100 + Math.random() * 150);
-        vehicle.lng = Math.floor(250 + Math.random() * 600);
-      }
-      return res.json({ success: true, dispatch: d });
-    }
     await db.insert(dispatchesTable).values({
-      id: d.id,
-      vehicleId: d.vehicleId,
-      driverName: d.driverName,
-      clientName: d.clientName,
-      origin: d.origin,
-      destination: d.destination,
-      payloadType: d.payloadType,
-      weight: Number(d.weight),
-      status: d.status || 'Assigned',
+      id: d.id, vehicleId: d.vehicleId, driverName: d.driverName, clientName: d.clientName,
+      origin: d.origin, destination: d.destination, payloadType: d.payloadType,
+      weight: Number(d.weight), status: d.status || 'Assigned',
     });
     res.json({ success: true, dispatch: d });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Auth API endpoints (proxy for Supabase Admin API) ───
-
-// Busca um usuário pelo email na lista de usuários do Supabase Auth
-async function getUserIdByEmail(email: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const user = (data?.users || []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
-    return user?.id || null;
-  } catch { return null; }
-}
-
-// Endpoint: confirmar email de um usuário (por email — faz lookup)
-app.post('/api/auth/confirm-email', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
-  try {
-    const userId = await getUserIdByEmail(email);
-    if (!userId) return res.json({ ok: false, error: 'Usuário não encontrado no Auth' });
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ email_confirm: true })
-    });
-    res.json({ ok: r.ok });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Endpoint: criar usuário já confirmado via Admin API (não depende de SMTP)
-app.post('/api/auth/signup', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-  try {
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ email, password, email_confirm: true })
-    });
-    const data = await r.json();
-    res.json({ ok: r.ok, userId: data?.id || null, error: data?.msg || null });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Endpoint: deletar um usuário de user_approvals (usa service_role, sem RLS)
-app.post('/api/auth/delete-user', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/user_approvals?email=eq.${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'Prefer': 'return=minimal'
-      }
-    });
-    res.json({ ok: r.ok });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Endpoint: confirmar email por userId (mais confiável, sem lookup)
-app.post('/api/auth/confirm-user', async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
-  try {
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ email_confirm: true })
-    });
-    res.json({ ok: r.ok });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Endpoint: atualizar senha + confirmar email
-app.post('/api/auth/update-password', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-  try {
-    const userId = await getUserIdByEmail(email);
-    if (!userId) return res.json({ ok: false, error: 'Usuário não encontrado no Auth' });
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
-      },
-      body: JSON.stringify({ password, email_confirm: true })
-    });
-    res.json({ ok: r.ok });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── Bancário: Patrimônio ───
-interface PatrimonioItem {
-  id: string; nome: string; tipo: string; dataAquisicao: string;
-  valorAquisicao: number; valorResidual: number; vidaUtil: number;
-  depreciacaoAnual: number; depreciacaoAcumulada: number; valorContabil: number;
-  localizacao?: string; observacao?: string; createdAt: string;
-}
-const memoryPatrimonio: PatrimonioItem[] = [];
-
-app.get('/api/bancario/patrimonio', (req, res) => res.json(memoryPatrimonio));
-app.post('/api/bancario/patrimonio', (req, res) => {
-  const p: PatrimonioItem = { ...req.body };
-  memoryPatrimonio.push(p);
-  res.json({ success: true, item: p });
-});
-app.delete('/api/bancario/patrimonio/:id', (req, res) => {
-  const idx = memoryPatrimonio.findIndex(p => p.id === req.params.id);
-  if (idx !== -1) memoryPatrimonio.splice(idx, 1);
-  res.json({ success: true });
-});
-
-// ─── Bancário: Planos ───
-interface PlanoItem {
-  id: string; descricao: string; instituicao?: string;
-  valorTotal: number; numeroParcelas: number; parcelasPagas: number;
-  valorParcela: number; dataInicio: string; dataFim?: string;
-  categoria?: string; subcategoria?: string;
-  status: string; mostrarDashboard: boolean; createdAt: string;
-}
-const memoryPlanos: PlanoItem[] = [];
-
-app.get('/api/bancario/planos', (req, res) => res.json(memoryPlanos));
-app.post('/api/bancario/planos', (req, res) => {
-  const p: PlanoItem = { ...req.body };
-  memoryPlanos.push(p);
-  res.json({ success: true, plano: p });
-});
-app.delete('/api/bancario/planos/:id', (req, res) => {
-  const idx = memoryPlanos.findIndex(p => p.id === req.params.id);
-  if (idx !== -1) memoryPlanos.splice(idx, 1);
-  res.json({ success: true });
-});
-
-// ─── Bancário: Clientes ───
-interface ClienteItem {
-  id: string; tipo: string; nome: string; documento: string;
-  telefone: string; email?: string; endereco?: string;
-  observacao?: string; createdAt: string;
-}
-const memoryClientes: ClienteItem[] = [];
-
-app.get('/api/bancario/clientes', (req, res) => res.json(memoryClientes));
-app.post('/api/bancario/clientes', (req, res) => {
-  const c: ClienteItem = { ...req.body };
-  memoryClientes.push(c);
-  res.json({ success: true, cliente: c });
-});
-app.delete('/api/bancario/clientes/:id', (req, res) => {
-  const idx = memoryClientes.findIndex(c => c.id === req.params.id);
-  if (idx !== -1) memoryClientes.splice(idx, 1);
-  res.json({ success: true });
-});
-
-// ─── Bancário: Categorização local + IA ───
-// Mapa de palavras-chave → categoria/subcategoria/centro de custo
 const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string; centroCusto?: string }[] = [
   { words: ['combustivel', 'diesel', 'gasolina', 'etanol', 'abastec', 'posto', 'shell', 'ipiranga', 'br'], categoria: 'Combustível', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
   { words: ['manutencao', 'oficina', 'mecanico', 'peca', 'pneu', 'oleo', 'troca oleo', 'filtro', 'suspensao', 'freio'], categoria: 'Manutenção de Frota', centroCusto: 'Frota' },
@@ -666,15 +365,12 @@ function localCategorize(descricao: string): { categoria: string; subcategoria: 
   return { categoria: 'PENDENTE', subcategoria: null, centroCusto: null };
 }
 
-app.post('/api/bancario/categorize', async (req, res) => {
+app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
   const { transacoes, categorias: catsList, subcategorias: subsList, centrosCusto: ccsList } = req.body;
   if (!transacoes || !Array.isArray(transacoes) || transacoes.length === 0) {
     return res.status(400).json({ error: 'transacoes array is required' });
   }
-
   const cache = new Map<string, { categoria: string; subcategoria: string | null; centroCusto: string | null }>();
-
-  // Tenta Groq (6000 req/min, limite generoso)
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     try {
@@ -682,27 +378,9 @@ app.post('/api/bancario/categorize', async (req, res) => {
       const catsStr = (catsList || []).join(',') || 'N/A';
       const subsStr = (subsList || []).join(',') || 'N/A';
       const ccsStr = (ccsList || []).join(',') || 'N/A';
-
-      const batchPrompt = transacoes.map((t: any) =>
-        `ID:${t.id} | "${t.descricao}" | R$${t.valor} | ${t.tipo}`
-      ).join('\n');
-
-      const systemPrompt = `Você é um categorizador financeiro brasileiro. Para cada transação, responda APENAS um JSON array de objetos com {id, c, s, cc}.
-c = categoria (escolha entre: ${catsStr})
-s = subcategoria (escolha entre: ${subsStr}) ou null
-cc = centro de custo (escolha entre: ${ccsStr}) ou null
-Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
-
-      const response = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: batchPrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 4096,
-      });
-
+      const batchPrompt = transacoes.map((t: any) => `ID:${t.id} | "${t.descricao}" | R$${t.valor} | ${t.tipo}`).join('\n');
+      const systemPrompt = `Você é um categorizador financeiro brasileiro. Para cada transação, responda APENAS um JSON array de objetos com {id, c, s, cc}. c = categoria (escolha entre: ${catsStr}) s = subcategoria (escolha entre: ${subsStr}) ou null cc = centro de custo (escolha entre: ${ccsStr}) ou null Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
+      const response = await groq.chat.completions.create({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: batchPrompt }], temperature: 0.1, max_tokens: 4096 });
       const rawText = response.choices?.[0]?.message?.content || '';
       if (rawText) {
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
@@ -711,21 +389,13 @@ Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
           for (const item of parsed) {
             if (item.id && item.c) {
               const key = (transacoes.find((t: any) => t.id === item.id)?.descricao || '').toLowerCase().trim();
-              cache.set(key, {
-                categoria: item.c !== 'PENDENTE' ? item.c : 'PENDENTE',
-                subcategoria: item.s || null,
-                centroCusto: item.cc || null,
-              });
+              cache.set(key, { categoria: item.c !== 'PENDENTE' ? item.c : 'PENDENTE', subcategoria: item.s || null, centroCusto: item.cc || null });
             }
           }
         }
       }
-    } catch (e) {
-      console.error('[GROQ] error, falling back to local:', (e as any)?.message || e);
-    }
+    } catch (e) { console.error('[GROQ] error, falling back to local:', (e as any)?.message || e); }
   }
-
-  // Preenche o que faltou com matching local
   const results = transacoes.map((t: any) => {
     const key = (t.descricao || '').toLowerCase().trim();
     if (cache.has(key)) return { id: t.id, ...cache.get(key)! };
@@ -733,15 +403,37 @@ Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
     cache.set(key, result);
     return { id: t.id, ...result };
   });
-
   res.json({ results });
 });
 
+const bancarioItems: Record<string, any[]> = {
+  patrimonio: [], planos: [], clientes: [],
+};
+
+app.get('/api/bancario/:tipo', authMiddleware, (req, res) => {
+  res.json(bancarioItems[req.params.tipo] || []);
+});
+
+app.post('/api/bancario/:tipo', authMiddleware, (req, res) => {
+  const tipo = req.params.tipo;
+  if (!bancarioItems[tipo]) bancarioItems[tipo] = [];
+  bancarioItems[tipo].push(req.body);
+  res.json({ success: true, item: req.body });
+});
+
+app.delete('/api/bancario/:tipo/:id', authMiddleware, (req, res) => {
+  const tipo = req.params.tipo;
+  if (bancarioItems[tipo]) {
+    bancarioItems[tipo] = bancarioItems[tipo].filter((p: any) => p.id !== req.params.id);
+  }
+  res.json({ success: true });
+});
+
 async function startServer() {
-  // Call seeder
+  await initializeDatabase();
+  initDatabase();
   await seedDatabaseIfEmpty();
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

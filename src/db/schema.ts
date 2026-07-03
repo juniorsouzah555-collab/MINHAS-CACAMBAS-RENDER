@@ -1,27 +1,16 @@
-import { integer, pgTable, serial, text, timestamp, real, boolean } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
-// Define the 'users' table.
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  uid: text('uid').notNull().unique(), // Firebase Auth UID
-  email: text('email').notNull(),
-  role: text('role').default('Operador de Frota'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-// Define 'bota_foras' table
-export const botaForas = pgTable('bota_foras', {
+export const botaForas = sqliteTable('bota_foras', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),
   cnpj: text('cnpj').notNull(),
   telefone: text('telefone').notNull(),
   endereco: text('endereco').notNull(),
   valorPadraoDescarte: real('valor_padrao_descarte'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
 
-// Define 'lancamentos' table
-export const lancamentos = pgTable('lancamentos', {
+export const lancamentos = sqliteTable('lancamentos', {
   id: text('id').primaryKey(),
   botaForaId: text('bota_fora_id').notNull(),
   botaForaNome: text('bota_fora_nome').notNull(),
@@ -30,36 +19,34 @@ export const lancamentos = pgTable('lancamentos', {
   data: text('data').notNull(),
   driverName: text('driver_name'),
   vehicleId: text('vehicle_id'),
-  status: text('status').notNull(), // 'Pendente' | 'Concluido'
-  createdAt: timestamp('created_at').defaultNow(),
+  status: text('status').notNull(),
+  createdAt: text('created_at'),
   lat: real('lat'),
   lng: real('lng'),
   observacao: text('observacao'),
-  pago: boolean('pago').default(false),
+  pago: integer('pago', { mode: 'boolean' }).default(false),
   valorPago: real('valor_pago'),
   dataPagamento: text('data_pagamento'),
 });
 
-// Define 'vehicles' table
-export const vehicles = pgTable('vehicles', {
+export const vehicles = sqliteTable('vehicles', {
   id: text('id').primaryKey(),
-  status: text('status').notNull(), // 'In Transit' | 'Loading' | 'Maintenance' | 'Available'
+  status: text('status').notNull(),
   efficiency: real('efficiency').notNull(),
   fuelUsed: real('fuel_used').notNull(),
   costPerKm: real('cost_per_km').notNull(),
   driver: text('driver').notNull(),
-  trend: text('trend'), // Stringified JSON array of numbers
+  trend: text('trend'),
   lastMaintenanceDate: text('last_maintenance_date'),
   speed: integer('speed'),
   lat: real('lat').notNull(),
   lng: real('lng').notNull(),
-  isActive: boolean('is_active').default(true).notNull(),
-  type: text('type'), // 'Caminhão' | 'Veículo'
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  type: text('type'),
   initialKm: integer('initial_km'),
 });
 
-// Define 'fuel_logs' table
-export const fuelLogs = pgTable('fuel_logs', {
+export const fuelLogs = sqliteTable('fuel_logs', {
   id: text('id').primaryKey(),
   vehicleId: text('vehicle_id').notNull(),
   quantidadeLitros: real('quantidade_litros').notNull(),
@@ -69,28 +56,26 @@ export const fuelLogs = pgTable('fuel_logs', {
   data: text('data').notNull(),
   driver: text('driver'),
   mediaKmL: real('media_km_l'),
-  tipo: text('tipo'), // 'POSTO' | 'GARAGEM'
-  isRetiradaDiversa: boolean('is_retirada_diversa').default(false),
+  tipo: text('tipo'),
+  isRetiradaDiversa: integer('is_retirada_diversa', { mode: 'boolean' }).default(false),
   lat: real('lat'),
   lng: real('lng'),
   observacao: text('observacao'),
   fotoNota: text('foto_nota'),
 });
 
-// Define 'maintenance_alerts' table
-export const maintenanceAlerts = pgTable('maintenance_alerts', {
+export const maintenanceAlerts = sqliteTable('maintenance_alerts', {
   id: text('id').primaryKey(),
   vehicleId: text('vehicle_id').notNull(),
   title: text('title').notNull(),
   message: text('message').notNull(),
   timeAgo: text('time_ago').notNull(),
-  severity: text('severity').notNull(), // 'critical' | 'warning' | 'info'
-  type: text('type').notNull(), // 'engine' | 'tire' | 'oil' | 'general'
-  resolved: boolean('resolved').default(false).notNull(),
+  severity: text('severity').notNull(),
+  type: text('type').notNull(),
+  resolved: integer('resolved', { mode: 'boolean' }).default(false).notNull(),
 });
 
-// Define 'invoices' table
-export const invoices = pgTable('invoices', {
+export const invoices = sqliteTable('invoices', {
   id: text('id').primaryKey(),
   clientName: text('client_name').notNull(),
   entityCode: text('entity_code').notNull(),
@@ -98,11 +83,10 @@ export const invoices = pgTable('invoices', {
   issueDate: text('issue_date').notNull(),
   dueDate: text('due_date').notNull(),
   amount: real('amount').notNull(),
-  status: text('status').notNull(), // 'PENDING' | 'OVERDUE' | 'DRAFT' | 'PAID'
+  status: text('status').notNull(),
 });
 
-// Define 'dispatches' table
-export const dispatches = pgTable('dispatches', {
+export const dispatches = sqliteTable('dispatches', {
   id: text('id').primaryKey(),
   vehicleId: text('vehicle_id').notNull(),
   driverName: text('driver_name').notNull(),
@@ -111,32 +95,29 @@ export const dispatches = pgTable('dispatches', {
   destination: text('destination').notNull(),
   payloadType: text('payload_type').notNull(),
   weight: real('weight').notNull(),
-  status: text('status').notNull(), // 'Assigned' | 'In Transit' | 'Completed'
-  createdAt: timestamp('created_at').defaultNow(),
+  status: text('status').notNull(),
+  createdAt: text('created_at'),
 });
 
-// Define 'motoristas' table
-export const motoristas = pgTable('motoristas', {
-  id: serial('id').primaryKey(),
+export const motoristas = sqliteTable('motoristas', {
+  id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
   nome: text('nome').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
 
-// Define 'comissoes' table
-export const comissoes = pgTable('comissoes', {
+export const comissoes = sqliteTable('comissoes', {
   id: text('id').primaryKey(),
   motorista: text('motorista').notNull(),
   vaziasColocadas: integer('vazias_colocadas'),
   retiradas: integer('retiradas'),
   data: text('data').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
 
-// Define 'manutencoes' table
-export const manutencoes = pgTable('manutencoes', {
+export const manutencoes = sqliteTable('manutencoes', {
   id: text('id').primaryKey(),
   vehicleId: text('vehicle_id').notNull(),
-  tipo: text('tipo').notNull(), // 'Preventiva' | 'Corretiva' | 'Elétrica' | 'Mecânica' | 'Pneus' | 'Óleo' | 'Outro'
+  tipo: text('tipo').notNull(),
   descricao: text('descricao').notNull(),
   data: text('data').notNull(),
   kmAtual: integer('km_atual'),
@@ -144,38 +125,36 @@ export const manutencoes = pgTable('manutencoes', {
   custo: real('custo').notNull(),
   oficina: text('oficina').notNull(),
   observacao: text('observacao'),
-  status: text('status').notNull(), // 'Pendente' | 'Em Andamento' | 'Concluído'
-  createdAt: timestamp('created_at').defaultNow(),
+  status: text('status').notNull(),
+  createdAt: text('created_at'),
 });
 
-// Define 'user_approvals' table
-export const userApprovals = pgTable('user_approvals', {
-  id: serial('id').primaryKey(),
+export const userApprovals = sqliteTable('user_approvals', {
+  id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
   email: text('email').notNull().unique(),
   name: text('name'),
   role: text('role').default('Operador de Frota'),
   status: text('status').default('Ativo'),
   linkedDriver: text('linked_driver'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
 
-// ─── MÓDULO BANCÁRIO ─────────────────────────────────────
-export const gruposConta = pgTable('grupos_conta', {
+export const gruposConta = sqliteTable('grupos_conta', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),
   tipo: text('tipo').notNull(),
 });
-export const categoriasConta = pgTable('categorias_conta', {
+export const categoriasConta = sqliteTable('categorias_conta', {
   id: text('id').primaryKey(),
   grupoId: text('grupo_id').notNull(),
   nome: text('nome').notNull(),
 });
-export const subcategoriasConta = pgTable('subcategorias_conta', {
+export const subcategoriasConta = sqliteTable('subcategorias_conta', {
   id: text('id').primaryKey(),
   categoriaId: text('categoria_id').notNull(),
   nome: text('nome').notNull(),
 });
-export const importacoesExtrato = pgTable('importacoes_extrato', {
+export const importacoesExtrato = sqliteTable('importacoes_extrato', {
   id: text('id').primaryKey(),
   nomeArquivo: text('nome_arquivo').notNull(),
   banco: text('banco').notNull(),
@@ -185,9 +164,9 @@ export const importacoesExtrato = pgTable('importacoes_extrato', {
   categorizadas: integer('categorizadas').notNull().default(0),
   pendentes: integer('pendentes').notNull().default(0),
   status: text('status').notNull().default('PROCESSANDO'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
-export const extratoTransacoes = pgTable('extrato_transacoes', {
+export const extratoTransacoes = sqliteTable('extrato_transacoes', {
   id: text('id').primaryKey(),
   data: text('data').notNull(),
   descricao: text('descricao').notNull(),
@@ -200,17 +179,17 @@ export const extratoTransacoes = pgTable('extrato_transacoes', {
   status: text('status').notNull().default('PENDENTE'),
   importacaoId: text('importacao_id').notNull(),
   observacao: text('observacao'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
-export const centrosCusto = pgTable('centros_custo', {
+export const centrosCusto = sqliteTable('centros_custo', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),
   codigo: text('codigo').notNull(),
   descricao: text('descricao'),
-  ativo: boolean('ativo').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  ativo: integer('ativo', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: text('created_at'),
 });
-export const conciliacoes = pgTable('conciliacoes', {
+export const conciliacoes = sqliteTable('conciliacoes', {
   id: text('id').primaryKey(),
   transacaoId: text('transacao_id').notNull(),
   lancamentoId: text('lancamento_id'),
@@ -218,17 +197,17 @@ export const conciliacoes = pgTable('conciliacoes', {
   valor: real('valor').notNull(),
   status: text('status').notNull().default('PENDENTE'),
   observacao: text('observacao'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
-export const regrasCategorizacao = pgTable('regras_categorizacao', {
+export const regrasCategorizacao = sqliteTable('regras_categorizacao', {
   id: text('id').primaryKey(),
   padrao: text('padrao').notNull(),
   categoria: text('categoria').notNull(),
   subcategoria: text('subcategoria'),
   centroCustoId: text('centro_custo_id'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
-export const patrimonio = pgTable('patrimonio', {
+export const patrimonio = sqliteTable('patrimonio', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),
   tipo: text('tipo').notNull(),
@@ -241,9 +220,9 @@ export const patrimonio = pgTable('patrimonio', {
   valorContabil: real('valor_contabil').notNull().default(0),
   localizacao: text('localizacao'),
   observacao: text('observacao'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });
-export const planosPagamento = pgTable('planos_pagamento', {
+export const planosPagamento = sqliteTable('planos_pagamento', {
   id: text('id').primaryKey(),
   descricao: text('descricao').notNull(),
   instituicao: text('instituicao'),
@@ -256,10 +235,10 @@ export const planosPagamento = pgTable('planos_pagamento', {
   categoria: text('categoria'),
   subcategoria: text('subcategoria'),
   status: text('status').notNull().default('ATIVO'),
-  mostrarDashboard: boolean('mostrar_dashboard').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
+  mostrarDashboard: integer('mostrar_dashboard', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at'),
 });
-export const clientes = pgTable('clientes', {
+export const clientes = sqliteTable('clientes', {
   id: text('id').primaryKey(),
   tipo: text('tipo').notNull(),
   nome: text('nome').notNull(),
@@ -268,5 +247,5 @@ export const clientes = pgTable('clientes', {
   email: text('email'),
   endereco: text('endereco'),
   observacao: text('observacao'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at'),
 });

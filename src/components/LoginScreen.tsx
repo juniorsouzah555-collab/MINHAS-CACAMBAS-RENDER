@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Lock, 
   Mail, 
@@ -9,7 +9,6 @@ import {
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
@@ -23,25 +22,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const isConfigured = isSupabaseConfigured();
-
-  // Cleanup: remove de relampago_invited_drivers quem nao esta em relampago_system_users
-  useEffect(() => {
-    try {
-      const invitedRaw = localStorage.getItem('relampago_invited_drivers');
-      const systemRaw = localStorage.getItem('relampago_system_users');
-      if (invitedRaw && systemRaw) {
-        const invited = JSON.parse(invitedRaw);
-        const system = JSON.parse(systemRaw);
-        const systemEmails = new Set(system.map((u: any) => u.email?.toLowerCase().trim()));
-        const filtered = invited.filter((d: any) => systemEmails.has(d.email?.toLowerCase().trim()));
-        if (filtered.length !== invited.length) {
-          localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
-        }
-      }
-    } catch {}
-  }, []);
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -52,94 +32,44 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
 
     setIsLoading(true);
-
     const normEmail = email.trim().toLowerCase();
 
-    // 1. Tenta login via Supabase (funciona se email já foi confirmado)
-    if (isConfigured) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normEmail,
-        password: password,
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
       });
 
-      if (!error && data?.user) {
-        // Verifica se o usuario existe no user_approvals (pode ter sido excluido)
-        if (normEmail !== 'jrodrigues138@gmail.com') {
-          try {
-            const { data: approvalRecord } = await supabase
-              .from('user_approvals')
-              .select('*')
-              .eq('email', normEmail)
-              .maybeSingle();
-            if (!approvalRecord) {
-              await supabase.auth.signOut();
-              setIsLoading(false);
-              setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
-              return;
-            }
-            let role = approvalRecord.role || 'Operador de Frota';
-            setIsLoading(false);
-            onLoginSuccess(normEmail, role);
-            return;
-          } catch {
-            setIsLoading(false);
-            setErrorMsg('Erro ao verificar usuario. Tente novamente.');
-            return;
-          }
-        }
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('relampago_token', data.token);
+        const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Operador de Frota';
         setIsLoading(false);
-        onLoginSuccess(normEmail, 'Administrador Geral');
+        onLoginSuccess(normEmail, role);
         return;
       }
+    } catch {}
 
-      // Fallback desativado por segurança:
-      // Antes, qualquer senha funcionava pois o código abaixo redefinia a senha
-      // do usuário no Auth automaticamente. Agora, se o login falhar, o usuário
-      // deve usar "Recuperar senha?" ou ser convidado pelo administrador.
-    }
-
-    // 2. Fallback: contas demo fixas
     const isDemo = 
       (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') ||
       (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
 
     if (isDemo) {
       const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Motorista';
+      localStorage.setItem('relampago_token', 'demo-token');
       setIsLoading(false);
       onLoginSuccess(normEmail, role);
       return;
     }
 
-    // 3. Fallback: motoristas convidados (verifica localStorage + Supabase)
     try {
       const raw = localStorage.getItem('relampago_invited_drivers');
       if (raw) {
         const invited: { email: string; password: string; role: string }[] = JSON.parse(raw);
         const match = invited.find(d => d.email === normEmail && d.password === password);
         if (match) {
-          // Verifica se o usuario ainda existe no Supabase antes de permitir login
-          if (isConfigured) {
-            try {
-              const { data: approvalRecord } = await supabase
-                .from('user_approvals')
-                .select('email')
-                .eq('email', normEmail)
-                .maybeSingle();
-              if (!approvalRecord) {
-                const filtered = invited.filter(d => d.email !== normEmail);
-                localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
-                setIsLoading(false);
-                setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
-                return;
-              }
-            } catch {
-              const filtered = invited.filter(d => d.email !== normEmail);
-              localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
-              setIsLoading(false);
-              setErrorMsg('Este usuario foi removido do sistema. Contate o administrador.');
-              return;
-            }
-          }
+          localStorage.setItem('relampago_token', 'invited-token');
           setIsLoading(false);
           onLoginSuccess(normEmail, match.role);
           return;
@@ -147,9 +77,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       }
     } catch {}
 
-    // 4. Nada funcionou
     setIsLoading(false);
-    setErrorMsg('Credencial inválida. Verifique seu e-mail e senha ou solicite um novo convite ao administrador.');
+    setErrorMsg('Credencial inv�lida. Verifique seu e-mail e senha ou solicite um novo convite ao administrador.');
   };
 
   return (

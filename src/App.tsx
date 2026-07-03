@@ -521,9 +521,12 @@ export default function App() {
       if (!isDriverUser()) return null;
       if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
       try {
-        const { data } = await supabase.auth.getUser();
-        const linked = data?.user?.user_metadata?.linkedDriver;
-        if (linked) return linked;
+        const raw = localStorage.getItem('relampago_system_users');
+        if (raw) {
+          const saved = JSON.parse(raw);
+          const match = saved.find((u: any) => u.email?.toLowerCase() === currentUserEmail.toLowerCase());
+          if (match?.linkedDriver) return match.linkedDriver;
+        }
       } catch {}
       return null;
     };

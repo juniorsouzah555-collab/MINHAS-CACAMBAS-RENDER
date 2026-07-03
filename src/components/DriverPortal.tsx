@@ -130,14 +130,11 @@ export default function DriverPortal({
     });
   }, []);
 
-  // Assíncrono: busca linkedDriver do metadata do Auth (Supabase) — funciona em qualquer dispositivo
+  // Busca linkedDriver do localStorage (sincrono)
   useEffect(() => {
     if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return;
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.linkedDriver) {
-        setLinkedDriverName(user.user_metadata.linkedDriver);
-      }
-    }).catch(() => {});
+    const linked = getLinkedFromStorage();
+    if (linked) setLinkedDriverName(linked);
   }, [currentUserEmail]);
 
   // Determine active driver name
