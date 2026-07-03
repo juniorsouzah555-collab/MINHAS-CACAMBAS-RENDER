@@ -162,15 +162,19 @@ function crud(tableName: string, drizzleTable: any) {
 
 crud('vehicles', schema.vehicles);
 crud('botaforas', schema.botaForas);
+crud('bota_foras', schema.botaForas);
 crud('lancamentos', schema.lancamentos);
 crud('fuel-logs', schema.fuelLogs);
+crud('fuel_logs', schema.fuelLogs);
 crud('alerts', schema.maintenanceAlerts);
+crud('maintenance_alerts', schema.maintenanceAlerts);
 crud('invoices', schema.invoices);
 crud('dispatches', schema.dispatches);
 crud('motoristas', schema.motoristas);
 crud('comissoes', schema.comissoes);
 crud('manutencoes', schema.manutencoes);
 crud('garage-refills', schema.garageRefills);
+crud('garage_refills', schema.garageRefills);
 crud('plano-contas', schema.planoContas);
 crud('grupos-conta', schema.gruposConta);
 crud('categorias-conta', schema.categoriasConta);
