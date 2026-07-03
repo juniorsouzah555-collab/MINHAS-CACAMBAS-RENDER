@@ -118,6 +118,17 @@ async function seedDatabaseIfEmpty() {
   }
 }
 
+function normalizeBody(body: any): any {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  const result: any = {};
+  for (const key of Object.keys(body)) {
+    const camelKey = key.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase());
+    const value = (body as any)[key];
+    result[camelKey] = Array.isArray(value) ? JSON.stringify(value) : value;
+  }
+  return result;
+}
+
 function crud(tableName: string, drizzleTable: any) {
   const basePath = `/api/${tableName}`;
 
@@ -128,14 +139,14 @@ function crud(tableName: string, drizzleTable: any) {
 
   app.post(basePath, authMiddleware, async (req, res) => {
     try {
-      await db.insert(drizzleTable).values(req.body);
+      await db.insert(drizzleTable).values(normalizeBody(req.body)).onConflictDoNothing();
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.put(`${basePath}/:id`, authMiddleware, async (req, res) => {
     try {
-      await db.update(drizzleTable).set(req.body).where(eq(drizzleTable.id, req.params.id));
+      await db.update(drizzleTable).set(normalizeBody(req.body)).where(eq(drizzleTable.id, req.params.id));
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
