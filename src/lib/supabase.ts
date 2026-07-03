@@ -183,7 +183,7 @@ export const proxyInsert = async (table: string, data: any): Promise<boolean> =>
 
 export const proxyUpdate = async (table: string, data: any, filter: string): Promise<boolean> => {
   try {
-    const id = filter?.split('=')[1];
+    const id = filter?.match(/=eq\.(.+)$/)?.[1] ?? filter?.split('=').pop();
     if (!id) return false;
     const token = getToken();
     const res = await fetch(`${API_BASE}/api/${table}/${id}`, {
@@ -200,7 +200,7 @@ export const proxyUpdate = async (table: string, data: any, filter: string): Pro
 
 export const proxyDelete = async (table: string, filter: string): Promise<boolean> => {
   try {
-    const id = filter?.split('=')[1];
+    const id = filter?.match(/=eq\.(.+)$/)?.[1] ?? filter?.split('=').pop();
     if (!id) return false;
     const token = getToken();
     const res = await fetch(`${API_BASE}/api/${table}/${id}`, {
