@@ -7,10 +7,9 @@ import jwt from 'jsonwebtoken';
 import { createServer as createViteServer } from "vite";
 import { db, initializeDatabase } from './src/db/index.ts';
 import { initDatabase } from './src/db/init.ts';
-import { count } from 'drizzle-orm';
-import { vehicles as vehiclesTable, fuelLogs as fuelLogsTable, maintenanceAlerts as alertsTable, invoices as invoicesTable, dispatches as dispatchesTable, botaForas as botaForasTable, lancamentos as lancamentosTable } from './src/db/schema.ts';
+import { eq, count } from 'drizzle-orm';
+import * as schema from './src/db/schema.ts';
 import { INITIAL_VEHICLES, INITIAL_FUEL_LOGS, INITIAL_ALERTS, INITIAL_INVOICES, INITIAL_DISPATCHES, INITIAL_BOTA_FORAS, INITIAL_LANCAMENTOS } from './src/mockData.ts';
-import { adminDb, adminAuth } from './api/lib/firebase-admin.ts';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -18,7 +17,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const JWT_SECRET = process.env.JWT_SECRET || 'relampago-jwt-secret-dev';
 const APP_PASSWORD = process.env.APP_PASSWORD || 'admin123';
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
@@ -59,11 +58,11 @@ app.get("/api/auth/check", (req, res) => {
 
 async function seedDatabaseIfEmpty() {
   try {
-    const counts = await db.select({ value: count() }).from(vehiclesTable);
+    const counts = await db.select({ value: count() }).from(schema.vehicles);
     if (!counts || counts[0].value === 0) {
       console.log("Seeding initial fleet data...");
       for (const vehicle of INITIAL_VEHICLES) {
-        await db.insert(vehiclesTable).values({
+        await db.insert(schema.vehicles).values({
           id: vehicle.id, status: vehicle.status, efficiency: vehicle.efficiency,
           fuelUsed: vehicle.fuelUsed, costPerKm: vehicle.costPerKm, driver: vehicle.driver,
           trend: JSON.stringify(vehicle.trend), lastMaintenanceDate: vehicle.lastMaintenanceDate || null,
@@ -72,20 +71,20 @@ async function seedDatabaseIfEmpty() {
         });
       }
       for (const bf of INITIAL_BOTA_FORAS) {
-        await db.insert(botaForasTable).values({
+        await db.insert(schema.botaForas).values({
           id: bf.id, nome: bf.nome, cnpj: bf.cnpj, telefone: bf.telefone,
           endereco: bf.endereco, valorPadraoDescarte: bf.valorPadraoDescarte || null,
         });
       }
       for (const lan of INITIAL_LANCAMENTOS) {
-        await db.insert(lancamentosTable).values({
+        await db.insert(schema.lancamentos).values({
           id: lan.id, botaForaId: lan.botaForaId, botaForaNome: lan.botaForaNome,
           quantidadeCacambas: lan.quantidadeCacambas, valor: lan.valor, data: lan.data,
           driverName: lan.driverName || null, vehicleId: lan.vehicleId || null, status: lan.status,
         });
       }
       for (const fuel of INITIAL_FUEL_LOGS) {
-        await db.insert(fuelLogsTable).values({
+        await db.insert(schema.fuelLogs).values({
           id: fuel.id, vehicleId: fuel.vehicleId, quantidadeLitros: fuel.quantidadeLitros,
           kmInicial: fuel.kmInicial || null, kmFinal: fuel.kmFinal || null, valorPago: fuel.valorPago,
           data: fuel.data, driver: fuel.driver || null, mediaKmL: fuel.mediaKmL || null,
@@ -93,21 +92,21 @@ async function seedDatabaseIfEmpty() {
         });
       }
       for (const inv of INITIAL_INVOICES) {
-        await db.insert(invoicesTable).values({
+        await db.insert(schema.invoices).values({
           id: inv.id, clientName: inv.clientName, entityCode: inv.entityCode,
           serviceDesc: inv.serviceDesc, issueDate: inv.issueDate, dueDate: inv.dueDate,
           amount: inv.amount, status: inv.status,
         });
       }
       for (const disp of INITIAL_DISPATCHES) {
-        await db.insert(dispatchesTable).values({
+        await db.insert(schema.dispatches).values({
           id: disp.id, vehicleId: disp.vehicleId, driverName: disp.driverName,
           clientName: disp.clientName, origin: disp.origin, destination: disp.destination,
           payloadType: disp.payloadType, weight: disp.weight, status: disp.status,
         });
       }
       for (const alert of INITIAL_ALERTS) {
-        await db.insert(alertsTable).values({
+        await db.insert(schema.maintenanceAlerts).values({
           id: alert.id, vehicleId: alert.vehicleId, title: alert.title, message: alert.message,
           timeAgo: alert.timeAgo, severity: alert.severity, type: alert.type, resolved: alert.resolved,
         });
@@ -119,213 +118,66 @@ async function seedDatabaseIfEmpty() {
   }
 }
 
-app.post('/api/auth/signup', authMiddleware, async (req, res) => {
+function crud(tableName: string, drizzleTable: any) {
+  const basePath = `/api/${tableName}`;
+
+  app.get(basePath, authMiddleware, async (req, res) => {
+    try { res.json(await db.select().from(drizzleTable)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post(basePath, authMiddleware, async (req, res) => {
+    try {
+      await db.insert(drizzleTable).values(req.body);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put(`${basePath}/:id`, authMiddleware, async (req, res) => {
+    try {
+      await db.update(drizzleTable).set(req.body).where(eq(drizzleTable.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete(`${basePath}/:id`, authMiddleware, async (req, res) => {
+    try {
+      await db.delete(drizzleTable).where(eq(drizzleTable.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+}
+
+crud('vehicles', schema.vehicles);
+crud('botaforas', schema.botaForas);
+crud('lancamentos', schema.lancamentos);
+crud('fuel-logs', schema.fuelLogs);
+crud('alerts', schema.maintenanceAlerts);
+crud('invoices', schema.invoices);
+crud('dispatches', schema.dispatches);
+crud('motoristas', schema.motoristas);
+crud('comissoes', schema.comissoes);
+crud('manutencoes', schema.manutencoes);
+crud('garage-refills', schema.garageRefills);
+crud('plano-contas', schema.planoContas);
+crud('grupos-conta', schema.gruposConta);
+crud('categorias-conta', schema.categoriasConta);
+crud('subcategorias-conta', schema.subcategoriasConta);
+crud('importacoes-extrato', schema.importacoesExtrato);
+crud('extrato-transacoes', schema.extratoTransacoes);
+crud('centros-custo', schema.centrosCusto);
+crud('conciliacoes', schema.conciliacoes);
+crud('regras-categorizacao', schema.regrasCategorizacao);
+crud('patrimonio', schema.patrimonio);
+crud('planos-pagamento', schema.planosPagamento);
+crud('clientes', schema.clientes);
+crud('user-approvals', schema.userApprovals);
+
+app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ ok: false, error: 'email and password required' });
-    const user = await adminAuth.createUser({ email, password });
-    res.json({ ok: true, userId: user.uid });
-  } catch (e: any) { res.json({ ok: false, error: e.message }); }
-});
-
-app.post('/api/auth/confirm-email', authMiddleware, async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ ok: false });
-    const user = await adminAuth.getUserByEmail(email);
-    if (!user) return res.json({ ok: false });
-    await adminAuth.updateUser(user.uid, { emailVerified: true });
-    res.json({ ok: true });
-  } catch { res.json({ ok: false }); }
-});
-
-app.post('/api/auth/confirm-user', authMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ ok: false });
-    await adminAuth.updateUser(userId, { emailVerified: true });
-    res.json({ ok: true });
-  } catch { res.json({ ok: false }); }
-});
-
-app.post('/api/auth/delete-user', authMiddleware, async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ ok: false });
-    const user = await adminAuth.getUserByEmail(email);
-    if (user) await adminAuth.deleteUser(user.uid);
-    res.json({ ok: true });
-  } catch { res.json({ ok: false }); }
-});
-
-app.post('/api/auth/update-password', authMiddleware, async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ ok: false });
-    const user = await adminAuth.getUserByEmail(email);
-    if (!user) return res.json({ ok: false });
-    await adminAuth.updateUser(user.uid, { password });
-    res.json({ ok: true });
-  } catch { res.json({ ok: false }); }
-});
-
-app.post('/api/auth/link-driver', authMiddleware, async (req, res) => {
-  try {
-    const { email, linkedDriver } = req.body;
-    if (!email || !linkedDriver) return res.status(400).json({ ok: false });
-    const user = await adminAuth.getUserByEmail(email);
-    if (user) {
-      await adminAuth.updateUser(user.uid, { displayName: linkedDriver });
-    }
-    res.json({ ok: true });
-  } catch { res.json({ ok: false }); }
-});
-
-app.post('/api/proxy', authMiddleware, async (req, res) => {
-  try {
-    const { table, action, data, filter } = req.body;
-    if (!table || !action) return res.status(400).json({ error: 'table and action required' });
-
-    if (action === 'insert' && data) {
-      const id = data.id || crypto.randomUUID();
-      await adminDb.collection(table).doc(id).set(data);
-      return res.json({ success: true, id });
-    }
-
-    if (action === 'update' && data) {
-      const id = filter?.split('=')[1] || data.id;
-      if (!id) return res.status(400).json({ error: 'id required for update' });
-      await adminDb.collection(table).doc(id).set(data);
-      return res.json({ success: true });
-    }
-
-    if (action === 'delete') {
-      const id = filter?.split('=')[1];
-      if (!id) return res.status(400).json({ error: 'id required for delete' });
-      await adminDb.collection(table).doc(id).delete();
-      return res.json({ success: true });
-    }
-
-    res.status(400).json({ error: 'invalid action' });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get("/api/vehicles", authMiddleware, async (req, res) => {
-  try {
-    const list = await db.select().from(vehiclesTable);
+    const list = await db.select().from(schema.vehicles);
     const parsed = list.map(v => ({ ...v, trend: v.trend ? JSON.parse(v.trend) : [] }));
     res.json(parsed);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/vehicles", authMiddleware, async (req, res) => {
-  try {
-    const v = req.body;
-    await db.insert(vehiclesTable).values({
-      id: v.id, status: v.status || 'Available', efficiency: Number(v.efficiency) || 0,
-      fuelUsed: Number(v.fuelUsed) || 0, costPerKm: Number(v.costPerKm) || 0,
-      driver: v.driver || 'Não Atribuído', trend: JSON.stringify(v.trend || []),
-      lastMaintenanceDate: v.lastMaintenanceDate || null, speed: Number(v.speed) || 0,
-      lat: Number(v.lat) || 0, lng: Number(v.lng) || 0, isActive: v.isActive !== false,
-      type: v.type || 'Caminhão', initialKm: Number(v.initialKm) || 0,
-    });
-    res.json({ success: true, vehicle: v });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/botaforas", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(botaForasTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/botaforas", authMiddleware, async (req, res) => {
-  try {
-    const bf = req.body;
-    await db.insert(botaForasTable).values({
-      id: bf.id, nome: bf.nome, cnpj: bf.cnpj, telefone: bf.telefone, endereco: bf.endereco,
-      valorPadraoDescarte: bf.valorPadraoDescarte ? Number(bf.valorPadraoDescarte) : null,
-    });
-    res.json({ success: true, botafora: bf });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/lancamentos", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(lancamentosTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/lancamentos", authMiddleware, async (req, res) => {
-  try {
-    const lan = req.body;
-    await db.insert(lancamentosTable).values({
-      id: lan.id, botaForaId: lan.botaForaId, botaForaNome: lan.botaForaNome,
-      quantidadeCacambas: Number(lan.quantidadeCacambas), valor: Number(lan.valor), data: lan.data,
-      driverName: lan.driverName || null, vehicleId: lan.vehicleId || null,
-      status: lan.status || 'Concluido', lat: lan.lat !== undefined ? Number(lan.lat) : null,
-      lng: lan.lng !== undefined ? Number(lan.lng) : null,
-    });
-    res.json({ success: true, lancamento: lan });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/fuel-logs", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(fuelLogsTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/fuel-logs", authMiddleware, async (req, res) => {
-  try {
-    const f = req.body;
-    await db.insert(fuelLogsTable).values({
-      id: f.id, vehicleId: f.vehicleId, quantidadeLitros: Number(f.quantidadeLitros),
-      kmInicial: f.kmInicial ? Number(f.kmInicial) : null,
-      kmFinal: f.kmFinal ? Number(f.kmFinal) : null, valorPago: Number(f.valorPago), data: f.data,
-      driver: f.driver || null, mediaKmL: f.mediaKmL ? Number(f.mediaKmL) : null,
-      tipo: f.tipo || 'POSTO', isRetiradaDiversa: f.isRetiradaDiversa || false,
-      lat: f.lat !== undefined ? Number(f.lat) : null, lng: f.lng !== undefined ? Number(f.lng) : null,
-    });
-    res.json({ success: true, log: f });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/alerts", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(alertsTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/invoices", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(invoicesTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/invoices", authMiddleware, async (req, res) => {
-  try {
-    const inv = req.body;
-    await db.insert(invoicesTable).values({
-      id: inv.id, clientName: inv.clientName, entityCode: inv.entityCode,
-      serviceDesc: inv.serviceDesc, issueDate: inv.issueDate, dueDate: inv.dueDate,
-      amount: Number(inv.amount), status: inv.status || 'PENDING',
-    });
-    res.json({ success: true, invoice: inv });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/dispatches", authMiddleware, async (req, res) => {
-  try { res.json(await db.select().from(dispatchesTable)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/dispatches", authMiddleware, async (req, res) => {
-  try {
-    const d = req.body;
-    await db.insert(dispatchesTable).values({
-      id: d.id, vehicleId: d.vehicleId, driverName: d.driverName, clientName: d.clientName,
-      origin: d.origin, destination: d.destination, payloadType: d.payloadType,
-      weight: Number(d.weight), status: d.status || 'Assigned',
-    });
-    res.json({ success: true, dispatch: d });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -404,29 +256,6 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
     return { id: t.id, ...result };
   });
   res.json({ results });
-});
-
-const bancarioItems: Record<string, any[]> = {
-  patrimonio: [], planos: [], clientes: [],
-};
-
-app.get('/api/bancario/:tipo', authMiddleware, (req, res) => {
-  res.json(bancarioItems[req.params.tipo] || []);
-});
-
-app.post('/api/bancario/:tipo', authMiddleware, (req, res) => {
-  const tipo = req.params.tipo;
-  if (!bancarioItems[tipo]) bancarioItems[tipo] = [];
-  bancarioItems[tipo].push(req.body);
-  res.json({ success: true, item: req.body });
-});
-
-app.delete('/api/bancario/:tipo/:id', authMiddleware, (req, res) => {
-  const tipo = req.params.tipo;
-  if (bancarioItems[tipo]) {
-    bancarioItems[tipo] = bancarioItems[tipo].filter((p: any) => p.id !== req.params.id);
-  }
-  res.json({ success: true });
 });
 
 async function startServer() {

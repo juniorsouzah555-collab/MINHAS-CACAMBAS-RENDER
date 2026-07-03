@@ -43,7 +43,6 @@ import {
 } from './mockData';
 
 import { supabase, isSupabaseConfigured, proxyInsert, proxyUpdate, proxyDelete } from './lib/supabase';
-import { auth, fbSignOut } from './lib/firebase';
 
 // Component layout pieces
 import Sidebar from './components/Sidebar';
@@ -964,7 +963,6 @@ export default function App() {
     localStorage.removeItem('relampago_auth_active');
     localStorage.removeItem('relampago_auth_email');
     localStorage.removeItem('relampago_auth_role');
-    fbSignOut(auth).catch(() => {});
     handleShowToast("Sessão Encerrada", "Você saiu do sistema de forma segura.", "info");
   };
 

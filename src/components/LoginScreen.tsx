@@ -9,7 +9,6 @@ import {
   ArrowRight,
   AlertCircle
 } from 'lucide-react';
-import { auth, signInAnonymously } from '../lib/firebase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string, userRole: string) => void;
@@ -45,7 +44,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('relampago_token', data.token);
-        signInAnonymously(auth).catch(() => {});
         const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Operador de Frota';
         setIsLoading(false);
         onLoginSuccess(normEmail, role);
@@ -60,7 +58,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     if (isDemo) {
       const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Motorista';
       localStorage.setItem('relampago_token', 'demo-token');
-      signInAnonymously(auth).catch(() => {});
       setIsLoading(false);
       onLoginSuccess(normEmail, role);
       return;
@@ -73,7 +70,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         const match = invited.find(d => d.email === normEmail && d.password === password);
         if (match) {
           localStorage.setItem('relampago_token', 'invited-token');
-          signInAnonymously(auth).catch(() => {});
           setIsLoading(false);
           onLoginSuccess(normEmail, match.role);
           return;

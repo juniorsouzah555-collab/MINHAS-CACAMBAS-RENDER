@@ -23,6 +23,8 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS patrimonio (id TEXT PRIMARY KEY, nome TEXT NOT NULL, tipo TEXT NOT NULL, data_aquisicao TEXT NOT NULL, valor_aquisicao REAL NOT NULL, valor_residual REAL NOT NULL DEFAULT 0, vida_util INTEGER NOT NULL DEFAULT 5, depreciacao_anual REAL NOT NULL DEFAULT 0, depreciacao_acumulada REAL NOT NULL DEFAULT 0, valor_contabil REAL NOT NULL DEFAULT 0, localizacao TEXT, observacao TEXT, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS planos_pagamento (id TEXT PRIMARY KEY, descricao TEXT NOT NULL, instituicao TEXT, valor_total REAL NOT NULL, numero_parcelas INTEGER NOT NULL DEFAULT 1, parcelas_pagas INTEGER NOT NULL DEFAULT 0, valor_parcela REAL NOT NULL DEFAULT 0, data_inicio TEXT NOT NULL, data_fim TEXT, categoria TEXT, subcategoria TEXT, status TEXT NOT NULL DEFAULT 'ATIVO', mostrar_dashboard INTEGER DEFAULT 1, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS clientes (id TEXT PRIMARY KEY, tipo TEXT NOT NULL, nome TEXT NOT NULL, documento TEXT NOT NULL, telefone TEXT NOT NULL, email TEXT, endereco TEXT, observacao TEXT, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS garage_refills (id TEXT PRIMARY KEY, data TEXT NOT NULL, quantidade_litros REAL NOT NULL, valor_total REAL NOT NULL, preco_por_litro REAL NOT NULL, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS plano_contas (id TEXT PRIMARY KEY, codigo TEXT NOT NULL, nome TEXT NOT NULL, tipo TEXT NOT NULL, created_at TEXT)`,
 ];
 
 export function initDatabase() {

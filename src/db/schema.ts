@@ -238,6 +238,23 @@ export const planosPagamento = sqliteTable('planos_pagamento', {
   mostrarDashboard: integer('mostrar_dashboard', { mode: 'boolean' }).default(true),
   createdAt: text('created_at'),
 });
+export const garageRefills = sqliteTable('garage_refills', {
+  id: text('id').primaryKey(),
+  data: text('data').notNull(),
+  quantidadeLitros: real('quantidade_litros').notNull(),
+  valorTotal: real('valor_total').notNull(),
+  precoPorLitro: real('preco_por_litro').notNull(),
+  createdAt: text('created_at'),
+});
+
+export const planoContas = sqliteTable('plano_contas', {
+  id: text('id').primaryKey(),
+  codigo: text('codigo').notNull(),
+  nome: text('nome').notNull(),
+  tipo: text('tipo').notNull(),
+  createdAt: text('created_at'),
+});
+
 export const clientes = sqliteTable('clientes', {
   id: text('id').primaryKey(),
   tipo: text('tipo').notNull(),
