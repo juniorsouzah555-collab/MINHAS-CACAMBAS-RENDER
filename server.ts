@@ -70,20 +70,20 @@ async function seedDatabaseIfEmpty() {
         trend: JSON.stringify(vehicle.trend), lastMaintenanceDate: vehicle.lastMaintenanceDate || null,
         speed: vehicle.speed || 0, lat: vehicle.lat, lng: vehicle.lng,
         isActive: vehicle.isActive, type: vehicle.type || 'Caminhão', initialKm: vehicle.initialKm || null,
-      }).onConflictDoNothing();
+      })
     }
     for (const bf of INITIAL_BOTA_FORAS) {
       await db.insert(schema.botaForas).values({
         id: bf.id, nome: bf.nome, cnpj: bf.cnpj, telefone: bf.telefone,
         endereco: bf.endereco, valorPadraoDescarte: bf.valorPadraoDescarte || null,
-      }).onConflictDoNothing();
+      })
     }
     for (const lan of INITIAL_LANCAMENTOS) {
       await db.insert(schema.lancamentos).values({
         id: lan.id, botaForaId: lan.botaForaId, botaForaNome: lan.botaForaNome,
         quantidadeCacambas: lan.quantidadeCacambas, valor: lan.valor, data: lan.data,
         driverName: lan.driverName || null, vehicleId: lan.vehicleId || null, status: lan.status,
-      }).onConflictDoNothing();
+      })
     }
     for (const fuel of INITIAL_FUEL_LOGS) {
       await db.insert(schema.fuelLogs).values({
@@ -91,30 +91,29 @@ async function seedDatabaseIfEmpty() {
         kmInicial: fuel.kmInicial || null, kmFinal: fuel.kmFinal || null, valorPago: fuel.valorPago,
         data: fuel.data, driver: fuel.driver || null, mediaKmL: fuel.mediaKmL || null,
         tipo: fuel.tipo || 'POSTO', isRetiradaDiversa: fuel.isRetiradaDiversa || false,
-      }).onConflictDoNothing();
+      })
     }
     for (const inv of INITIAL_INVOICES) {
       await db.insert(schema.invoices).values({
         id: inv.id, clientName: inv.clientName, entityCode: inv.entityCode,
         serviceDesc: inv.serviceDesc, issueDate: inv.issueDate, dueDate: inv.dueDate,
         amount: inv.amount, status: inv.status,
-      }).onConflictDoNothing();
+      })
     }
     for (const disp of INITIAL_DISPATCHES) {
       await db.insert(schema.dispatches).values({
         id: disp.id, vehicleId: disp.vehicleId, driverName: disp.driverName,
         clientName: disp.clientName, origin: disp.origin, destination: disp.destination,
         payloadType: disp.payloadType, weight: disp.weight, status: disp.status,
-      }).onConflictDoNothing();
+      })
     }
     for (const alert of INITIAL_ALERTS) {
       await db.insert(schema.maintenanceAlerts).values({
         id: alert.id, vehicleId: alert.vehicleId, title: alert.title, message: alert.message,
         timeAgo: alert.timeAgo, severity: alert.severity, type: alert.type, resolved: alert.resolved,
-      }).onConflictDoNothing();
+      })
     }
-      console.log("Database seeded successfully!");
-    }
+    console.log("Database seeded successfully!");
   } catch (error) {
     console.error("Failed to seed database:", error);
   }
@@ -141,7 +140,7 @@ function crud(tableName: string, drizzleTable: any) {
 
   app.post(basePath, authMiddleware, async (req, res) => {
     try {
-      await db.insert(drizzleTable).values(normalizeBody(req.body)).onConflictDoNothing();
+      await db.insert(drizzleTable).values(normalizeBody(req.body))
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
