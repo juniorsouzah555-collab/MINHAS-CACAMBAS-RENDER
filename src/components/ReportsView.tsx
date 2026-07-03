@@ -26,8 +26,8 @@ interface ReportsViewProps {
 }
 
 export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps) {
-  const [startDate, setStartDate] = useState('2026-06-01');
-  const [endDate, setEndDate] = useState('2026-06-30');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 7) + '-01');
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedBotaForaId, setSelectedBotaForaId] = useState('ALL');
   const [searchBotaFora, setSearchBotaFora] = useState('');
 
