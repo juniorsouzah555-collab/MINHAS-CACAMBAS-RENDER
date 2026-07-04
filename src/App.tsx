@@ -668,35 +668,43 @@ export default function App() {
     }
   };
 
-  const handleDeleteGarageRefill = (id: string) => {
+  const handleDeleteGarageRefill = async (id: string) => {
     const target = garageRefills.find(r => r.id === id);
     if (!target) return;
+    const previousRefills = garageRefills;
+    const previousQty = garageDieselQty;
     setGarageRefills(prev => {
       const updated = prev.filter(r => r.id !== id);
       localStorage.setItem('relampago_garage_refills', JSON.stringify(updated));
       return updated;
     });
-    // Subtract from garage stock
     const newQty = Math.max(0, garageDieselQty - target.quantidade_litros);
     setGarageDieselQty(newQty);
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
-    if (isSupabaseConfigured()) {
-      proxyDelete('garage_refills', `id=eq.${id}`);
-      supabase.from('vehicles').upsert({
-        id: 'GARAGE-CONFIG',
-        type: 'garage_config',
-        status: 'garage_config',
-        efficiency: newQty,
-        fuel_used: 0,
-        driver: '',
-        trend: '',
-        speed: 0,
-        lat: 0,
-        lng: 0,
-        is_active: false
-      }).then(({ error }) => {
-        if (error) console.error('Supabase error saving garage config qty:', error);
-      });
+    try {
+      if (isSupabaseConfigured()) {
+        const ok = await proxyDelete('garage_refills', `id=eq.${id}`);
+        if (!ok) throw new Error('Falha ao excluir no servidor');
+        await supabase.from('vehicles').upsert({
+          id: 'GARAGE-CONFIG',
+          type: 'garage_config',
+          status: 'garage_config',
+          efficiency: newQty,
+          fuel_used: 0,
+          driver: '',
+          trend: '',
+          speed: 0,
+          lat: 0,
+          lng: 0,
+          is_active: false
+        });
+      }
+    } catch (e) {
+      setGarageRefills(previousRefills);
+      localStorage.setItem('relampago_garage_refills', JSON.stringify(previousRefills));
+      setGarageDieselQty(previousQty);
+      localStorage.setItem('relampago_garage_diesel_qty', previousQty.toString());
+      handleShowToast("Erro ao Excluir", "Não foi possível sincronizar a exclusão com o servidor. Tente novamente.", "info");
     }
   };
 
@@ -1259,7 +1267,11 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
 
-    setLancamentos(prev => [freshRecord, ...prev]);
+    setLancamentos(prev => {
+      const updated = [freshRecord, ...prev];
+      localStorage.setItem('relampago_lancamentos', JSON.stringify(updated));
+      return updated;
+    });
 
     // Generate associated billing (faturamento) record automatically in invoices list
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -1397,12 +1409,21 @@ export default function App() {
   };
 
   // Action: Delete Lançamento
-  const handleDeleteLancamento = (id: string) => {
+  const handleDeleteLancamento = async (id: string) => {
+    const previous = lancamentos;
     setLancamentos(prev => prev.filter(lan => lan.id !== id));
-    if (isSupabaseConfigured()) {
-      proxyDelete('lancamentos', `id=eq.${id}`);
+    try {
+      if (isSupabaseConfigured()) {
+        const ok = await proxyDelete('lancamentos', `id=eq.${id}`);
+        if (!ok) throw new Error('Falha ao excluir no servidor');
+      }
+      const updated = previous.filter(lan => lan.id !== id);
+      localStorage.setItem('relampago_lancamentos', JSON.stringify(updated));
+      handleShowToast("Lançamento Excluído", `O registro foi removido do histórico de operações.`, "info");
+    } catch (e) {
+      setLancamentos(previous);
+      handleShowToast("Erro ao Excluir", "Não foi possível sincronizar a exclusão com o servidor. Tente novamente.", "info");
     }
-    handleShowToast("Lançamento Excluído", `O extrato ${id} foi removido do histórico de operações.`, "info");
   };
 
   // Action: Dar baixa em lote (todos os pendentes de um Bota Fora)
@@ -1580,7 +1601,11 @@ export default function App() {
       mediaKmL
     };
 
-    setFuelLogs(prev => [freshRecord, ...prev]);
+    setFuelLogs(prev => {
+      const updated = [freshRecord, ...prev];
+      localStorage.setItem('relampago_fuel_logs', JSON.stringify(updated));
+      return updated;
+    });
 
     if (isSupabaseConfigured()) {
       supabase.from('fuel_logs').insert([{
@@ -1681,12 +1706,21 @@ export default function App() {
     }
   };
 
-  const handleDeleteFuelLog = (id: string) => {
+  const handleDeleteFuelLog = async (id: string) => {
+    const previous = fuelLogs;
     setFuelLogs(prev => prev.filter(f => f.id !== id));
-    if (isSupabaseConfigured()) {
-      proxyDelete('fuel_logs', `id=eq.${id}`);
+    try {
+      if (isSupabaseConfigured()) {
+        const ok = await proxyDelete('fuel_logs', `id=eq.${id}`);
+        if (!ok) throw new Error('Falha ao excluir no servidor');
+      }
+      const updated = previous.filter(f => f.id !== id);
+      localStorage.setItem('relampago_fuel_logs', JSON.stringify(updated));
+      handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
+    } catch (e) {
+      setFuelLogs(previous);
+      handleShowToast("Erro ao Excluir", "Não foi possível sincronizar a exclusão com o servidor. Tente novamente.", "info");
     }
-    handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
   };
 
   const handleEditFuelLog = (updated: FuelLog) => {
