@@ -113,7 +113,7 @@ class ApiQuery {
         const item = this.actionData;
         const match = Array.isArray(existing) ? existing.find((r: any) => r.id === item.id) : null;
         if (match) {
-          await this.request(`/api/${this.tableName}/${item.id}`, { method: 'PUT', body: JSON.stringify(item) });
+          await this.request(`/api/${this.tableName}/${encodeURIComponent(item.id)}`, { method: 'PUT', body: JSON.stringify(item) });
         } else {
           await this.request(`/api/${this.tableName}`, { method: 'POST', body: JSON.stringify(item) });
         }
@@ -121,13 +121,13 @@ class ApiQuery {
       } else if (this.action === 'update') {
         const id = this.getFilterValue('id');
         if (id) {
-          await this.request(`/api/${this.tableName}/${id}`, { method: 'PUT', body: JSON.stringify(this.actionData) });
+          await this.request(`/api/${this.tableName}/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(this.actionData) });
         }
         resolve?.({ data: null, error: null });
       } else if (this.action === 'delete') {
         const id = this.getFilterValue('id');
         if (id) {
-          await this.request(`/api/${this.tableName}/${id}`, { method: 'DELETE' });
+          await this.request(`/api/${this.tableName}/${encodeURIComponent(id)}`, { method: 'DELETE' });
         }
         resolve?.({ data: null, error: null });
       } else {
@@ -186,7 +186,7 @@ export const proxyUpdate = async (table: string, data: any, filter: string): Pro
     const id = filter?.match(/=eq\.(.+)$/)?.[1] ?? filter?.split('=').pop();
     if (!id) return false;
     const token = getToken();
-    const res = await fetch(`${API_BASE}/api/${table}/${id}`, {
+    const res = await fetch(`${API_BASE}/api/${table}/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -203,7 +203,7 @@ export const proxyDelete = async (table: string, filter: string): Promise<boolea
     const id = filter?.match(/=eq\.(.+)$/)?.[1] ?? filter?.split('=').pop();
     if (!id) return false;
     const token = getToken();
-    const res = await fetch(`${API_BASE}/api/${table}/${id}`, {
+    const res = await fetch(`${API_BASE}/api/${table}/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
@@ -218,7 +218,7 @@ export const sendHeartbeat = async (email: string, lat?: number, lng?: number): 
     const existing = await (await fetch(`${API_BASE}/api/user-approvals`)).json().catch(() => []);
     const match = Array.isArray(existing) ? existing.find((u: any) => u.email === email) : null;
     if (match) {
-      await fetch(`${API_BASE}/api/user-approvals/${match.id}`, {
+      await fetch(`${API_BASE}/api/user-approvals/${encodeURIComponent(match.id)}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
     }

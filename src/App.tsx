@@ -1117,16 +1117,21 @@ export default function App() {
   };
 
   // Action: Delete Invoice
-  const handleDeleteInvoice = (id: string) => {
+  const handleDeleteInvoice = async (id: string) => {
+    const previous = invoices;
     setInvoices(prev => prev.filter(inv => inv.id !== id));
-    if (isSupabaseConfigured()) {
-      supabase.from('invoices').delete().eq('id', id).then();
+    try {
+      if (isSupabaseConfigured()) {
+        const ok = await proxyDelete('invoices', `id=eq.${id}`);
+        if (!ok) throw new Error('Falha ao excluir no servidor');
+      }
+      const updated = previous.filter(inv => inv.id !== id);
+      localStorage.setItem('relampago_invoices', JSON.stringify(updated));
+      handleShowToast("Fatura Removida", `Fatura corporativa ${id} removida com sucesso.`, "info");
+    } catch (e) {
+      setInvoices(previous);
+      handleShowToast("Erro ao Excluir", "Não foi possível sincronizar a exclusão com o servidor. Tente novamente.", "info");
     }
-    handleShowToast(
-      "Fatura Removida",
-      `Fatura corporativa ${id} apagada e auditada com sucesso.`,
-      "info"
-    );
   };
 
   // Action: Authorize new cargo pickup dispatch
