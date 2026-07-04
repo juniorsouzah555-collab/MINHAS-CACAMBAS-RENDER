@@ -44,22 +44,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('relampago_token', data.token);
-        const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Operador de Frota';
+        const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral'
+          : normEmail === 'motorista@relampago.com' ? 'Motorista'
+          : 'Operador de Frota';
         setIsLoading(false);
         onLoginSuccess(normEmail, role);
         return;
       }
     } catch {}
 
-    const isDemo = 
-      (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') ||
-      (normEmail === 'motorista@relampago.com' && password === 'parceiro123');
-
-    if (isDemo) {
-      const role = normEmail === 'jrodrigues138@gmail.com' ? 'Administrador Geral' : 'Motorista';
+    if (normEmail === 'jrodrigues138@gmail.com' && password === '12345678') {
       localStorage.setItem('relampago_token', 'demo-token');
       setIsLoading(false);
-      onLoginSuccess(normEmail, role);
+      onLoginSuccess(normEmail, 'Administrador Geral');
       return;
     }
 
@@ -69,7 +66,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         const invited: { email: string; password: string; role: string }[] = JSON.parse(raw);
         const match = invited.find(d => d.email === normEmail && d.password === password);
         if (match) {
-          localStorage.setItem('relampago_token', 'invited-token');
+          const res2 = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+          });
+          if (res2.ok) {
+            const data = await res2.json();
+            localStorage.setItem('relampago_token', data.token);
+          } else {
+            localStorage.setItem('relampago_token', 'invited-token');
+          }
           setIsLoading(false);
           onLoginSuccess(normEmail, match.role);
           return;

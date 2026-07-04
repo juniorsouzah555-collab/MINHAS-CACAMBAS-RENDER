@@ -16,6 +16,8 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'relampago-jwt-secret-dev';
 const APP_PASSWORD = process.env.APP_PASSWORD || 'admin123';
+const DRIVER_PASSWORD = process.env.DRIVER_PASSWORD || 'parceiro123';
+const VALID_CREDENTIALS = [APP_PASSWORD, DRIVER_PASSWORD];
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -40,7 +42,7 @@ app.get("/api/health", (req, res) => {
 app.post("/api/auth/login", (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
-  if (password !== APP_PASSWORD) return res.status(401).json({ error: 'Invalid password' });
+  if (!VALID_CREDENTIALS.includes(password)) return res.status(401).json({ error: 'Invalid password' });
   const token = jwt.sign({ authenticated: true, time: Date.now() }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token });
 });
