@@ -1939,6 +1939,7 @@ export default function App() {
               onBaixaLancamento={handleBaixaLancamento}
               onReverterBaixaLancamento={handleReverterBaixaLancamento}
               onBaixaTotal={handleBaixaTotal}
+              onDeleteLancamento={handleDeleteLancamento}
               searchTerm={searchTerm}
             />
           )}

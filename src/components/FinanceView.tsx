@@ -44,6 +44,7 @@ interface FinanceViewProps {
   onBaixaLancamento: (id: string, valorAbatimento?: number) => void;
   onReverterBaixaLancamento: (id: string) => void;
   onBaixaTotal: (lancamentoIds: string[], totalDebito: number, valorPagoTotal: number) => void;
+  onDeleteLancamento: (id: string) => void;
   searchTerm: string;
 }
 
@@ -69,6 +70,7 @@ export default function FinanceView({
   onBaixaLancamento,
   onReverterBaixaLancamento,
   onBaixaTotal,
+  onDeleteLancamento,
   searchTerm
 }: FinanceViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'INVOICES' | 'BOTA_FORAS' | 'COSTS'>('INVOICES');
@@ -719,6 +721,15 @@ export default function FinanceView({
                                   Reverter
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => onDeleteLancamento(lan.id)}
+                                className="flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 text-[10px] font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-colors border border-rose-200 hover:border-rose-300"
+                                title="Excluir Lançamento"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Excluir
+                              </button>
                             </div>
                           </div>
                         </div>
