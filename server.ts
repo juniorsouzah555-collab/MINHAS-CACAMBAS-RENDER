@@ -285,7 +285,8 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
 });
 
 // Stub Gmail API routes (original Vercel serverless, not ported to Express)
-app.get('/api/gmail', authMiddleware, (req, res) => {
+// Sem authMiddleware porque o client-side não envia token nessas chamadas
+app.get('/api/gmail', (req, res) => {
   const action = req.query.action as string;
   if (action === 'fetch') {
     return res.json({ connected: false, emails: [], error: 'Gmail integration requires Vercel deployment' });
@@ -302,7 +303,7 @@ app.get('/api/gmail', authMiddleware, (req, res) => {
   return res.json({ connected: false });
 });
 
-app.post('/api/gmail', authMiddleware, (req, res) => {
+app.post('/api/gmail', (req, res) => {
   return res.json({ success: true });
 });
 
