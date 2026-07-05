@@ -178,16 +178,24 @@ crud('manutencoes', schema.manutencoes);
 crud('garage-refills', schema.garageRefills);
 crud('garage_refills', schema.garageRefills);
 crud('plano-contas', schema.planoContas);
+crud('plano_contas', schema.planoContas);
 crud('grupos-conta', schema.gruposConta);
+crud('grupos_conta', schema.gruposConta);
 crud('categorias-conta', schema.categoriasConta);
+crud('categorias_conta', schema.categoriasConta);
 crud('subcategorias-conta', schema.subcategoriasConta);
+crud('subcategorias_conta', schema.subcategoriasConta);
 crud('importacoes-extrato', schema.importacoesExtrato);
+crud('importacoes_extrato', schema.importacoesExtrato);
 crud('extrato-transacoes', schema.extratoTransacoes);
+crud('extrato_transacoes', schema.extratoTransacoes);
 crud('centros-custo', schema.centrosCusto);
+crud('centros_custo', schema.centrosCusto);
 crud('conciliacoes', schema.conciliacoes);
 crud('regras-categorizacao', schema.regrasCategorizacao);
 crud('patrimonio', schema.patrimonio);
 crud('planos-pagamento', schema.planosPagamento);
+crud('planos_pagamento', schema.planosPagamento);
 crud('clientes', schema.clientes);
 crud('user-approvals', schema.userApprovals);
 
@@ -274,6 +282,28 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
     return { id: t.id, ...result };
   });
   res.json({ results });
+});
+
+// Stub Gmail API routes (original Vercel serverless, not ported to Express)
+app.get('/api/gmail', authMiddleware, (req, res) => {
+  const action = req.query.action as string;
+  if (action === 'fetch') {
+    return res.json({ connected: false, emails: [], error: 'Gmail integration requires Vercel deployment' });
+  }
+  if (action === 'check') {
+    return res.json({ connected: false });
+  }
+  if (action === 'getFilters') return res.json({ filters: [] });
+  if (action === 'getAliases') return res.json({ aliases: [] });
+  if (action === 'getProviders') return res.json({ providers: [] });
+  if (action === 'view' || action === 'download') {
+    return res.status(404).json({ error: 'Gmail integration not available' });
+  }
+  return res.json({ connected: false });
+});
+
+app.post('/api/gmail', authMiddleware, (req, res) => {
+  return res.json({ success: true });
 });
 
 async function startServer() {
