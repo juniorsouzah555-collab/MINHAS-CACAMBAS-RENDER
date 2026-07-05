@@ -458,14 +458,13 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     onShowNotification(`Senha de ${name} redefinida com sucesso!`);
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
+  const handleDeleteUser = async (id: string, name: string) => {
     const targetUser = users.find(u => u.id === id);
     if (confirm(`Deseja realmente excluir o cadastro de ${name}?`)) {
       const updated = users.filter(u => u.id !== id);
       setUsers(updated);
 
       if (targetUser) {
-        // Remove também do relampago_system_users
         try {
           const raw = localStorage.getItem('relampago_system_users');
           if (raw) {
@@ -474,7 +473,6 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_system_users', JSON.stringify(filtered));
           }
         } catch {}
-        // Remove do relampago_invited_drivers (localStorage)
         try {
           const raw = localStorage.getItem('relampago_invited_drivers');
           if (raw) {
@@ -483,9 +481,12 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
           }
         } catch {}
-        // Remove do Supabase via servidor (service_role, sem RLS)
         if (isSupabaseConfigured()) {
-          deleteUserByEmail(targetUser.email.toLowerCase().trim()).catch(() => {});
+          const ok = await deleteUserByEmail(targetUser.email.toLowerCase().trim());
+          if (!ok) {
+            onShowNotification(`[ERRO] Não foi possível excluir ${name} do servidor. Tente novamente.`);
+            return;
+          }
         }
       }
 
