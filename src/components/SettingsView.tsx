@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, confirmUserEmailByEmail, confirmUserById, createInvitedUser, deleteUserByEmail, updateUserPasswordByEmail, linkDriverToUser } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, proxyDelete, confirmUserEmailByEmail, confirmUserById, createInvitedUser, updateUserPasswordByEmail, linkDriverToUser } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -68,7 +68,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   const [cnpj, setCnpj] = useState('02.948.345/0001-05');
   const [defaultTerminal, setDefaultTerminal] = useState('Aterro Central - Setor 4');
 
-  // Interactive Users Database — carregado do localStorage para persistir exclusões
+  // Interactive Users Database — carregado do servidor como fonte da verdade
   const [users, setUsers] = useState<SystemUser[]>(() => {
     try {
       const saved = localStorage.getItem('relampago_settings_users');
@@ -77,12 +77,7 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [
-      { id: "USR-001", name: "Alex Rivera", email: "relampagoentulho@gmail.com", role: "Administrador Geral", status: "Ativo", registrationDate: "12/01/2026" },
-      { id: "USR-002", name: "Carlos Augusto Silva", email: "carlos.silva@relampago.com", role: "Diretor de Operações", status: "Ativo", registrationDate: "15/02/2026" },
-      { id: "USR-003", name: "Mariana Souza", email: "financeiro@relampago.com", role: "Financeiro", status: "Ativo", registrationDate: "03/03/2026" },
-      { id: "USR-004", name: "Marcos Pinheiro", email: "marcos@relampago.com", role: "Motorista", status: "Inativo", registrationDate: "10/05/2026" }
-    ];
+    return [];
   });
 
   // Persiste usuários no localStorage para exclusões sobreviverem a refresh
@@ -481,8 +476,9 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
           }
         } catch {}
-        if (isSupabaseConfigured()) {
-          const ok = await deleteUserByEmail(targetUser.email.toLowerCase().trim());
+        // Se o ID é numérico (veio do servidor), deleta do banco
+        if (isSupabaseConfigured() && /^\d+$/.test(id)) {
+          const ok = await proxyDelete('user-approvals', `id=eq.${id}`);
           if (!ok) {
             onShowNotification(`[ERRO] Não foi possível excluir ${name} do servidor. Tente novamente.`);
             return;
