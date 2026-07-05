@@ -68,22 +68,15 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   const [cnpj, setCnpj] = useState('02.948.345/0001-05');
   const [defaultTerminal, setDefaultTerminal] = useState('Aterro Central - Setor 4');
 
-  // Interactive Users Database — carregado do servidor como fonte da verdade
+  // Interactive Users Database — carregado via API do servidor
   const [users, setUsers] = useState<SystemUser[]>(() => {
-    try {
-      const saved = localStorage.getItem('relampago_settings_users');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [];
+    return [
+      { id: "USR-001", name: "Alex Rivera", email: "relampagoentulho@gmail.com", role: "Administrador Geral", status: "Ativo", registrationDate: "12/01/2026" },
+      { id: "USR-002", name: "Carlos Augusto Silva", email: "carlos.silva@relampago.com", role: "Diretor de Operações", status: "Ativo", registrationDate: "15/02/2026" },
+      { id: "USR-003", name: "Mariana Souza", email: "financeiro@relampago.com", role: "Financeiro", status: "Ativo", registrationDate: "03/03/2026" },
+      { id: "USR-004", name: "Marcos Pinheiro", email: "marcos@relampago.com", role: "Motorista", status: "Inativo", registrationDate: "10/05/2026" }
+    ];
   });
-
-  // Persiste usuários no localStorage para exclusões sobreviverem a refresh
-  useEffect(() => {
-    localStorage.setItem('relampago_settings_users', JSON.stringify(users));
-  }, [users]);
 
   // Carrega usuários do Supabase como fonte da verdade (substitui hardcoded defaults)
   useEffect(() => {

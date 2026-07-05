@@ -80,59 +80,29 @@ export default function App() {
   });
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // App core state DB — carregados do localStorage para persistir entre sessões
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
-    try { const s = localStorage.getItem('relampago_vehicles'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_VEHICLES;
-  });
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
-    try { const s = localStorage.getItem('relampago_fuel_logs'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_FUEL_LOGS;
-  });
-  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(() => {
-    try { const s = localStorage.getItem('relampago_alerts'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_ALERTS;
-  });
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    try { const s = localStorage.getItem('relampago_invoices'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_INVOICES;
-  });
-  const [dispatches, setDispatches] = useState<Dispatch[]>(() => {
-    try { const s = localStorage.getItem('relampago_dispatches'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_DISPATCHES;
-  });
+  // App core state DB — carregados via API do servidor (Render + Turso)
+  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(INITIAL_FUEL_LOGS);
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(INITIAL_ALERTS);
+  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
+  const [dispatches, setDispatches] = useState<Dispatch[]>(INITIAL_DISPATCHES);
   
   // Bota fora & Lançamentos eco state
-  const [botaForas, setBotaForas] = useState<BotaFora[]>(() => {
-    try { const s = localStorage.getItem('relampago_bota_foras'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_BOTA_FORAS;
-  });
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(() => {
-    try { const s = localStorage.getItem('relampago_lancamentos'); if (s) return JSON.parse(s); } catch {}
-    return INITIAL_LANCAMENTOS;
-  });
+  const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
 
   // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>(() => {
-    try { const s = localStorage.getItem('relampago_comissoes'); if (s) return JSON.parse(s); } catch {}
-    return [
-      { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2026-06-16T08:30:00Z' },
-      { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
-      { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
-    ];
-  });
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([
+    { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2026-06-16T08:30:00Z' },
+    { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
+    { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
+  ]);
 
   // Manutenções state
-  const [manutencoes, setManutencoes] = useState<Manutencao[]>(() => {
-    try { const s = localStorage.getItem('relampago_manutencoes'); if (s) return JSON.parse(s); } catch {}
-    return [];
-  });
+  const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
 
   // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>(() => {
-    try { const s = localStorage.getItem('relampago_motoristas'); if (s) return JSON.parse(s); } catch {}
-    return ['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque'];
-  });
+  const [motoristas, setMotoristas] = useState<string[]>(['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque']);
 
   // Helper para verificar se usuário é motorista
   const isDriverUser = (): boolean => {
@@ -146,23 +116,8 @@ export default function App() {
     }
   }, [currentUserRole, currentUserEmail, currentTab]);
 
-  // Limpeza automatica: remove de relampago_invited_drivers quem nao está mais em relampago_system_users
-  useEffect(() => {
-    try {
-      const invitedRaw = localStorage.getItem('relampago_invited_drivers');
-      const systemRaw = localStorage.getItem('relampago_system_users');
-      if (invitedRaw && systemRaw) {
-        const invited = JSON.parse(invitedRaw);
-        const system = JSON.parse(systemRaw);
-        const systemEmails = new Set(system.map((u: any) => u.email?.toLowerCase().trim()));
-        const filtered = invited.filter((d: any) => systemEmails.has(d.email?.toLowerCase().trim()));
-        if (filtered.length !== invited.length) {
-          localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
-          console.log('Limpeza automatica:', invited.length - filtered.length, 'motorista(s) removido(s) de relampago_invited_drivers');
-        }
-      }
-    } catch {}
-  }, []);
+  // NOTA: localStorage foi removido como fonte de dados.
+  // Toda persistência é feita via servidor (Express + Turso).
 
   // Load data from Cloud SQL / Supabase when authenticated
   useEffect(() => {
@@ -346,7 +301,6 @@ export default function App() {
                 created_at: g.createdAt ?? g.created_at ?? ''
               }));
               setGarageRefills(mapped);
-              localStorage.setItem('relampago_garage_refills', JSON.stringify(mapped));
             }
 
             // Load manutencoes from Supabase
@@ -367,7 +321,6 @@ export default function App() {
                 createdAt: m.createdAt ?? m.created_at
               }));
               setManutencoes(mapped);
-              localStorage.setItem('relampago_manutencoes', JSON.stringify(mapped));
             }
 
             // Load garage config from vehicles table (special sentinel record)
@@ -422,20 +375,7 @@ export default function App() {
             setDispatches(data);
           }
         } catch (error) {
-          console.error("Database connection error, trying localStorage:", error);
-          const loadFallback = (key: string, setter: (v: any) => void) => {
-            try { const s = localStorage.getItem(key); if (s) setter(JSON.parse(s)); } catch {}
-          };
-          loadFallback('relampago_vehicles', setVehicles);
-          loadFallback('relampago_fuel_logs', setFuelLogs);
-          loadFallback('relampago_alerts', setAlerts);
-          loadFallback('relampago_invoices', setInvoices);
-          loadFallback('relampago_dispatches', setDispatches);
-          loadFallback('relampago_bota_foras', setBotaForas);
-          loadFallback('relampago_lancamentos', setLancamentos);
-          loadFallback('relampago_comissoes', setComissoes);
-          loadFallback('relampago_motoristas', setMotoristas);
-          loadFallback('relampago_manutencoes', setManutencoes);
+          console.error("Database connection error:", error);
         }
       };
       loadDatabaseData();
@@ -524,14 +464,6 @@ export default function App() {
     const resolveDriverFilter = async (): Promise<string | null> => {
       if (!isDriverUser()) return null;
       if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
-      try {
-        const raw = localStorage.getItem('relampago_system_users');
-        if (raw) {
-          const saved = JSON.parse(raw);
-          const match = saved.find((u: any) => u.email?.toLowerCase() === currentUserEmail.toLowerCase());
-          if (match?.linkedDriver) return match.linkedDriver;
-        }
-      } catch {}
       return null;
     };
 
@@ -591,24 +523,6 @@ export default function App() {
     };
   }, [isAuthenticated, currentUserEmail, currentUserRole]);
 
-  // Sincroniza automaticamente cada estado com localStorage sempre que muda
-  useEffect(() => { try { localStorage.setItem('relampago_vehicles', JSON.stringify(vehicles)); } catch (e) { console.warn('Persist vehicles failed:', e); } }, [vehicles]);
-  useEffect(() => {
-    try {
-      // fotoNota (foto da nota fiscal em base64) fica só no Supabase — é pesado
-      // demais para o localStorage e estourava a cota, quebrando o app (tela branca).
-      const slim = fuelLogs.map(({ fotoNota, ...rest }) => rest);
-      localStorage.setItem('relampago_fuel_logs', JSON.stringify(slim));
-    } catch (e) { console.warn('Persist fuelLogs failed:', e); }
-  }, [fuelLogs]);
-  useEffect(() => { try { localStorage.setItem('relampago_alerts', JSON.stringify(alerts)); } catch (e) { console.warn('Persist alerts failed:', e); } }, [alerts]);
-  useEffect(() => { try { localStorage.setItem('relampago_invoices', JSON.stringify(invoices)); } catch (e) { console.warn('Persist invoices failed:', e); } }, [invoices]);
-  useEffect(() => { try { localStorage.setItem('relampago_dispatches', JSON.stringify(dispatches)); } catch (e) { console.warn('Persist dispatches failed:', e); } }, [dispatches]);
-  useEffect(() => { try { localStorage.setItem('relampago_bota_foras', JSON.stringify(botaForas)); } catch (e) { console.warn('Persist botaForas failed:', e); } }, [botaForas]);
-  useEffect(() => { try { localStorage.setItem('relampago_lancamentos', JSON.stringify(lancamentos)); } catch (e) { console.warn('Persist lancamentos failed:', e); } }, [lancamentos]);
-  useEffect(() => { try { localStorage.setItem('relampago_comissoes', JSON.stringify(comissoes)); } catch (e) { console.warn('Persist comissoes failed:', e); } }, [comissoes]);
-  useEffect(() => { try { localStorage.setItem('relampago_motoristas', JSON.stringify(motoristas)); } catch (e) { console.warn('Persist motoristas failed:', e); } }, [motoristas]);
-  useEffect(() => { try { localStorage.setItem('relampago_manutencoes', JSON.stringify(manutencoes)); } catch (e) { console.warn('Persist manutencoes failed:', e); } }, [manutencoes]);
   useEffect(() => { if (isAuthenticated) localStorage.setItem('relampago_auth_tab', currentTab); }, [currentTab, isAuthenticated]);
 
   // Garage Diesel Tank States
@@ -1130,7 +1044,6 @@ export default function App() {
         if (!ok) throw new Error('Falha ao excluir no servidor');
       }
       const updated = previous.filter(inv => inv.id !== id);
-      localStorage.setItem('relampago_invoices', JSON.stringify(updated));
       handleShowToast("Fatura Removida", `Fatura corporativa ${id} removida com sucesso.`, "info");
     } catch (e) {
       setInvoices(previous);
@@ -1276,11 +1189,7 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
 
-    setLancamentos(prev => {
-      const updated = [freshRecord, ...prev];
-      localStorage.setItem('relampago_lancamentos', JSON.stringify(updated));
-      return updated;
-    });
+    setLancamentos(prev => [freshRecord, ...prev]);
 
     // Generate associated billing (faturamento) record automatically in invoices list
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -1427,7 +1336,6 @@ export default function App() {
         if (!ok) throw new Error('Falha ao excluir no servidor');
       }
       const updated = previous.filter(lan => lan.id !== id);
-      localStorage.setItem('relampago_lancamentos', JSON.stringify(updated));
       handleShowToast("Lançamento Excluído", `O registro foi removido do histórico de operações.`, "info");
     } catch (e) {
       setLancamentos(previous);
@@ -1612,7 +1520,6 @@ export default function App() {
 
     setFuelLogs(prev => {
       const updated = [freshRecord, ...prev];
-      localStorage.setItem('relampago_fuel_logs', JSON.stringify(updated));
       return updated;
     });
 
@@ -1724,7 +1631,6 @@ export default function App() {
         if (!ok) throw new Error('Falha ao excluir no servidor');
       }
       const updated = previous.filter(f => f.id !== id);
-      localStorage.setItem('relampago_fuel_logs', JSON.stringify(updated));
       handleShowToast("Abastecimento Excluído", "O registro de abastecimento foi removido.", "info");
     } catch (e) {
       setFuelLogs(previous);
