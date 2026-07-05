@@ -49,7 +49,7 @@ export default function DashboardView({
   setCurrentTab,
   onOpenNewDispatch
 }: DashboardViewProps) {
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-06');
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
 
   // Extract all unique months present in data
   const monthOptions = useMemo(() => {
