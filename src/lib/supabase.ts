@@ -266,14 +266,16 @@ export const confirmUserById = async (userId: string): Promise<boolean> => { ret
 export const createInvitedUser = async (email: string, password: string, name: string, role: string): Promise<boolean> => { return true; };
 export const deleteUserByEmail = async (email: string): Promise<boolean> => {
   try {
-    const users = await (await fetch(`${API_BASE}/api/user-approvals`)).json();
+    const token = getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const users = await (await fetch(`${API_BASE}/api/user-approvals`, { headers })).json();
     if (!Array.isArray(users)) return false;
     const user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
     if (!user?.id) return false;
-    const token = getToken();
     const res = await fetch(`${API_BASE}/api/user-approvals/${encodeURIComponent(user.id)}`, {
       method: 'DELETE',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers,
     });
     return res.ok;
   } catch { return false; }
