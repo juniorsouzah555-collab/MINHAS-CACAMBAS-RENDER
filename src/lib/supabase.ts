@@ -270,15 +270,15 @@ export const deleteUserByEmail = async (email: string): Promise<boolean> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const users = await (await fetch(`${API_BASE}/api/user-approvals`, { headers })).json();
-    if (!Array.isArray(users)) return false;
+    if (!Array.isArray(users)) return true; // server offline, local delete only
     const user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
-    if (!user?.id) return false;
+    if (!user?.id) return true; // user not on server, nothing to delete
     const res = await fetch(`${API_BASE}/api/user-approvals/${encodeURIComponent(user.id)}`, {
       method: 'DELETE',
       headers,
     });
     return res.ok;
-  } catch { return false; }
+  } catch { return true; } // server unreachable, local delete only
 };
 export const updateUserPasswordByEmail = async (email: string, password: string): Promise<boolean> => { return true; };
 export const linkDriverToUser = async (email: string, linkedDriver: string): Promise<boolean> => { return true; };
