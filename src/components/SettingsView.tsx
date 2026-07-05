@@ -81,22 +81,22 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
   // Carrega usuários do Supabase como fonte da verdade (substitui hardcoded defaults)
   useEffect(() => {
     if (isSupabaseConfigured()) {
-      supabase.from('user_approvals').select('*').then(({ data }) => {
+      supabase.from('user_approvals').select('*').then(({ data, error }) => {
+        if (error) return;
         if (data && data.length > 0) {
-          setUsers(prev => data.map((u: any) => {
-            const existing = prev.find(p => (p.email || '').toLowerCase().trim() === (u.email || '').toLowerCase().trim());
-            return {
-              id: u.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
-              name: u.name || u.email?.split('@')[0] || 'Usuário',
-              email: (u.email || '').toLowerCase().trim(),
-              role: u.role || 'Motorista',
-              status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
-              registrationDate: u.created_at
-                ? new Date(u.created_at).toLocaleDateString('pt-BR')
-                : new Date().toLocaleDateString('pt-BR'),
-              linkedDriver: existing?.linkedDriver || undefined
-            };
-          }));
+          setUsers(data.map((u: any) => ({
+            id: u.id || `USR-${Math.floor(100 + Math.random() * 900)}`,
+            name: u.name || u.email?.split('@')[0] || 'Usuário',
+            email: (u.email || '').toLowerCase().trim(),
+            role: u.role || 'Motorista',
+            status: u.status === 'Ativo' ? 'Ativo' : 'Inativo',
+            registrationDate: u.created_at
+              ? new Date(u.created_at).toLocaleDateString('pt-BR')
+              : new Date().toLocaleDateString('pt-BR'),
+            linkedDriver: undefined
+          })));
+        } else {
+          setUsers([]);
         }
       });
     }
@@ -232,8 +232,8 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
     // Tenta criar no Supabase via servidor (Admin API — já confirmado, sem depender de SMTP)
     try {
       if (isSupabaseConfigured()) {
-        const { ok, userId } = await createInvitedUser(email, tempPassword);
-        if (!ok && userId === null) {
+        const invitedOk = await createInvitedUser(email, tempPassword, formattedName, 'Motorista');
+        if (!invitedOk) {
           // Se falhou (usuário já existe), tenta só confirmar o email
           await confirmUserEmailByEmail(email);
         }

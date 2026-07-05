@@ -266,19 +266,9 @@ export const confirmUserById = async (userId: string): Promise<boolean> => { ret
 export const createInvitedUser = async (email: string, password: string, name: string, role: string): Promise<boolean> => { return true; };
 export const deleteUserByEmail = async (email: string): Promise<boolean> => {
   try {
-    const token = getToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const users = await (await fetch(`${API_BASE}/api/user-approvals`, { headers })).json();
-    if (!Array.isArray(users)) return true; // server offline, local delete only
-    const user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
-    if (!user?.id) return true; // user not on server, nothing to delete
-    const res = await fetch(`${API_BASE}/api/user-approvals/${encodeURIComponent(user.id)}`, {
-      method: 'DELETE',
-      headers,
-    });
-    return res.ok;
-  } catch { return true; } // server unreachable, local delete only
+    const { error } = await supabase.from('user_approvals').delete().eq('email', email.toLowerCase().trim());
+    return !error;
+  } catch { return false; }
 };
 export const updateUserPasswordByEmail = async (email: string, password: string): Promise<boolean> => { return true; };
 export const linkDriverToUser = async (email: string, linkedDriver: string): Promise<boolean> => { return true; };
