@@ -264,6 +264,19 @@ export const uploadFuelReceipt = async (file: File): Promise<string | null> => {
 export const confirmUserEmailByEmail = async (email: string): Promise<boolean> => { return true; };
 export const confirmUserById = async (userId: string): Promise<boolean> => { return true; };
 export const createInvitedUser = async (email: string, password: string, name: string, role: string): Promise<boolean> => { return true; };
-export const deleteUserByEmail = async (email: string): Promise<boolean> => { return true; };
+export const deleteUserByEmail = async (email: string): Promise<boolean> => {
+  try {
+    const users = await (await fetch(`${API_BASE}/api/user-approvals`)).json();
+    if (!Array.isArray(users)) return false;
+    const user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    if (!user?.id) return false;
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/user-approvals/${encodeURIComponent(user.id)}`, {
+      method: 'DELETE',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    return res.ok;
+  } catch { return false; }
+};
 export const updateUserPasswordByEmail = async (email: string, password: string): Promise<boolean> => { return true; };
 export const linkDriverToUser = async (email: string, linkedDriver: string): Promise<boolean> => { return true; };
