@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, proxyDelete, confirmUserEmailByEmail, confirmUserById, createInvitedUser, updateUserPasswordByEmail, linkDriverToUser } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, deleteUserByEmail, confirmUserEmailByEmail, confirmUserById, createInvitedUser, updateUserPasswordByEmail, linkDriverToUser } from '../lib/supabase';
 import { 
   Settings, 
   Cpu, 
@@ -469,9 +469,9 @@ export default function SettingsView({ onShowNotification, motoristas, onMotoris
             localStorage.setItem('relampago_invited_drivers', JSON.stringify(filtered));
           }
         } catch {}
-        // Se o ID é numérico (veio do servidor), deleta do banco
-        if (isSupabaseConfigured() && /^\d+$/.test(id)) {
-          const ok = await proxyDelete('user-approvals', `id=eq.${id}`);
+        // Deleta do servidor (busca por email para funcionar tanto com defaults quanto server-loaded)
+        if (isSupabaseConfigured()) {
+          const ok = await deleteUserByEmail(targetUser.email.toLowerCase().trim());
           if (!ok) {
             onShowNotification(`[ERRO] Não foi possível excluir ${name} do servidor. Tente novamente.`);
             return;
