@@ -337,33 +337,37 @@ export default function App() {
             // Load garage refills from Supabase (se tabela existir)
             const { data: listGarage, error: errGarage } = await supabase.from('garage_refills').select('*').order('created_at', { ascending: false });
             if (!errGarage && listGarage && listGarage.length > 0) {
-              setGarageRefills(listGarage.map((g: any) => ({
+              const mapped = listGarage.map((g: any) => ({
                 id: g.id,
                 data: g.data,
-                quantidade_litros: g.quantidadeLitros ?? g.quantidade_litros,
-                valor_total: g.valorTotal ?? g.valor_total,
-                preco_por_litro: g.precoPorLitro ?? g.preco_por_litro,
-                created_at: g.createdAt ?? g.created_at
-              })));
+                quantidade_litros: g.quantidadeLitros ?? g.quantidade_litros ?? 0,
+                valor_total: g.valorTotal ?? g.valor_total ?? 0,
+                preco_por_litro: g.precoPorLitro ?? g.preco_por_litro ?? 0,
+                created_at: g.createdAt ?? g.created_at ?? ''
+              }));
+              setGarageRefills(mapped);
+              localStorage.setItem('relampago_garage_refills', JSON.stringify(mapped));
             }
 
             // Load manutencoes from Supabase
             const { data: listMan, error: errMan } = await supabase.from('manutencoes').select('*').order('created_at', { ascending: false });
             if (!errMan && listMan) {
-              setManutencoes(listMan.map((m: any) => ({
+              const mapped = listMan.map((m: any) => ({
                 id: m.id,
-                vehicleId: m.vehicle_id || m.vehicleId,
-                tipo: m.tipo,
-                descricao: m.descricao,
-                data: m.data,
-                kmAtual: m.km_atual !== undefined ? m.km_atual : m.kmAtual,
-                proximoKm: m.proximo_km !== undefined ? m.proximo_km : m.proximoKm,
-                custo: m.custo,
-                oficina: m.oficina,
+                vehicleId: m.vehicleId ?? m.vehicle_id ?? '',
+                tipo: m.tipo ?? '',
+                descricao: m.descricao ?? '',
+                data: m.data ?? '',
+                kmAtual: m.kmAtual ?? m.km_atual ?? undefined,
+                proximoKm: m.proximoKm ?? m.proximo_km ?? undefined,
+                custo: m.custo ?? 0,
+                oficina: m.oficina ?? '',
                 observacao: m.observacao,
-                status: m.status,
-                createdAt: m.created_at || m.createdAt
-              })));
+                status: m.status ?? 'Pendente',
+                createdAt: m.createdAt ?? m.created_at
+              }));
+              setManutencoes(mapped);
+              localStorage.setItem('relampago_manutencoes', JSON.stringify(mapped));
             }
 
             // Load garage config from vehicles table (special sentinel record)

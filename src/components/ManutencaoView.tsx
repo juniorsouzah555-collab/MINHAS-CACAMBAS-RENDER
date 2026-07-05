@@ -50,9 +50,9 @@ export default function ManutencaoView({
 
   const filtered = manutencoes.filter(m => {
     const matchSearch = !searchTerm || 
-      m.vehicleId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.oficina.toLowerCase().includes(searchTerm.toLowerCase());
+      (m.vehicleId ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.oficina ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
     return matchSearch && matchStatus;
   });
