@@ -340,10 +340,10 @@ export default function App() {
               setGarageRefills(listGarage.map((g: any) => ({
                 id: g.id,
                 data: g.data,
-                quantidade_litros: g.quantidade_litros,
-                valor_total: g.valor_total,
-                preco_por_litro: g.preco_por_litro,
-                created_at: g.created_at || g.createdAt
+                quantidade_litros: g.quantidadeLitros ?? g.quantidade_litros,
+                valor_total: g.valorTotal ?? g.valor_total,
+                preco_por_litro: g.precoPorLitro ?? g.preco_por_litro,
+                created_at: g.createdAt ?? g.created_at
               })));
             }
 

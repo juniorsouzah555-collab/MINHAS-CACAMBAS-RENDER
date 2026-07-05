@@ -1049,9 +1049,9 @@ export default function FleetView({
                     {garageRefills.map(r => (
                       <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-2 px-2 font-semibold text-slate-700">{new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                        <td className="py-2 px-2 text-right font-bold text-slate-900">{r.quantidade_litros.toLocaleString()}</td>
-                        <td className="py-2 px-2 text-right font-bold text-emerald-600">R$ {r.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td className="py-2 px-2 text-right font-mono text-slate-500">R$ {r.preco_por_litro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-right font-bold text-slate-900">{(r.quantidade_litros ?? 0).toLocaleString()}</td>
+                        <td className="py-2 px-2 text-right font-bold text-emerald-600">R$ {(r.valor_total ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-right font-mono text-slate-500">R$ {(r.preco_por_litro ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button

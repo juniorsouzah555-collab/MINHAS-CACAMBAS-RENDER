@@ -346,7 +346,7 @@ export default function ManutencaoView({
                     <span className="font-medium">Oficina: <strong className="text-slate-700">{m.oficina}</strong></span>
                     {m.kmAtual !== undefined && <span>KM Atual: <strong>{m.kmAtual.toLocaleString()}</strong></span>}
                     {m.proximoKm !== undefined && <span>Próx. KM: <strong>{m.proximoKm.toLocaleString()}</strong></span>}
-                    <span className="font-mono font-bold text-emerald-700">R$ {m.custo.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-emerald-700">R$ {(m.custo ?? 0).toFixed(2)}</span>
                     {m.observacao && <span className="text-slate-400 italic">Obs: {m.observacao}</span>}
                   </div>
                 </div>
