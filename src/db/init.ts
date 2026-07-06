@@ -25,6 +25,10 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS clientes (id TEXT PRIMARY KEY, tipo TEXT NOT NULL, nome TEXT NOT NULL, documento TEXT NOT NULL, telefone TEXT NOT NULL, email TEXT, endereco TEXT, observacao TEXT, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS garage_refills (id TEXT PRIMARY KEY, data TEXT NOT NULL, quantidade_litros REAL NOT NULL, valor_total REAL NOT NULL, preco_por_litro REAL NOT NULL, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS plano_contas (id TEXT PRIMARY KEY, codigo TEXT NOT NULL, nome TEXT NOT NULL, tipo TEXT NOT NULL, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS gmail_tokens (email TEXT PRIMARY KEY, refresh_token TEXT, access_token TEXT, expires_at INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS gmail_filters (id TEXT PRIMARY KEY, type TEXT NOT NULL, value TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS gmail_aliases (id TEXT PRIMARY KEY, sender TEXT NOT NULL, alias TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS gmail_hidden (id TEXT PRIMARY KEY, message_id TEXT NOT NULL)`,
 ];
 
 export async function initDatabase() {

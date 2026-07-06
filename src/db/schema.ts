@@ -255,6 +255,30 @@ export const planoContas = sqliteTable('plano_contas', {
   createdAt: text('created_at'),
 });
 
+export const gmailTokens = sqliteTable('gmail_tokens', {
+  email: text('email').primaryKey(),
+  refreshToken: text('refresh_token'),
+  accessToken: text('access_token'),
+  expiresAt: integer('expires_at'),
+});
+
+export const gmailFilters = sqliteTable('gmail_filters', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  value: text('value').notNull(),
+});
+
+export const gmailAliases = sqliteTable('gmail_aliases', {
+  id: text('id').primaryKey(),
+  sender: text('sender').notNull(),
+  alias: text('alias').notNull(),
+});
+
+export const gmailHidden = sqliteTable('gmail_hidden', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id').notNull(),
+});
+
 export const clientes = sqliteTable('clientes', {
   id: text('id').primaryKey(),
   tipo: text('tipo').notNull(),
