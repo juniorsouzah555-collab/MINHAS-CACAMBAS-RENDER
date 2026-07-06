@@ -62,47 +62,34 @@ export default function BoletoView({ onNewBoletosCount }: Props) {
 
   const loadBills = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('plano_contas').select('*').order('date', { ascending: true });
-      if (error) { console.error('[PlanoContas] Load error:', error); return; }
-      setBills((data || []).map((b: any) => ({ id: b.id, name: b.name, date: b.date, checked: b.checked, sender: b.sender || undefined })));
-    } catch (e) { console.error('[PlanoContas] Load exception:', e); }
+      const { data, error } = await supabase.from('contas_pagar').select('*').order('date', { ascending: true });
+      if (error) { console.error('[ContasPagar] Load error:', error); return; }
+      setBills((data || []).map((b: any) => ({ id: b.id, name: b.name, date: b.date, checked: !!b.checked, sender: b.sender || undefined })));
+    } catch (e) { console.error('[ContasPagar] Load exception:', e); }
   }, []);
 
   useEffect(() => {
     loadBills();
-    const channel = supabase
-      .channel('plano-contas-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'plano_contas' }, (payload: any) => {
-        if (payload.eventType === 'INSERT') {
-          setBills(prev => [...prev, { id: payload.new.id, name: payload.new.name, date: payload.new.date, checked: payload.new.checked, sender: payload.new.sender || undefined }]);
-        } else if (payload.eventType === 'UPDATE') {
-          setBills(prev => prev.map(b => b.id === payload.new.id ? { ...b, name: payload.new.name, date: payload.new.date, checked: payload.new.checked, sender: payload.new.sender || undefined } : b));
-        } else if (payload.eventType === 'DELETE') {
-          setBills(prev => prev.filter(b => b.id !== payload.old.id));
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
   }, [loadBills]);
 
   const addBill = async (name: string, date: string, sender?: string) => {
-    const { error } = await supabase.from('plano_contas').insert({ name, date, checked: false, sender: sender || null });
-    if (error) console.error('[PlanoContas] Insert error:', error);
+    const { error } = await supabase.from('contas_pagar').insert({ name, date, checked: false, sender: sender || null });
+    if (error) console.error('[ContasPagar] Insert error:', error);
   };
 
   const updateBill = async (id: string, name: string, date: string, checked: boolean, sender?: string) => {
-    const { error } = await supabase.from('plano_contas').update({ name, date, checked, sender: sender || null }).eq('id', id);
-    if (error) console.error('[PlanoContas] Update error:', error);
+    const { error } = await supabase.from('contas_pagar').update({ name, date, checked, sender: sender || null }).eq('id', id);
+    if (error) console.error('[ContasPagar] Update error:', error);
   };
 
   const toggleBill = async (id: string, checked: boolean) => {
-    const { error } = await supabase.from('plano_contas').update({ checked }).eq('id', id);
-    if (error) console.error('[PlanoContas] Toggle error:', error);
+    const { error } = await supabase.from('contas_pagar').update({ checked }).eq('id', id);
+    if (error) console.error('[ContasPagar] Toggle error:', error);
   };
 
   const deleteBill = async (id: string) => {
-    const { error } = await supabase.from('plano_contas').delete().eq('id', id);
-    if (error) console.error('[PlanoContas] Delete error:', error);
+    const { error } = await supabase.from('contas_pagar').delete().eq('id', id);
+    if (error) console.error('[ContasPagar] Delete error:', error);
   };
 
   const [filters, setFilters] = useState<Filter[]>([]);

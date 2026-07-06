@@ -255,6 +255,14 @@ export const planoContas = sqliteTable('plano_contas', {
   createdAt: text('created_at'),
 });
 
+export const contasPagar = sqliteTable('contas_pagar', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  date: text('date').notNull(),
+  checked: integer('checked', { mode: 'boolean' }).notNull().default(false),
+  sender: text('sender'),
+});
+
 export const gmailTokens = sqliteTable('gmail_tokens', {
   email: text('email').primaryKey(),
   refreshToken: text('refresh_token'),

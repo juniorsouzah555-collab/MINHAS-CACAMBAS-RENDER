@@ -194,6 +194,7 @@ crud('centros-custo', schema.centrosCusto);
 crud('centros_custo', schema.centrosCusto);
 crud('conciliacoes', schema.conciliacoes);
 crud('regras-categorizacao', schema.regrasCategorizacao);
+crud('contas_pagar', schema.contasPagar);
 crud('patrimonio', schema.patrimonio);
 crud('planos-pagamento', schema.planosPagamento);
 crud('planos_pagamento', schema.planosPagamento);
