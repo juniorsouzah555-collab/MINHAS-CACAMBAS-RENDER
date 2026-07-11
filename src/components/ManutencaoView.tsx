@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Wrench,
   Plus,
@@ -11,7 +11,10 @@ import {
   Clock,
   AlertCircle,
   Edit3,
-  X
+  X,
+  BarChart3,
+  Coins,
+  Filter
 } from 'lucide-react';
 import { Manutencao, Vehicle } from '../types';
 
@@ -56,6 +59,39 @@ export default function ManutencaoView({
     const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  // Ranking por tipo de manutenção
+  const rankingPorTipo = useMemo(() => {
+    const groups: { [key: string]: { tipo: string; quantidade: number; custoTotal: number; concluidos: number } } = {};
+    manutencoes.forEach(m => {
+      const tipo = m.tipo || 'Outro';
+      if (!groups[tipo]) groups[tipo] = { tipo, quantidade: 0, custoTotal: 0, concluidos: 0 };
+      groups[tipo].quantidade += 1;
+      groups[tipo].custoTotal += m.custo || 0;
+      if (m.status === 'Concluído') groups[tipo].concluidos += 1;
+    });
+    return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
+  }, [manutencoes]);
+
+  // Ranking por veículo
+  const rankingPorVeiculo = useMemo(() => {
+    const groups: { [key: string]: { vehicleId: string; quantidade: number; custoTotal: number } } = {};
+    manutencoes.forEach(m => {
+      const vid = m.vehicleId || 'Não informado';
+      if (!groups[vid]) groups[vid] = { vehicleId: vid, quantidade: 0, custoTotal: 0 };
+      groups[vid].quantidade += 1;
+      groups[vid].custoTotal += m.custo || 0;
+    });
+    return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
+  }, [manutencoes]);
+
+  // Totais gerais
+  const totais = useMemo(() => ({
+    totalRegistros: manutencoes.length,
+    custoTotal: manutencoes.reduce((acc, m) => acc + (m.custo || 0), 0),
+    concluidos: manutencoes.filter(m => m.status === 'Concluído').length,
+    pendentes: manutencoes.filter(m => m.status === 'Pendente').length
+  }), [manutencoes]);
 
   const resetForm = () => {
     setEditId(null);
@@ -150,6 +186,127 @@ export default function ManutencaoView({
           {showForm ? 'Fechar' : 'Nova Manutenção'}
         </button>
       </div>
+
+      {/* Painel de Ranking e Gastos */}
+      {manutencoes.length > 0 && (
+        <div className="space-y-5">
+          {/* KPI Cards */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Total Registros</span>
+                <ClipboardList className="w-4 h-4 text-purple-600" />
+              </div>
+              <p className="text-2xl font-black font-sans text-slate-900 mt-1">{totais.totalRegistros}</p>
+              <span className="text-[10px] text-slate-400">Manutenções registradas</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Custo Total</span>
+                <Coins className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className="text-2xl font-black font-sans text-emerald-700 mt-1">R$ {totais.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-slate-400">Investido em manutenção</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Concluídos</span>
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className="text-2xl font-black font-sans text-slate-900 mt-1">{totais.concluidos}</p>
+              <span className="text-[10px] text-slate-400">Serviços finalizados</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Pendentes</span>
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+              </div>
+              <p className="text-2xl font-black font-sans text-rose-600 mt-1">{totais.pendentes}</p>
+              <span className="text-[10px] text-slate-400">Aguardando execução</span>
+            </div>
+          </section>
+
+          {/* Ranking por Tipo + Ranking por Veículo */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Ranking por Tipo */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-purple-600" />
+                <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Ranking por Tipo de Manutenção</span>
+              </div>
+              <div className="p-4 space-y-3">
+                {rankingPorTipo.map((item, index) => {
+                  const maxCusto = Math.max(...rankingPorTipo.map(r => r.custoTotal), 1);
+                  const pct = Math.round((item.custoTotal / maxCusto) * 100);
+                  let rankBadge = "bg-slate-100 text-slate-600";
+                  if (index === 0) rankBadge = "bg-amber-100 text-amber-800 border border-amber-200 font-black";
+                  else if (index === 1) rankBadge = "bg-slate-200 text-slate-800 border border-slate-300 font-black";
+                  else if (index === 2) rankBadge = "bg-orange-100 text-orange-850 border border-orange-200 font-black";
+
+                  return (
+                    <div key={item.tipo} className="flex items-center gap-3">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold shrink-0 ${rankBadge}`}>
+                        #{index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-extrabold text-slate-800">{item.tipo}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400">{item.quantidade}x</span>
+                            <span className="text-xs font-black font-mono text-emerald-700">R$ {item.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/45">
+                          <div className="bg-purple-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-bold">{item.concluidos} concluído(s)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Ranking por Veículo */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                <Truck className="w-4 h-4 text-indigo-600" />
+                <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Ranking por Veículo</span>
+              </div>
+              <div className="p-4 space-y-3">
+                {rankingPorVeiculo.map((item, index) => {
+                  const maxCusto = Math.max(...rankingPorVeiculo.map(r => r.custoTotal), 1);
+                  const pct = Math.round((item.custoTotal / maxCusto) * 100);
+                  let rankBadge = "bg-slate-100 text-slate-600";
+                  if (index === 0) rankBadge = "bg-amber-100 text-amber-800 border border-amber-200 font-black";
+                  else if (index === 1) rankBadge = "bg-slate-200 text-slate-800 border border-slate-300 font-black";
+                  else if (index === 2) rankBadge = "bg-orange-100 text-orange-850 border border-orange-200 font-black";
+
+                  return (
+                    <div key={item.vehicleId} className="flex items-center gap-3">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold shrink-0 ${rankBadge}`}>
+                        #{index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-extrabold text-slate-800">{item.vehicleId}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400">{item.quantidade}x</span>
+                            <span className="text-xs font-black font-mono text-emerald-700">R$ {item.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/45">
+                          <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
