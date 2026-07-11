@@ -41,6 +41,7 @@ export default function ManutencaoView({
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [vehicleFilter, setVehicleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendente' | 'Em Andamento' | 'Concluído'>('ALL');
   const [localFilter, setLocalFilter] = useState<'ALL' | 'Garagem' | 'Oficina'>('ALL');
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -64,11 +65,12 @@ export default function ManutencaoView({
       (m.vehicleId ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.oficina ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchVehicle = vehicleFilter === 'ALL' || m.vehicleId === vehicleFilter;
     const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
     const matchLocal = localFilter === 'ALL' || m.local === localFilter;
     const matchStart = !filterStartDate || m.data >= filterStartDate;
     const matchEnd = !filterEndDate || m.data <= filterEndDate;
-    return matchSearch && matchStatus && matchLocal && matchStart && matchEnd;
+    return matchSearch && matchVehicle && matchStatus && matchLocal && matchStart && matchEnd;
   });
 
   const rankingPorTipo = useMemo(() => {
@@ -581,10 +583,10 @@ export default function ManutencaoView({
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-purple-600" />
               <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Filtros</span>
-              {(localFilter !== 'ALL' || hasDateFilter || statusFilter !== 'ALL' || searchTerm) && (
+              {(localFilter !== 'ALL' || hasDateFilter || statusFilter !== 'ALL' || searchTerm || vehicleFilter !== 'ALL') && (
                 <button
                   type="button"
-                  onClick={() => { setLocalFilter('ALL'); setFilterStartDate(''); setFilterEndDate(''); setStatusFilter('ALL'); setSearchTerm(''); }}
+                  onClick={() => { setLocalFilter('ALL'); setFilterStartDate(''); setFilterEndDate(''); setStatusFilter('ALL'); setSearchTerm(''); setVehicleFilter('ALL'); }}
                   className="text-[10px] font-extrabold text-purple-600 hover:text-purple-700 flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-0"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -607,7 +609,20 @@ export default function ManutencaoView({
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Placa / Veículo</label>
+              <select
+                value={vehicleFilter}
+                onChange={e => setVehicleFilter(e.target.value)}
+                className="w-full bg-white border border-slate-200 p-1.5 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer h-[34px]"
+              >
+                <option value="ALL">Todos os veículos</option>
+                {vehicles.filter(v => v.type !== 'Veículo').map(v => (
+                  <option key={v.id} value={v.id}>{v.id} — {v.driver}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Local</label>
               <select
