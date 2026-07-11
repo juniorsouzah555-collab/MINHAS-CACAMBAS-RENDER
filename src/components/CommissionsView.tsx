@@ -16,12 +16,15 @@ import {
   Filter,
   RotateCcw,
   AlertCircle,
-  Pencil
+  Pencil,
+  Building,
+  Archive
 } from 'lucide-react';
-import { ComissaoMotorista } from '../types';
+import { ComissaoMotorista, Lancamento } from '../types';
 
 interface CommissionsViewProps {
   comissoes: ComissaoMotorista[];
+  lancamentos: Lancamento[];
   motoristas: string[];
   onAddComissao: (newCom: Omit<ComissaoMotorista, 'id' | 'createdAt'>) => void;
   onUpdateComissao?: (updatedCom: ComissaoMotorista) => void;
@@ -30,6 +33,7 @@ interface CommissionsViewProps {
 
 export default function CommissionsView({
   comissoes,
+  lancamentos = [],
   motoristas = [],
   onAddComissao,
   onUpdateComissao,
@@ -118,6 +122,28 @@ export default function CommissionsView({
       saldoGeral: totVazias + totRetiradas
     };
   }, [filteredComissoes]);
+
+  // Aggregate descartes by driver + bota fora (dados automáticos dos lançamentos)
+  const aggregatedDescartes = useMemo(() => {
+    const groups: { [key: string]: { motorista: string; botaFora: string; quantidade: number; valor: number } } = {};
+    
+    lancamentos.forEach(l => {
+      const driver = l.driverName || 'Sem Motorista';
+      
+      if (filterMotorista !== 'ALL' && l.driverName !== filterMotorista) return;
+      if (filterStartDate && l.data < filterStartDate) return;
+      if (filterEndDate && l.data > filterEndDate) return;
+      
+      const key = `${driver}::${l.botaForaNome}`;
+      if (!groups[key]) {
+        groups[key] = { motorista: driver, botaFora: l.botaForaNome, quantidade: 0, valor: 0 };
+      }
+      groups[key].quantidade += l.quantidadeCacambas;
+      groups[key].valor += l.valor;
+    });
+    
+    return Object.values(groups).sort((a, b) => b.quantidade - a.quantidade);
+  }, [lancamentos, filterMotorista, filterStartDate, filterEndDate]);
 
   // Handle resetting of filters
   const handleResetFilters = () => {
@@ -523,7 +549,121 @@ export default function CommissionsView({
         </div>
       </div>
 
+      {/* SEPARADOR VISUAL */}
+      <div className="border-t-2 border-dashed border-slate-200 pt-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-3xs">
+            <Archive className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="font-sans font-black text-slate-900 text-lg tracking-tight leading-none">Descartes por Motorista</h2>
+            <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">Dados automáticos dos lançamentos — não interfere nas comissões acima</p>
+          </div>
+        </div>
 
+        {aggregatedDescartes.length === 0 ? (
+          <div className="p-12 text-center space-y-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-250">
+            <Archive className="w-8 h-8 text-slate-300 mx-auto" />
+            <h4 className="text-xs font-bold text-slate-600 uppercase">Nenhum descarte registrado</h4>
+            <p className="text-[10px] text-slate-400">Lançamentos de descarte aparecerão aqui automaticamente.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-indigo-50/30 border border-indigo-100 rounded-xl p-3.5">
+              <div className="px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
+                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Motoristas</span>
+                <span className="text-lg font-black text-indigo-950 font-mono">
+                  {new Set(aggregatedDescartes.map(d => d.motorista)).size}
+                </span>
+              </div>
+              <div className="px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
+                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Total Caçambas</span>
+                <span className="text-lg font-black text-indigo-600 font-mono">
+                  {aggregatedDescartes.reduce((acc, curr) => acc + curr.quantidade, 0)}
+                </span>
+              </div>
+              <div className="col-span-2 sm:col-span-1 px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
+                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Valor Total</span>
+                <span className="text-lg font-black text-emerald-800 font-mono">
+                  R$ {aggregatedDescartes.reduce((acc, curr) => acc + curr.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-3xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider select-none">
+                      <th className="px-5 py-3 text-center w-16">#</th>
+                      <th className="px-5 py-3">Motorista</th>
+                      <th className="px-5 py-3">Bota Fora</th>
+                      <th className="px-5 py-3 min-w-[200px]">Quantidade</th>
+                      <th className="px-5 py-3 text-right">Valor (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {aggregatedDescartes.map((item, index) => {
+                      const maxQtd = Math.max(...aggregatedDescartes.map(g => g.quantidade), 1);
+                      const percentage = Math.round((item.quantidade / maxQtd) * 100);
+                      
+                      let rankBadge = "bg-slate-100 text-slate-600";
+                      if (index === 0) rankBadge = "bg-amber-100 text-amber-800 border border-amber-200 font-black";
+                      else if (index === 1) rankBadge = "bg-slate-200 text-slate-800 border border-slate-300 font-black";
+                      else if (index === 2) rankBadge = "bg-orange-100 text-orange-850 border border-orange-200 font-black";
+
+                      return (
+                        <tr key={`${item.motorista}-${item.botaFora}-${index}`} className="hover:bg-slate-50/60 transition-all">
+                          <td className="px-5 py-3 text-center whitespace-nowrap">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold ${rankBadge}`}>
+                              #{index + 1}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-3xs">
+                                {item.motorista.charAt(0)}
+                              </div>
+                              <span className="text-xs font-extrabold text-slate-900">{item.motorista}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md border border-slate-200/60 text-[10px] font-black uppercase">
+                              <Building className="w-3 h-3 text-indigo-500" />
+                              {item.botaFora}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] font-extrabold">
+                                <span className="text-slate-800 font-mono font-black">{item.quantidade} caçambas</span>
+                                <span className="text-slate-400 text-[10px]">{percentage}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/45">
+                                <div 
+                                  className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-right whitespace-nowrap">
+                            <span className="inline-block px-3 py-1 bg-emerald-50 text-emerald-800 font-mono font-black text-xs rounded-lg border border-emerald-100">
+                              R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

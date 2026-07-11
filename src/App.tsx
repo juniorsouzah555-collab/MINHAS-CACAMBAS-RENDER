@@ -1835,6 +1835,7 @@ export default function App() {
           {currentTab === 'commissions' && (
             <CommissionsView 
               comissoes={comissoes}
+              lancamentos={lancamentos}
               motoristas={motoristas}
               onAddComissao={handleAddComissao}
               onUpdateComissao={handleUpdateComissao}
