@@ -10,7 +10,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS dispatches (id TEXT PRIMARY KEY, vehicle_id TEXT NOT NULL, driver_name TEXT NOT NULL, client_name TEXT NOT NULL, origin TEXT NOT NULL, destination TEXT NOT NULL, payload_type TEXT NOT NULL, weight REAL NOT NULL, status TEXT NOT NULL, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS motoristas (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS comissoes (id TEXT PRIMARY KEY, motorista TEXT NOT NULL, vazias_colocadas INTEGER, retiradas INTEGER, data TEXT NOT NULL, created_at TEXT)`,
-  `CREATE TABLE IF NOT EXISTS manutencoes (id TEXT PRIMARY KEY, vehicle_id TEXT NOT NULL, tipo TEXT NOT NULL, descricao TEXT NOT NULL, data TEXT NOT NULL, km_atual INTEGER, proximo_km INTEGER, custo REAL NOT NULL, local TEXT DEFAULT 'Oficina', oficina TEXT NOT NULL, observacao TEXT, status TEXT NOT NULL, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS manutencoes (id TEXT PRIMARY KEY, vehicle_id TEXT NOT NULL, tipo TEXT NOT NULL, descricao TEXT NOT NULL, data TEXT NOT NULL, km_atual INTEGER, proximo_km INTEGER, custo REAL NOT NULL, valor_mao_de_obra REAL DEFAULT 0, valor_peca REAL DEFAULT 0, local TEXT DEFAULT 'Oficina', oficina TEXT NOT NULL, observacao TEXT, status TEXT NOT NULL, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS user_approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT, role TEXT DEFAULT 'Operador de Frota', status TEXT DEFAULT 'Ativo', linked_driver TEXT, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS grupos_conta (id TEXT PRIMARY KEY, nome TEXT NOT NULL, tipo TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS categorias_conta (id TEXT PRIMARY KEY, grupo_id TEXT NOT NULL, nome TEXT NOT NULL)`,
@@ -34,6 +34,8 @@ const CREATE_TABLES = [
 
 const MIGRATIONS = [
   `ALTER TABLE manutencoes ADD COLUMN local TEXT DEFAULT 'Oficina'`,
+  `ALTER TABLE manutencoes ADD COLUMN valor_mao_de_obra REAL DEFAULT 0`,
+  `ALTER TABLE manutencoes ADD COLUMN valor_peca REAL DEFAULT 0`,
 ];
 
 export async function initDatabase() {

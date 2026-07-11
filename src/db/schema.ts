@@ -123,6 +123,8 @@ export const manutencoes = sqliteTable('manutencoes', {
   kmAtual: integer('km_atual'),
   proximoKm: integer('proximo_km'),
   custo: real('custo').notNull(),
+  valorMaoDeObra: real('valor_mao_de_obra'),
+  valorPeca: real('valor_peca'),
   local: text('local').default('Oficina'),
   oficina: text('oficina').notNull(),
   observacao: text('observacao'),

@@ -52,7 +52,8 @@ export default function ManutencaoView({
   const [formData, setFormData] = useState(new Date().toISOString().split('T')[0]);
   const [formKmAtual, setFormKmAtual] = useState('');
   const [formProximoKm, setFormProximoKm] = useState('');
-  const [formCusto, setFormCusto] = useState(0);
+  const [formMaoDeObra, setFormMaoDeObra] = useState(0);
+  const [formPeca, setFormPeca] = useState(0);
   const [formLocal, setFormLocal] = useState<'Garagem' | 'Oficina'>('Oficina');
   const [formOficina, setFormOficina] = useState('');
   const [formObservacao, setFormObservacao] = useState('');
@@ -71,24 +72,28 @@ export default function ManutencaoView({
   });
 
   const rankingPorTipo = useMemo(() => {
-    const groups: { [key: string]: { tipo: string; quantidade: number; custoTotal: number; concluidos: number } } = {};
+    const groups: { [key: string]: { tipo: string; quantidade: number; custoTotal: number; maoDeObra: number; peca: number; concluidos: number } } = {};
     filtered.forEach(m => {
       const tipo = m.tipo || 'Outro';
-      if (!groups[tipo]) groups[tipo] = { tipo, quantidade: 0, custoTotal: 0, concluidos: 0 };
+      if (!groups[tipo]) groups[tipo] = { tipo, quantidade: 0, custoTotal: 0, maoDeObra: 0, peca: 0, concluidos: 0 };
       groups[tipo].quantidade += 1;
       groups[tipo].custoTotal += m.custo || 0;
+      groups[tipo].maoDeObra += m.valorMaoDeObra || 0;
+      groups[tipo].peca += m.valorPeca || 0;
       if (m.status === 'Concluído') groups[tipo].concluidos += 1;
     });
     return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
   }, [filtered]);
 
   const rankingPorVeiculo = useMemo(() => {
-    const groups: { [key: string]: { vehicleId: string; quantidade: number; custoTotal: number } } = {};
+    const groups: { [key: string]: { vehicleId: string; quantidade: number; custoTotal: number; maoDeObra: number; peca: number } } = {};
     filtered.forEach(m => {
       const vid = m.vehicleId || 'Não informado';
-      if (!groups[vid]) groups[vid] = { vehicleId: vid, quantidade: 0, custoTotal: 0 };
+      if (!groups[vid]) groups[vid] = { vehicleId: vid, quantidade: 0, custoTotal: 0, maoDeObra: 0, peca: 0 };
       groups[vid].quantidade += 1;
       groups[vid].custoTotal += m.custo || 0;
+      groups[vid].maoDeObra += m.valorMaoDeObra || 0;
+      groups[vid].peca += m.valorPeca || 0;
     });
     return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
   }, [filtered]);
@@ -99,11 +104,17 @@ export default function ManutencaoView({
     return {
       totalRegistros: filtered.length,
       custoTotal: filtered.reduce((acc, m) => acc + (m.custo || 0), 0),
+      maoDeObraTotal: filtered.reduce((acc, m) => acc + (m.valorMaoDeObra || 0), 0),
+      pecaTotal: filtered.reduce((acc, m) => acc + (m.valorPeca || 0), 0),
       concluidos: filtered.filter(m => m.status === 'Concluído').length,
       pendentes: filtered.filter(m => m.status === 'Pendente').length,
       custoGaragem: garagem.reduce((acc, m) => acc + (m.custo || 0), 0),
+      maoDeObraGaragem: garagem.reduce((acc, m) => acc + (m.valorMaoDeObra || 0), 0),
+      pecaGaragem: garagem.reduce((acc, m) => acc + (m.valorPeca || 0), 0),
       qtdGaragem: garagem.length,
       custoOficina: oficina.reduce((acc, m) => acc + (m.custo || 0), 0),
+      maoDeObraOficina: oficina.reduce((acc, m) => acc + (m.valorMaoDeObra || 0), 0),
+      pecaOficina: oficina.reduce((acc, m) => acc + (m.valorPeca || 0), 0),
       qtdOficina: oficina.length
     };
   }, [filtered]);
@@ -116,7 +127,8 @@ export default function ManutencaoView({
     setFormData(new Date().toISOString().split('T')[0]);
     setFormKmAtual('');
     setFormProximoKm('');
-    setFormCusto(0);
+    setFormMaoDeObra(0);
+    setFormPeca(0);
     setFormLocal('Oficina');
     setFormOficina('');
     setFormObservacao('');
@@ -126,7 +138,9 @@ export default function ManutencaoView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formVehicleId || !formDescricao || !formOficina || formCusto <= 0) return;
+    if (!formVehicleId || !formDescricao || !formOficina) return;
+    const custoTotal = (formMaoDeObra || 0) + (formPeca || 0);
+    if (custoTotal <= 0) return;
 
     if (editId) {
       onUpdateManutencao({
@@ -137,7 +151,9 @@ export default function ManutencaoView({
         data: formData,
         kmAtual: formKmAtual ? Number(formKmAtual) : undefined,
         proximoKm: formProximoKm ? Number(formProximoKm) : undefined,
-        custo: formCusto,
+        custo: custoTotal,
+        valorMaoDeObra: formMaoDeObra || 0,
+        valorPeca: formPeca || 0,
         local: formLocal,
         oficina: formOficina,
         observacao: formObservacao || undefined,
@@ -152,7 +168,9 @@ export default function ManutencaoView({
         data: formData,
         kmAtual: formKmAtual ? Number(formKmAtual) : undefined,
         proximoKm: formProximoKm ? Number(formProximoKm) : undefined,
-        custo: formCusto,
+        custo: custoTotal,
+        valorMaoDeObra: formMaoDeObra || 0,
+        valorPeca: formPeca || 0,
         local: formLocal,
         oficina: formOficina,
         observacao: formObservacao || undefined,
@@ -170,7 +188,8 @@ export default function ManutencaoView({
     setFormData(m.data);
     setFormKmAtual(m.kmAtual?.toString() || '');
     setFormProximoKm(m.proximoKm?.toString() || '');
-    setFormCusto(m.custo);
+    setFormMaoDeObra(m.valorMaoDeObra || 0);
+    setFormPeca(m.valorPeca || 0);
     setFormLocal(m.local || 'Oficina');
     setFormOficina(m.oficina);
     setFormObservacao(m.observacao || '');
@@ -219,7 +238,7 @@ export default function ManutencaoView({
       {manutencoes.length > 0 && (
         <div className="space-y-5">
           {/* KPI Cards */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
               <div className="flex justify-between items-center text-slate-400">
                 <span className="text-[10px] font-bold uppercase tracking-wider">Total Registros</span>
@@ -234,15 +253,23 @@ export default function ManutencaoView({
                 <Coins className="w-4 h-4 text-emerald-500" />
               </div>
               <p className="text-2xl font-black font-sans text-emerald-700 mt-1">R$ {totais.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              <span className="text-[10px] text-slate-400">Investido em manutenção</span>
+              <span className="text-[10px] text-slate-400">Mão de obra + Peças</span>
             </div>
             <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
               <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Concluídos</span>
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Mão de Obra</span>
+                <Hammer className="w-4 h-4 text-blue-500" />
               </div>
-              <p className="text-2xl font-black font-sans text-slate-900 mt-1">{totais.concluidos}</p>
-              <span className="text-[10px] text-slate-400">Serviços finalizados</span>
+              <p className="text-2xl font-black font-sans text-blue-700 mt-1">R$ {totais.maoDeObraTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-slate-400">Servicos e mão-de-obra</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Peças</span>
+                <Wrench className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-2xl font-black font-sans text-amber-700 mt-1">R$ {totais.pecaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-slate-400">Peças e componentes</span>
             </div>
             <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
               <div className="flex justify-between items-center text-slate-400">
@@ -266,7 +293,11 @@ export default function ManutencaoView({
                   <p className="text-xl font-black text-blue-900 font-mono">R$ {totais.custoGaragem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
-              <span className="text-[10px] text-blue-500 font-bold">{totais.qtdGaragem} serviço(s) realizado(s) internamente</span>
+              <div className="flex gap-3 mt-2">
+                <span className="text-[10px] font-bold text-blue-500">Mão de obra: R$ {totais.maoDeObraGaragem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="text-[10px] font-bold text-blue-500">Peças: R$ {totais.pecaGaragem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <span className="text-[10px] text-blue-500 font-bold mt-1 block">{totais.qtdGaragem} serviço(s) realizado(s) internamente</span>
             </div>
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-5 rounded-xl shadow-xs">
               <div className="flex items-center gap-2 mb-2">
@@ -278,7 +309,11 @@ export default function ManutencaoView({
                   <p className="text-xl font-black text-amber-900 font-mono">R$ {totais.custoOficina.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
-              <span className="text-[10px] text-amber-500 font-bold">{totais.qtdOficina} serviço(s) terceirizado(s)</span>
+              <div className="flex gap-3 mt-2">
+                <span className="text-[10px] font-bold text-amber-500">Mão de obra: R$ {totais.maoDeObraOficina.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="text-[10px] font-bold text-amber-500">Peças: R$ {totais.pecaOficina.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <span className="text-[10px] text-amber-500 font-bold mt-1 block">{totais.qtdOficina} serviço(s) terceirizado(s)</span>
             </div>
           </section>
 
@@ -316,6 +351,10 @@ export default function ManutencaoView({
                           <div className="bg-purple-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
                         </div>
                         <span className="text-[9px] text-slate-400 font-bold">{item.concluidos} concluído(s)</span>
+                        <div className="flex gap-3 mt-1">
+                          <span className="text-[9px] font-bold text-blue-500">Mão de obra: R$ {item.maoDeObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[9px] font-bold text-amber-600">Peças: R$ {item.peca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -356,6 +395,10 @@ export default function ManutencaoView({
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/45">
                           <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                        </div>
+                        <div className="flex gap-3 mt-1">
+                          <span className="text-[9px] font-bold text-blue-500">Mão de obra: R$ {item.maoDeObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[9px] font-bold text-amber-600">Peças: R$ {item.peca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
                     </div>
@@ -452,16 +495,32 @@ export default function ManutencaoView({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Custo (R$)</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Mão de Obra (R$)</label>
               <input
                 type="number"
                 step="0.01"
-                value={formCusto}
-                onChange={e => setFormCusto(parseFloat(e.target.value) || 0)}
-                placeholder="Ex: 450.00"
+                value={formMaoDeObra}
+                onChange={e => setFormMaoDeObra(parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 250.00"
                 className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                required
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Peça (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formPeca}
+                onChange={e => setFormPeca(parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 200.00"
+                className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Total (R$)</label>
+              <div className="w-full bg-slate-100 border border-slate-200 p-2 rounded text-xs font-black text-emerald-700 font-mono">
+                R$ {((formMaoDeObra || 0) + (formPeca || 0)).toFixed(2)}
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase">{formLocal === 'Garagem' ? 'Responsável / Setor' : 'Nome da Oficina'}</label>
@@ -633,6 +692,7 @@ export default function ManutencaoView({
                     {m.kmAtual !== undefined && <span>KM Atual: <strong>{m.kmAtual.toLocaleString()}</strong></span>}
                     {m.proximoKm !== undefined && <span>Próx. KM: <strong>{m.proximoKm.toLocaleString()}</strong></span>}
                     <span className="font-mono font-bold text-emerald-700">R$ {(m.custo ?? 0).toFixed(2)}</span>
+                    <span className="text-[9px] text-slate-400 font-bold">MO: R$ {(m.valorMaoDeObra ?? 0).toFixed(2)} | Peça: R$ {(m.valorPeca ?? 0).toFixed(2)}</span>
                     {m.observacao && <span className="text-slate-400 italic">Obs: {m.observacao}</span>}
                   </div>
                 </div>
