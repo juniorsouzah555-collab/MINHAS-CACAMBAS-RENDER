@@ -102,7 +102,7 @@ export default function App() {
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
 
   // Registered Motoristas (Drivers) state
-  const [motoristas, setMotoristas] = useState<string[]>(['Carlos Santana', 'Marcus Warren', 'Emily Watson', 'Sophia Loren', 'Alexandre Nero', 'Beatriz Albuquerque']);
+  const [motoristas, setMotoristas] = useState<string[]>([]);
 
   // Helper para verificar se usuário é motorista
   const isDriverUser = (): boolean => {
