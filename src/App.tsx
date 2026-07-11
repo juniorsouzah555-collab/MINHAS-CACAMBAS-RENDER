@@ -176,7 +176,7 @@ export default function App() {
                 telefone: b.telefone,
                 endereco: b.endereco,
                 createdAt: b.created_at || b.createdAt,
-                valorPadraoDescarte: (b.valor_padrao_descarte !== undefined && b.valor_padrao_descarte !== null) ? b.valor_padrao_descarte : undefined
+                valorPadraoDescarte: b.valorPadraoDescarte ?? b.valor_padrao_descarte ?? undefined
               })));
             }
 
