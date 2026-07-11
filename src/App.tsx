@@ -1267,24 +1267,6 @@ export default function App() {
       body: JSON.stringify(freshRecord)
     }).catch(err => console.error("Error saving Lancamento:", err));
 
-    // Automatically assign Comissao if this was performed by a driver
-    if (newLan.driverName && newLan.driverName !== 'Não Atribuído' && newLan.driverName !== 'Não atribuído' && newLan.driverName.trim() !== '') {
-      const existing = comissoes.find(c => c.motorista === newLan.driverName && c.data === newLan.data);
-      if (existing) {
-        handleUpdateComissao({
-          ...existing,
-          retiradas: (existing.retiradas || 0) + newLan.quantidadeCacambas
-        });
-      } else {
-        handleAddComissao({
-          motorista: newLan.driverName,
-          vaziasColocadas: 0,
-          retiradas: newLan.quantidadeCacambas,
-          data: newLan.data
-        });
-      }
-    }
-
     fetch("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
