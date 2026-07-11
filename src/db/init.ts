@@ -32,8 +32,19 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS gmail_hidden (id TEXT PRIMARY KEY, message_id TEXT NOT NULL)`,
 ];
 
+const MIGRATIONS = [
+  `ALTER TABLE manutencoes ADD COLUMN local TEXT DEFAULT 'Oficina'`,
+];
+
 export async function initDatabase() {
   for (const sql of CREATE_TABLES) {
     await libsqlClient.execute(sql);
+  }
+  for (const sql of MIGRATIONS) {
+    try {
+      await libsqlClient.execute(sql);
+    } catch {
+      // Column already exists — safe to ignore
+    }
   }
 }
