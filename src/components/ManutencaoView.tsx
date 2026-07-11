@@ -14,7 +14,10 @@ import {
   X,
   BarChart3,
   Coins,
-  Filter
+  Filter,
+  RotateCcw,
+  Building,
+  Hammer
 } from 'lucide-react';
 import { Manutencao, Vehicle } from '../types';
 
@@ -39,6 +42,9 @@ export default function ManutencaoView({
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendente' | 'Em Andamento' | 'Concluído'>('ALL');
+  const [localFilter, setLocalFilter] = useState<'ALL' | 'Garagem' | 'Oficina'>('ALL');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   const [formVehicleId, setFormVehicleId] = useState('');
   const [formTipo, setFormTipo] = useState<Manutencao['tipo']>('Preventiva');
@@ -47,23 +53,26 @@ export default function ManutencaoView({
   const [formKmAtual, setFormKmAtual] = useState('');
   const [formProximoKm, setFormProximoKm] = useState('');
   const [formCusto, setFormCusto] = useState(0);
+  const [formLocal, setFormLocal] = useState<'Garagem' | 'Oficina'>('Oficina');
   const [formOficina, setFormOficina] = useState('');
   const [formObservacao, setFormObservacao] = useState('');
   const [formStatus, setFormStatus] = useState<Manutencao['status']>('Pendente');
 
   const filtered = manutencoes.filter(m => {
-    const matchSearch = !searchTerm || 
+    const matchSearch = !searchTerm ||
       (m.vehicleId ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.oficina ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchLocal = localFilter === 'ALL' || m.local === localFilter;
+    const matchStart = !filterStartDate || m.data >= filterStartDate;
+    const matchEnd = !filterEndDate || m.data <= filterEndDate;
+    return matchSearch && matchStatus && matchLocal && matchStart && matchEnd;
   });
 
-  // Ranking por tipo de manutenção
   const rankingPorTipo = useMemo(() => {
     const groups: { [key: string]: { tipo: string; quantidade: number; custoTotal: number; concluidos: number } } = {};
-    manutencoes.forEach(m => {
+    filtered.forEach(m => {
       const tipo = m.tipo || 'Outro';
       if (!groups[tipo]) groups[tipo] = { tipo, quantidade: 0, custoTotal: 0, concluidos: 0 };
       groups[tipo].quantidade += 1;
@@ -71,27 +80,33 @@ export default function ManutencaoView({
       if (m.status === 'Concluído') groups[tipo].concluidos += 1;
     });
     return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
-  }, [manutencoes]);
+  }, [filtered]);
 
-  // Ranking por veículo
   const rankingPorVeiculo = useMemo(() => {
     const groups: { [key: string]: { vehicleId: string; quantidade: number; custoTotal: number } } = {};
-    manutencoes.forEach(m => {
+    filtered.forEach(m => {
       const vid = m.vehicleId || 'Não informado';
       if (!groups[vid]) groups[vid] = { vehicleId: vid, quantidade: 0, custoTotal: 0 };
       groups[vid].quantidade += 1;
       groups[vid].custoTotal += m.custo || 0;
     });
     return Object.values(groups).sort((a, b) => b.custoTotal - a.custoTotal);
-  }, [manutencoes]);
+  }, [filtered]);
 
-  // Totais gerais
-  const totais = useMemo(() => ({
-    totalRegistros: manutencoes.length,
-    custoTotal: manutencoes.reduce((acc, m) => acc + (m.custo || 0), 0),
-    concluidos: manutencoes.filter(m => m.status === 'Concluído').length,
-    pendentes: manutencoes.filter(m => m.status === 'Pendente').length
-  }), [manutencoes]);
+  const totais = useMemo(() => {
+    const garagem = filtered.filter(m => m.local === 'Garagem');
+    const oficina = filtered.filter(m => m.local === 'Oficina');
+    return {
+      totalRegistros: filtered.length,
+      custoTotal: filtered.reduce((acc, m) => acc + (m.custo || 0), 0),
+      concluidos: filtered.filter(m => m.status === 'Concluído').length,
+      pendentes: filtered.filter(m => m.status === 'Pendente').length,
+      custoGaragem: garagem.reduce((acc, m) => acc + (m.custo || 0), 0),
+      qtdGaragem: garagem.length,
+      custoOficina: oficina.reduce((acc, m) => acc + (m.custo || 0), 0),
+      qtdOficina: oficina.length
+    };
+  }, [filtered]);
 
   const resetForm = () => {
     setEditId(null);
@@ -102,6 +117,7 @@ export default function ManutencaoView({
     setFormKmAtual('');
     setFormProximoKm('');
     setFormCusto(0);
+    setFormLocal('Oficina');
     setFormOficina('');
     setFormObservacao('');
     setFormStatus('Pendente');
@@ -122,6 +138,7 @@ export default function ManutencaoView({
         kmAtual: formKmAtual ? Number(formKmAtual) : undefined,
         proximoKm: formProximoKm ? Number(formProximoKm) : undefined,
         custo: formCusto,
+        local: formLocal,
         oficina: formOficina,
         observacao: formObservacao || undefined,
         status: formStatus,
@@ -136,6 +153,7 @@ export default function ManutencaoView({
         kmAtual: formKmAtual ? Number(formKmAtual) : undefined,
         proximoKm: formProximoKm ? Number(formProximoKm) : undefined,
         custo: formCusto,
+        local: formLocal,
         oficina: formOficina,
         observacao: formObservacao || undefined,
         status: formStatus
@@ -153,6 +171,7 @@ export default function ManutencaoView({
     setFormKmAtual(m.kmAtual?.toString() || '');
     setFormProximoKm(m.proximoKm?.toString() || '');
     setFormCusto(m.custo);
+    setFormLocal(m.local || 'Oficina');
     setFormOficina(m.oficina);
     setFormObservacao(m.observacao || '');
     setFormStatus(m.status);
@@ -167,6 +186,15 @@ export default function ManutencaoView({
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateStr;
+  };
+
+  const hasDateFilter = filterStartDate || filterEndDate;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -175,7 +203,7 @@ export default function ManutencaoView({
             <Wrench className="w-5 h-5 text-purple-600" />
             Manutenções dos Caminhões
           </h2>
-          <p className="text-xs text-slate-400 font-medium">Registro de manutenções preventivas e corretivas da frota</p>
+          <p className="text-xs text-slate-400 font-medium">Registro de manutenções — Garagem própria e Oficinas externas</p>
         </div>
         <button
           type="button"
@@ -226,13 +254,41 @@ export default function ManutencaoView({
             </div>
           </section>
 
-          {/* Ranking por Tipo + Ranking por Veículo */}
+          {/* KPI Garagem vs Oficina */}
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-5 rounded-xl shadow-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Hammer className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Garagem Própria</span>
+                  <p className="text-xl font-black text-blue-900 font-mono">R$ {totais.custoGaragem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <span className="text-[10px] text-blue-500 font-bold">{totais.qtdGaragem} serviço(s) realizado(s) internamente</span>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-5 rounded-xl shadow-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <Building className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Oficina de Terceiro</span>
+                  <p className="text-xl font-black text-amber-900 font-mono">R$ {totais.custoOficina.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <span className="text-[10px] text-amber-500 font-bold">{totais.qtdOficina} serviço(s) terceirizado(s)</span>
+            </div>
+          </section>
+
+          {/* Rankings */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Ranking por Tipo */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
               <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-purple-600" />
-                <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Ranking por Tipo de Manutenção</span>
+                <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Ranking por Tipo</span>
               </div>
               <div className="p-4 space-y-3">
                 {rankingPorTipo.map((item, index) => {
@@ -264,6 +320,9 @@ export default function ManutencaoView({
                     </div>
                   );
                 })}
+                {rankingPorTipo.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">Nenhum registro encontrado</p>
+                )}
               </div>
             </div>
 
@@ -302,12 +361,16 @@ export default function ManutencaoView({
                     </div>
                   );
                 })}
+                {rankingPorVeiculo.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">Nenhum registro encontrado</p>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
           <h3 className="font-bold text-sm text-slate-900">{editId ? 'Editar' : 'Nova'} Manutenção</h3>
@@ -324,6 +387,17 @@ export default function ManutencaoView({
                 {vehicles.filter(v => v.type !== 'Veículo').map(v => (
                   <option key={v.id} value={v.id}>{v.id} - {v.driver}</option>
                 ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Local</label>
+              <select
+                value={formLocal}
+                onChange={e => setFormLocal(e.target.value as 'Garagem' | 'Oficina')}
+                className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                <option value="Garagem">🏠 Garagem Própria</option>
+                <option value="Oficina">🏭 Oficina de Terceiro</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -390,12 +464,12 @@ export default function ManutencaoView({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Oficina</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">{formLocal === 'Garagem' ? 'Responsável / Setor' : 'Nome da Oficina'}</label>
               <input
                 type="text"
                 value={formOficina}
                 onChange={e => setFormOficina(e.target.value)}
-                placeholder="Nome da oficina"
+                placeholder={formLocal === 'Garagem' ? 'Ex: Mecânico da equipe' : 'Nome da oficina'}
                 className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 required
               />
@@ -441,33 +515,83 @@ export default function ManutencaoView({
         </form>
       )}
 
+      {/* Lista com filtros */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar por placa, descrição ou oficina..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="bg-slate-50 border border-slate-200 pl-8 pr-3 py-1.5 rounded text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 w-64"
-              />
+        <div className="flex flex-col gap-3 pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-purple-600" />
+              <span className="text-[11px] font-black tracking-widest text-slate-500 uppercase">Filtros</span>
+              {(localFilter !== 'ALL' || hasDateFilter || statusFilter !== 'ALL' || searchTerm) && (
+                <button
+                  type="button"
+                  onClick={() => { setLocalFilter('ALL'); setFilterStartDate(''); setFilterEndDate(''); setStatusFilter('ALL'); setSearchTerm(''); }}
+                  className="text-[10px] font-extrabold text-purple-600 hover:text-purple-700 flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-0"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Limpar
+                </button>
+              )}
+            </div>
+            <div className="flex gap-1 bg-slate-100 p-0.5 rounded self-start">
+              {['ALL', 'Pendente', 'Em Andamento', 'Concluído'].map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s as any)}
+                  className={`px-2 py-1 text-[10px] font-bold rounded cursor-pointer transition-colors ${
+                    statusFilter === s ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {s === 'ALL' ? 'Todos' : s}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="flex gap-1 bg-slate-100 p-0.5 rounded self-start">
-            {['ALL', 'Pendente', 'Em Andamento', 'Concluído'].map(s => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s as any)}
-                className={`px-2 py-1 text-[10px] font-bold rounded cursor-pointer transition-colors ${
-                  statusFilter === s ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-slate-700'
-                }`}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Local</label>
+              <select
+                value={localFilter}
+                onChange={e => setLocalFilter(e.target.value as any)}
+                className="w-full bg-white border border-slate-200 p-1.5 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer h-[34px]"
               >
-                {s === 'ALL' ? 'Todos' : s}
-              </button>
-            ))}
+                <option value="ALL">Todos (Garagem + Oficina)</option>
+                <option value="Garagem">🏠 Garagem Própria</option>
+                <option value="Oficina">🏭 Oficina de Terceiro</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Data Inicial</label>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={e => setFilterStartDate(e.target.value)}
+                className="w-full bg-white border border-slate-200 p-1.5 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 h-[34px]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Data Final</label>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={e => setFilterEndDate(e.target.value)}
+                className="w-full bg-white border border-slate-200 p-1.5 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 h-[34px]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Buscar</label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Placa, descrição..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full bg-white border border-slate-200 pl-8 pr-3 py-1.5 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 h-[34px]"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -482,10 +606,15 @@ export default function ManutencaoView({
                       <Truck className="w-3.5 h-3.5 text-slate-400" />
                       {m.vehicleId}
                     </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      m.local === 'Garagem' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {m.local === 'Garagem' ? '🏠 Garagem' : '🏭 Oficina'}
+                    </span>
                     <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-2 py-0.5 rounded">{m.tipo}</span>
                     <span className="flex items-center gap-1 text-[10px] text-slate-400">
                       <Calendar className="w-3 h-3" />
-                      {m.data}
+                      {formatDate(m.data)}
                     </span>
                     <span className="flex items-center gap-1">
                       {statusIcon(m.status)}
@@ -500,7 +629,7 @@ export default function ManutencaoView({
                   </div>
                   <p className="text-sm font-semibold text-slate-800">{m.descricao}</p>
                   <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
-                    <span className="font-medium">Oficina: <strong className="text-slate-700">{m.oficina}</strong></span>
+                    <span className="font-medium">{m.local === 'Garagem' ? 'Responsável:' : 'Oficina:'} <strong className="text-slate-700">{m.oficina}</strong></span>
                     {m.kmAtual !== undefined && <span>KM Atual: <strong>{m.kmAtual.toLocaleString()}</strong></span>}
                     {m.proximoKm !== undefined && <span>Próx. KM: <strong>{m.proximoKm.toLocaleString()}</strong></span>}
                     <span className="font-mono font-bold text-emerald-700">R$ {(m.custo ?? 0).toFixed(2)}</span>
@@ -530,7 +659,7 @@ export default function ManutencaoView({
           ))}
           {filtered.length === 0 && (
             <div className="text-center py-12 text-slate-400 text-xs">
-              Nenhuma manutenção encontrada.
+              Nenhuma manutenção encontrada com os filtros selecionados.
             </div>
           )}
         </div>

@@ -315,6 +315,7 @@ export default function App() {
                 kmAtual: m.kmAtual ?? m.km_atual ?? undefined,
                 proximoKm: m.proximoKm ?? m.proximo_km ?? undefined,
                 custo: m.custo ?? 0,
+                local: m.local ?? 'Oficina',
                 oficina: m.oficina ?? '',
                 observacao: m.observacao,
                 status: m.status ?? 'Pendente',
@@ -776,6 +777,7 @@ export default function App() {
         km_atual: freshRecord.kmAtual ?? null,
         proximo_km: freshRecord.proximoKm ?? null,
         custo: freshRecord.custo,
+        local: freshRecord.local ?? 'Oficina',
         oficina: freshRecord.oficina,
         observacao: freshRecord.observacao ?? null,
         status: freshRecord.status,
@@ -808,6 +810,7 @@ export default function App() {
         km_atual: updated.kmAtual ?? null,
         proximo_km: updated.proximoKm ?? null,
         custo: updated.custo,
+        local: updated.local ?? 'Oficina',
         oficina: updated.oficina,
         observacao: updated.observacao ?? null,
         status: updated.status

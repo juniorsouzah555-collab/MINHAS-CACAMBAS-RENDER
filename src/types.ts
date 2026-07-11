@@ -146,6 +146,7 @@ export interface Manutencao {
   kmAtual?: number;
   proximoKm?: number;
   custo: number;
+  local: 'Garagem' | 'Oficina';
   oficina: string;
   observacao?: string;
   status: 'Pendente' | 'Em Andamento' | 'Concluído';
