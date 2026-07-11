@@ -10,24 +10,18 @@ import {
   Plus, 
   Trash2, 
   Search, 
-  Percent, 
-  TrendingUp, 
   Box, 
   CheckCircle,
   Truck,
   Filter,
   RotateCcw,
   AlertCircle,
-  Pencil,
-  Building,
-  Archive,
-  Coins
+  Pencil
 } from 'lucide-react';
-import { ComissaoMotorista, Lancamento } from '../types';
+import { ComissaoMotorista } from '../types';
 
 interface CommissionsViewProps {
   comissoes: ComissaoMotorista[];
-  lancamentos: Lancamento[];
   motoristas: string[];
   onAddComissao: (newCom: Omit<ComissaoMotorista, 'id' | 'createdAt'>) => void;
   onUpdateComissao?: (updatedCom: ComissaoMotorista) => void;
@@ -36,7 +30,6 @@ interface CommissionsViewProps {
 
 export default function CommissionsView({
   comissoes,
-  lancamentos = [],
   motoristas = [],
   onAddComissao,
   onUpdateComissao,
@@ -125,78 +118,6 @@ export default function CommissionsView({
       saldoGeral: totVazias + totRetiradas
     };
   }, [filteredComissoes]);
-
-  // Aggregate list of descartes by driver for each bota-fora, filterable by period/motorista
-  const aggregatedDescartes = useMemo(() => {
-    const groups: { [key: string]: { motorista: string; botaFora: string; quantidade: number; valor: number } } = {};
-    
-    lancamentos.forEach(l => {
-      const driver = l.driverName || 'Nível Geral';
-      
-      // 1. Filter by motorista
-      if (filterMotorista !== 'ALL' && l.driverName !== filterMotorista) {
-        return;
-      }
-      // 2. Filter by date range (period)
-      if (filterStartDate && l.data < filterStartDate) {
-        return;
-      }
-      if (filterEndDate && l.data > filterEndDate) {
-        return;
-      }
-      
-      const key = `${driver}::${l.botaForaNome}`;
-      if (!groups[key]) {
-        groups[key] = {
-          motorista: driver,
-          botaFora: l.botaForaNome,
-          quantidade: 0,
-          valor: 0
-        };
-      }
-      groups[key].quantidade += l.quantidadeCacambas;
-      groups[key].valor += l.valor;
-    });
-    
-    return Object.values(groups).sort((a, b) => b.quantidade - a.quantidade);
-  }, [lancamentos, filterMotorista, filterStartDate, filterEndDate]);
-
-  // Extract and format the non-editable date range of analyzed data
-  const dateInterval = useMemo(() => {
-    const formatDate = (dateStr: string) => {
-      try {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-          return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
-      } catch {
-        return dateStr;
-      }
-    };
-
-    if (filterStartDate || filterEndDate) {
-      const start = filterStartDate ? formatDate(filterStartDate) : 'Início';
-      const end = filterEndDate ? formatDate(filterEndDate) : 'Fim';
-      return `${start} até ${end}`;
-    }
-
-    if (!lancamentos || lancamentos.length === 0) {
-      return 'Sem lançamentos catalogados';
-    }
-
-    const dates = lancamentos.map(l => l.data).filter(Boolean);
-    if (dates.length === 0) return 'Sem lançamentos catalogados';
-    dates.sort();
-
-    const minDate = formatDate(dates[0]);
-    const maxDate = formatDate(dates[dates.length - 1]);
-
-    if (minDate === maxDate) {
-      return minDate;
-    }
-    return `${minDate} — ${maxDate}`;
-  }, [lancamentos, filterStartDate, filterEndDate]);
 
   // Handle resetting of filters
   const handleResetFilters = () => {
@@ -602,151 +523,7 @@ export default function CommissionsView({
         </div>
       </div>
 
-      {/* Outro Histórico de Descartes consolidado por Bota Fora e Motorista */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden space-y-6 p-6">
-        
-        {/* Title + Date Interval Banner */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 shadow-3xs">
-              <Building className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-sans font-black text-base text-slate-900 tracking-tight">Quantidade de Descartes por Motorista</h3>
-              <p className="text-slate-400 text-xs mt-0.5 font-medium">Relatório unificado de descargas por cooperado nas áreas licenciadas de bota fora.</p>
-            </div>
-          </div>
 
-          {/* Date range element - Unalterable */}
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 px-4 py-2.5 rounded-xl self-start lg:self-center">
-            <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
-            <div>
-              <span className="block text-[9px] font-black tracking-widest text-slate-400 uppercase select-none">Intervalo Analisado (Fixo)</span>
-              <span className="text-xs font-extrabold text-slate-800 font-sans tracking-tight">
-                {dateInterval}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {aggregatedDescartes.length === 0 ? (
-          <div className="p-16 text-center space-y-3 bg-slate-50/20 rounded-2xl border border-dashed border-slate-250">
-            <Archive className="w-10 h-10 text-slate-300 mx-auto" />
-            <h4 className="text-xs font-black text-slate-600 uppercase tracking-wider">Ausência de descarga registrada</h4>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">Nenhuma operação de descarte pôde ser encontrada sob os parâmetros aplicados ou no histórico recente do sistema.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            
-            {/* Quick Metrics Header */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-indigo-50/30 border border-indigo-100 rounded-xl p-3.5">
-              <div className="px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
-                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Motoristas Cooperados</span>
-                <span className="text-lg font-black text-indigo-950 font-mono">
-                  {new Set(aggregatedDescartes.map(d => d.motorista)).size}
-                </span>
-              </div>
-              <div className="px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
-                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Volume Descarregado</span>
-                <span className="text-lg font-black text-indigo-950 font-mono text-indigo-600">
-                  {aggregatedDescartes.reduce((acc, curr) => acc + curr.quantidade, 0)} Caçambas
-                </span>
-              </div>
-              <div className="col-span-2 sm:col-span-1 px-3 py-1 bg-white border border-slate-200/40 rounded-lg shadow-3xs">
-                <span className="block text-[9px] font-extrabold text-slate-400 uppercase">Tarifário Total</span>
-                <span className="text-lg font-black text-emerald-800 font-mono">
-                  R$ {aggregatedDescartes.reduce((acc, curr) => acc + curr.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-
-            {/* List Format View */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-3xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider select-none">
-                      <th className="px-5 py-3 text-center w-16">Posição</th>
-                      <th className="px-5 py-3">Motorista Cooperado</th>
-                      <th className="px-5 py-3">Bota Fora Autorizado</th>
-                      <th className="px-5 py-3 min-w-[200px]">Volume de Caçambas e Proporção</th>
-                      <th className="px-5 py-3 text-right">Tarifa Acumulada</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {aggregatedDescartes.map((item, index) => {
-                      const maxQtd = Math.max(...aggregatedDescartes.map(g => g.quantidade), 1);
-                      const percentage = Math.round((item.quantidade / maxQtd) * 100);
-                      
-                      // Custom ranks style
-                      let rankBadge = "bg-slate-100 text-slate-600";
-                      if (index === 0) rankBadge = "bg-amber-100 text-amber-800 border border-amber-200 font-black";
-                      else if (index === 1) rankBadge = "bg-slate-200 text-slate-800 border border-slate-300 font-black";
-                      else if (index === 2) rankBadge = "bg-orange-100 text-orange-850 border border-orange-200 font-black";
-
-                      return (
-                        <tr key={`${item.motorista}-${item.botaFora}-${index}`} className="hover:bg-slate-50/60 transition-all">
-                          {/* Rank indicator */}
-                          <td className="px-5 py-3 text-center whitespace-nowrap">
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold ${rankBadge}`}>
-                              #{index + 1}
-                            </span>
-                          </td>
-                          
-                          {/* Driver title */}
-                          <td className="px-5 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-3xs">
-                                {item.motorista.charAt(0)}
-                              </div>
-                              <div>
-                                <span className="block text-xs font-extrabold text-slate-900">{item.motorista}</span>
-                                <span className="block text-[9px] text-indigo-600 font-bold uppercase tracking-wider">Cooperado</span>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Bota Fora */}
-                          <td className="px-5 py-3 whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md border border-slate-200/60 text-[10px] font-black uppercase">
-                              <Building className="w-3 h-3 text-indigo-500" />
-                              {item.botaFora}
-                            </div>
-                          </td>
-
-                          {/* Volume & Custom Visual Progress Bar */}
-                          <td className="px-5 py-3">
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-[11px] font-extrabold">
-                                <span className="text-slate-800 font-mono font-black">{item.quantidade} Caçambas</span>
-                                <span className="text-slate-400 text-[10px]">{percentage}%</span>
-                              </div>
-                              <div className="w-full bg-slate-100 hover:bg-slate-200 rounded-full h-2.5 overflow-hidden border border-slate-200/45 relative">
-                                <div 
-                                  className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
-                                  style={{ width: `${percentage}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Account Charge */}
-                          <td className="px-5 py-3 text-right whitespace-nowrap">
-                            <span className="inline-block px-3 py-1 bg-emerald-50 text-emerald-800 font-mono font-black text-xs rounded-lg border border-emerald-100">
-                              R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
 
     </div>
   );
