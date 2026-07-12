@@ -115,11 +115,14 @@
 }
 
 /* ===================== PRINT STYLES ===================== */
+
+/* @page MUST be outside @media print for browsers to respect it */
+@page {
+  size: A4 landscape;
+  margin: 10mm 12mm;
+}
+
 @media print {
-  @page {
-    size: landscape;
-    margin: 12mm 10mm;
-  }
 
   body {
     -webkit-print-color-adjust: exact !important;
@@ -218,5 +221,16 @@
 /* Screen-only: hide print header */
 .print-only-header {
   display: none !important;
+}
+
+/* Force landscape orientation hint for browser print dialog */
+@media print {
+  html.printing-landscape {
+    direction: ltr;
+  }
+  html.printing-landscape body {
+    min-width: 297mm !important;
+    min-height: 210mm !important;
+  }
 }
 

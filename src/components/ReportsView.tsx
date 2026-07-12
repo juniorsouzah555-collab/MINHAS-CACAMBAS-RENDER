@@ -116,7 +116,11 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
     const now = new Date();
     const ts = document.getElementById('print-timestamp');
     if (ts) ts.textContent = `Impresso em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
-    window.print();
+    document.documentElement.classList.add('printing-landscape');
+    setTimeout(() => {
+      window.print();
+      document.documentElement.classList.remove('printing-landscape');
+    }, 100);
   };
 
   return (
