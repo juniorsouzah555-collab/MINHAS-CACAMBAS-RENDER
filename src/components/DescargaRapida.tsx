@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Minus, Plus, CheckCircle2, Truck, Clock, Send } from 'lucide-react';
-import { BotaFora } from '../types';
+import { BotaFora, Vehicle } from '../types';
 
 interface DescargaRapidaProps {
   motorista: string;
@@ -10,6 +10,8 @@ interface DescargaRapidaProps {
 }
 
 export default function DescargaRapida({ motorista, veiculo, botaForas, onSuccess }: DescargaRapidaProps) {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(veiculo || '');
   const [selectedBotaFora, setSelectedBotaFora] = useState<string>('');
   const [quantidade, setQuantidade] = useState<number>(1);
   const [data, setData] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -18,8 +20,15 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, onSucces
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    fetch('/api/vehicles').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setVehicles(d);
+    }).catch(() => {});
+  }, []);
+
   const handleSubmit = async () => {
     if (!selectedBotaFora) { setError('Selecione o local de descarga'); return; }
+    if (!selectedVehicleId) { setError('Selecione o veículo'); return; }
     setSending(true);
     setError('');
     try {
@@ -35,7 +44,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, onSucces
           valor: (bf?.valorPadraoDescarte || 0) * quantidade,
           data,
           driver_name: motorista,
-          vehicle_id: veiculo,
+          vehicle_id: selectedVehicleId,
           status: 'CONCLUIDO',
           observacao: observacao || `Descarga rápida via WhatsApp`,
           created_at: new Date().toISOString(),
@@ -59,7 +68,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, onSucces
           <h2 className="text-xl font-black text-slate-900 mb-2">Descarga Registrada!</h2>
           <p className="text-sm text-slate-500 mb-1">{quantidade} caçamba{quantidade > 1 ? 's' : ''}</p>
           <p className="text-sm text-slate-500 mb-4">{botaForas.find(b => b.id === selectedBotaFora)?.nome}</p>
-          <p className="text-xs text-slate-400">{motorista} • {veiculo}</p>
+          <p className="text-xs text-slate-400">{motorista} • {selectedVehicleId}</p>
           <button
             onClick={() => { setSent(false); setSelectedBotaFora(''); setQuantidade(1); setObservacao(''); }}
             className="mt-6 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 cursor-pointer"
@@ -80,13 +89,35 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, onSucces
           <h1 className="text-lg font-black text-white">Registrar Descarga</h1>
           <div className="flex items-center justify-center gap-3 mt-2 text-xs text-slate-300">
             <span className="flex items-center gap-1"><span className="text-emerald-400 font-bold">{motorista}</span></span>
-            <span className="text-slate-600">|</span>
-            <span className="flex items-center gap-1"><span className="text-blue-400 font-bold">{veiculo}</span></span>
           </div>
         </div>
 
         {/* Form */}
         <div className="bg-white rounded-2xl p-5 shadow-2xl space-y-5">
+
+          {/* Veículo */}
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-wider">Qual veículo?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {vehicles.filter(v => v.isActive).map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => { setSelectedVehicleId(v.id); setError(''); }}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                    selectedVehicleId === v.id
+                      ? 'border-blue-500 bg-blue-50 shadow-md'
+                      : 'border-slate-200 hover:border-slate-300 bg-slate-50'
+                  }`}
+                >
+                  <Truck className={`w-4 h-4 mb-1 ${selectedVehicleId === v.id ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <span className={`text-xs font-bold block ${selectedVehicleId === v.id ? 'text-blue-800' : 'text-slate-700'}`}>
+                    {v.id}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{v.driver || 'Sem motorista'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Local */}
           <div>
