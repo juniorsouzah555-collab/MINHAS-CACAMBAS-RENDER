@@ -282,41 +282,51 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
       const ccsStr = (ccsList || []).join(', ') || 'N/A';
       const batch = transacoes.map((t: any) => `- ID:${t.id} | "${t.descricao}" | R$${t.valor} | tipo:${t.tipo}`).join('\n');
       const systemPrompt = `Voce e um classificador financeiro para uma empresa de cacambas em Diadema/SP.
-Categorias disponiveis (USE EXATAMENTE ESTAS, sem alterar): ${catsStr}
-Subcategorias disponiveis (USE EXATAMENTE ESTAS ou null): ${subsStr}
-Centros de custo (USE EXATAMENTE ESTES ou null): ${ccsStr}
 
-REGRAS OBRIGATORIAS:
-1. Responda SOMENTE um JSON array. Nenhum texto antes ou depois.
-2. Cada objeto: {"id":"ID_DA_TRANSACAO","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
-3. Os valores de c, s e cc DEVEM ser EXATAMENTE iguais a uma das opcoes listadas acima. Nao invente nomes.
-4. Regras de classificacao:
-   - tipo CREDITO (entrada): se receber dinheiro do cliente → "Recebimentos PIX" s:"PIX Recebido" cc:"Operacional"
-   - tipo CREDITO (entrada): se for transferencia/DOC/TED recebido → "Transferencias Recebidas" cc:"Operacional"
-   - tipo CREDITO (entrada): se for servico de cacamba → "Servicos de Cacambas" cc:"Operacional"
-   - tipo DEBITO (saida): diesel, gasolina, posto → "Combustivel" s:"Diesel S10" cc:"Frota"
-   - tipo DEBITO (saida): oficina, mecanico, pneu, pecas → "Manutencao de Frota" cc:"Frota"
-   - tipo DEBITO (saida): salario, prolabore → "Salarios e Encargos" s:"Salario Base" cc:"Administrativo"
-   - tipo DEBITO (saida): aluguel → "Aluguel" cc:"Administrativo"
-   - tipo DEBITO (saida): luz, agua, telefone → "Agua, Luz e Telefone" cc:"Administrativo"
-   - tipo DEBITO (saida): tarifa bancaria, cesta → "Tarifas Bancarias" s:"Taxa de Manutencao" cc:"Administrativo"
-   - tipo DEBITO (saida): simples nacional, DAS → "Simples Nacional" cc:"Administrativo"
-   - tipo DEBITO (saida): fgts → "FGTS" cc:"Administrativo"
-   - tipo DEBITO (saida): inss → "Salarios e Encargos" s:"INSS" cc:"Administrativo"
-   - tipo DEBITO (saida): seguro → "Seguro Veicular" cc:"Frota"
-   - tipo DEBITO (saida): ipva → "IPVA e Licenciamento" cc:"Frota"
-   - tipo DEBITO (saida): pedagio → "Pedagios" cc:"Frota"
-   - tipo DEBITO (saida): cacamba alugada → "Servicos de Cacambas" cc:"Operacional"
-   - tipo DEBITO (saida): descarte, entulho, aterro → "Descarte e Aterro" cc:"Operacional"
-   - tipo DEBITO (saida): cartao credito, fatura → "Cartao de Credito" s:"Compra" cc:"Administrativo"
-   - tipo DEBITO (saida): marketing, publicidade → "Marketing" cc:"Vendas"
-   - tipo DEBITO (saida): farmacia, remedio → "Saude" cc:"Administrativo"
-   - tipo DEBITO (saida): ISS → "ISS" cc:"Administrativo"
-   - tipo DEBITO (saida): PIX/TED/DOC enviado, transferencia enviada → "Transferencias Enviadas" s:"Pix" cc:"Administrativo"
-   - tipo DEBITO (saida): boleto pago → "Tarifas Bancarias" s:"Boleto" cc:"Administrativo"
-   - tipo DEBITO (saida): juros, multa atraso → "Juros e Multas" cc:"Administrativo"
-   - tipo DEBITO (saida): emprestimo → "Emprestimos" cc:"Administrativo"
-5. Se nao souber, use c = "PENDENTE"`;
+Categorias disponiveis (USE EXATAMENTE, sem alterar): ${catsStr}
+Subcategorias disponiveis (USE EXATAMENTE ou null): ${subsStr}
+Centros de custo (USE EXATAMENTE ou null): ${ccsStr}
+
+=== REGRA MAIS IMPORTANTE: O CAMPO tipo DEFINE SE E SAIDA OU ENTRADA ===
+Se tipo = CREDITO = O DINHEIRO ESTA ENTRANDO NA CONTA (receita).
+Se tipo = DEBITO = O DINHEIRO ESTA SAINDO DA CONTA (despesa).
+NUNCA classifique um CREDITO como despesa. NUNCA classifique um DEBITO como receita.
+
+Se tipo = CREDITO:
+  - Se contem PIX, transferencia recebida, retorno, deposito → "Recebimentos PIX" s:"PIX Recebido" cc:"Operacional"
+  - Se contem TED/DOC recebido → "Transferencias Recebidas" cc:"Operacional"
+  - Se e prestacao de servico de cacamba → "Servicos de Cacambas" cc:"Operacional"
+
+Se tipo = DEBITO:
+  - Se contem PIX enviado, transferencia enviada, pagto, pagamento para pessoa/fornecedor → "Transferencias Enviadas" s:"Pix" cc:"Administrativo"
+  - Diesel, gasolina, posto, abastecimento → "Combustivel" s:"Diesel S10" cc:"Frota"
+  - Oficina, mecanico, pneu, oleo, pecas → "Manutencao de Frota" cc:"Frota"
+  - Salario, prolabore, folha pagamento → "Salarios e Encargos" s:"Salario Base" cc:"Administrativo"
+  - Aluguel, locacao imovel → "Aluguel" cc:"Administrativo"
+  - Conta de luz, agua, telefone, energia, copel, saneamento → "Agua, Luz e Telefone" cc:"Administrativo"
+  - Tarifa bancaria, cesta servicos, manutencao de conta → "Tarifas Bancarias" s:"Taxa de Manutencao" cc:"Administrativo"
+  - Simples nacional, DAS → "Simples Nacional" cc:"Administrativo"
+  - FGTS → "FGTS" cc:"Administrativo"
+  - INSS → "Salarios e Encargos" s:"INSS" cc:"Administrativo"
+  - Cacamba, aluguel cacamba, locacao cacamba → "Servicos de Cacambas" cc:"Operacional"
+  - Descarte, entulho, aterro → "Descarte e Aterro" cc:"Operacional"
+  - Seguro → "Seguro Veicular" cc:"Frota"
+  - IPVA, licenciamento → "IPVA e Licenciamento" cc:"Frota"
+  - Pedagio → "Pedagios" cc:"Frota"
+  - Cartao de credito, fatura, nubank, inter → "Cartao de Credito" s:"Compra" cc:"Administrativo"
+  - Marketing, publicidade → "Marketing" cc:"Vendas"
+  - Farmacia, remedio → "Saude" cc:"Administrativo"
+  - ISS → "ISS" cc:"Administrativo"
+  - Boleto pago → "Tarifas Bancarias" s:"Boleto" cc:"Administrativo"
+  - Juros, multa atraso, SPC → "Juros e Multas" cc:"Administrativo"
+  - Emprestimo, parcela emprestimo → "Emprestimos" cc:"Administrativo"
+  - Compra material, mercado, supermercado → "Alimentacao" cc:"Administrativo"
+
+FORMATO DE RESPOSTA:
+Responda SOMENTE um JSON array. Nada antes ou depois.
+Cada objeto: {"id":"ID","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
+Os valores DEVEM ser EXATAMENTE iguais a uma das opcoes listadas. Nao invente nomes.
+Se nao tiver certeza, use c = "PENDENTE"`;
       const response = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
@@ -331,13 +341,24 @@ REGRAS OBRIGATORIAS:
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
+          const creditoCats = new Set(['Recebimentos PIX', 'Transferencias Recebidas']);
           const results: any[] = [];
           for (const t of transacoes) {
             const ai = parsed.find((p: any) => p.id === t.id);
             if (ai && ai.c && ai.c !== 'PENDENTE' && validCats.has(ai.c)) {
-              const sub = ai.s && validSubs.has(ai.s) ? ai.s : null;
-              const cc = ai.cc && validCCs.has(ai.cc) ? ai.cc : null;
-              results.push({ id: t.id, categoria: ai.c, subcategoria: sub, centroCusto: cc });
+              let cat = ai.c;
+              let sub = ai.s && validSubs.has(ai.s) ? ai.s : null;
+              let cc = ai.cc && validCCs.has(ai.cc) ? ai.cc : null;
+              if (t.tipo === 'CREDITO' && !creditoCats.has(cat) && cat !== 'Servicos de Cacambas') {
+                cat = 'Recebimentos PIX';
+                sub = 'PIX Recebido';
+                cc = 'Operacional';
+              } else if (t.tipo === 'DEBITO' && creditoCats.has(cat)) {
+                cat = 'Transferencias Enviadas';
+                sub = 'Pix';
+                cc = 'Administrativo';
+              }
+              results.push({ id: t.id, categoria: cat, subcategoria: sub, centroCusto: cc });
             } else {
               const local = localCategorize(t.descricao);
               results.push({ id: t.id, ...local });
