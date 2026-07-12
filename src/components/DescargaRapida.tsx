@@ -26,13 +26,13 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const vehicleRef = useRef(selectedVehicleId);
   vehicleRef.current = selectedVehicleId;
 
-  const sendLocation = async (lat: number, lng: number) => {
+  const sendLocation = async (lat: number, lng: number, speed?: number | null, accuracy?: number | null) => {
     const vid = vehicleRef.current || `GPS-${motorista}`;
     try {
       await fetch('/api/vehicle-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vehicle_id: vid, driver_name: motorista, lat, lng }),
+        body: JSON.stringify({ vehicle_id: vid, driver_name: motorista, lat, lng, speed: speed ?? null, accuracy: accuracy ?? null }),
       });
       lastSentRef.current = { lat, lng, time: Date.now() };
     } catch {}
@@ -42,16 +42,16 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
     if (!navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
+        const { latitude: lat, longitude: lng, speed, accuracy } = pos.coords;
         const last = lastSentRef.current;
-        if (!last) { sendLocation(lat, lng); return; }
+        if (!last) { sendLocation(lat, lng, speed, accuracy); return; }
         const R = 6371000;
         const dLat = ((lat - last.lat) * Math.PI) / 180;
         const dLng = ((lng - last.lng) * Math.PI) / 180;
         const a = Math.sin(dLat / 2) ** 2 + Math.cos((last.lat * Math.PI) / 180) * Math.cos((lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
         const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const elapsed = Date.now() - last.time;
-        if (dist > 100 || elapsed > 5 * 60 * 1000) sendLocation(lat, lng);
+        if (dist > 100 || elapsed > 5 * 60 * 1000) sendLocation(lat, lng, speed, accuracy);
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
@@ -63,7 +63,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   useEffect(() => {
     if (!selectedVehicleId || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
+      (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.speed, pos.coords.accuracy),
       () => {},
       { enableHighAccuracy: true, timeout: 10000 }
     );

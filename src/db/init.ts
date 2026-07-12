@@ -31,7 +31,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS gmail_aliases (id TEXT PRIMARY KEY, sender TEXT NOT NULL, alias TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS gmail_hidden (id TEXT PRIMARY KEY, message_id TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS folha_pagamento (id TEXT PRIMARY KEY, competencia TEXT NOT NULL, funcionario_data TEXT NOT NULL, created_at TEXT)`,
-  `CREATE TABLE IF NOT EXISTS vehicle_locations (vehicle_id TEXT PRIMARY KEY, driver_name TEXT, lat REAL NOT NULL, lng REAL NOT NULL, updated_at TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS vehicle_locations (vehicle_id TEXT PRIMARY KEY, driver_name TEXT, lat REAL NOT NULL, lng REAL NOT NULL, speed REAL, accuracy REAL, updated_at TEXT NOT NULL)`,
 ];
 
 const MIGRATIONS = [
@@ -39,6 +39,8 @@ const MIGRATIONS = [
   `ALTER TABLE manutencoes ADD COLUMN valor_mao_de_obra REAL DEFAULT 0`,
   `ALTER TABLE manutencoes ADD COLUMN valor_peca REAL DEFAULT 0`,
   `ALTER TABLE lancamentos ADD COLUMN source TEXT`,
+  `ALTER TABLE vehicle_locations ADD COLUMN speed REAL`,
+  `ALTER TABLE vehicle_locations ADD COLUMN accuracy REAL`,
 ];
 
 async function deduplicateFolhaPagamento() {

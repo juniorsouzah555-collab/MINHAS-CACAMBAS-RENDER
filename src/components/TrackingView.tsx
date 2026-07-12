@@ -8,6 +8,8 @@ interface VehicleLocation {
   driverName: string | null;
   lat: number;
   lng: number;
+  speed: number | null;
+  accuracy: number | null;
   updatedAt: string;
 }
 
@@ -51,7 +53,8 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     name: l.driverName || 'Motorista',
     lat: l.lat,
     lng: l.lng,
-    address: '',
+    speed: l.speed,
+    accuracy: l.accuracy,
     vehicleId: l.vehicleId,
   }));
 
@@ -121,6 +124,8 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
                     <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
                     <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
                       {l.vehicleId}
+                      {l.speed != null && l.speed > 0 && <span className="ml-2 text-emerald-600 font-bold">{Math.round(l.speed)} km/h</span>}
+                      {l.accuracy != null && <span className="ml-2 text-slate-300">±{Math.round(l.accuracy)}m</span>}
                     </span>
                   </div>
                 </div>

@@ -35,6 +35,8 @@ export const vehicleLocations = sqliteTable('vehicle_locations', {
   driverName: text('driver_name'),
   lat: real('lat').notNull(),
   lng: real('lng').notNull(),
+  speed: real('speed'),
+  accuracy: real('accuracy'),
   updatedAt: text('updated_at').notNull(),
 });
 

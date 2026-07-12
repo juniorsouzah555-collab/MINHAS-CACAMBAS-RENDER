@@ -92,7 +92,7 @@ let locationsEtag = `loc-${Date.now()}`;
 
 app.post("/api/vehicle-location", async (req, res) => {
   try {
-    const { vehicle_id, driver_name, lat, lng } = req.body;
+    const { vehicle_id, driver_name, lat, lng, speed, accuracy } = req.body;
     if (!vehicle_id || lat == null || lng == null) {
       return res.status(400).json({ error: 'Campos obrigatórios: vehicle_id, lat, lng' });
     }
@@ -102,10 +102,12 @@ app.post("/api/vehicle-location", async (req, res) => {
       driverName: driver_name || null,
       lat,
       lng,
+      speed: speed != null ? Number(speed) : null,
+      accuracy: accuracy != null ? Number(accuracy) : null,
       updatedAt: now,
     }).onConflictDoUpdate({
       target: schema.vehicleLocations.vehicleId,
-      set: { lat, lng, driverName: driver_name || null, updatedAt: now },
+      set: { lat, lng, driverName: driver_name || null, speed: speed != null ? Number(speed) : null, accuracy: accuracy != null ? Number(accuracy) : null, updatedAt: now },
     });
     locationsEtag = `loc-${Date.now()}`;
     res.json({ success: true });
@@ -150,10 +152,12 @@ app.post("/api/owntracks", async (req, res) => {
       driverName: body.name || vehicleId,
       lat,
       lng,
+      speed: body.vel != null ? Number(body.vel) : null,
+      accuracy: body.acc != null ? Number(body.acc) : null,
       updatedAt: now,
     }).onConflictDoUpdate({
       target: schema.vehicleLocations.vehicleId,
-      set: { lat, lng, driverName: body.name || vehicleId, updatedAt: now },
+      set: { lat, lng, driverName: body.name || vehicleId, speed: body.vel != null ? Number(body.vel) : null, accuracy: body.acc != null ? Number(body.acc) : null, updatedAt: now },
     });
     locationsEtag = `loc-${Date.now()}`;
     res.json({ _type: 'response', result: true });

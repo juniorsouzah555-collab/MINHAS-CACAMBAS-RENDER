@@ -12,7 +12,7 @@ interface DriverLiveMapProps {
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
-  onlineUsers?: { name: string; lat: number; lng: number; vehicleId?: string }[];
+  onlineUsers?: { name: string; lat: number; lng: number; vehicleId?: string; speed?: number | null; accuracy?: number | null }[];
   isDriverUser?: boolean;
 }
 
@@ -106,9 +106,11 @@ export default function DriverLiveMap({
         const iconHtml = `<div class="relative flex items-center justify-center"><div class="flex h-6 w-6 items-center justify-center rounded-full ${bgColor} border-2 border-white shadow-lg ${pulseClass}"><div class="h-2 w-2 bg-white rounded-full"></div></div></div>`;
         const icon = L.divIcon({ html: iconHtml, className: 'custom-online-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
         const source = isOwnTracks ? '📡' : '📱';
+        const speedStr = u.speed != null && u.speed > 0 ? ` · ${Math.round(u.speed)} km/h` : '';
+        const accStr = u.accuracy != null ? ` · ±${Math.round(u.accuracy)}m` : '';
         const marker = L.marker([u.lat, u.lng], { icon })
           .addTo(mapRef.current)
-          .bindTooltip(`${source} ${u.name}`, { permanent: true, direction: 'top', className: 'driver-label driver-label--online', offset: L.point(0, -14) });
+          .bindTooltip(`${source} ${u.name}${speedStr}${accStr}`, { permanent: true, direction: 'top', className: 'driver-label driver-label--online', offset: L.point(0, -14) });
         markersRef.current.push(marker);
       }
     });
