@@ -114,3 +114,109 @@
   border: none !important;
 }
 
+/* ===================== PRINT STYLES ===================== */
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm 10mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide everything EXCEPT the report table */
+  aside, nav, header, footer, .no-print,
+  button, [role="navigation"],
+  .space-y-6 > div:first-child,
+  .space-y-6 > div:nth-child(2),
+  .space-y-6 > div:nth-child(3),
+  .space-y-6 > div:last-child {
+    display: none !important;
+  }
+
+  /* Show print header */
+  .print-only-header {
+    display: block !important;
+  }
+
+  /* Make #section-to-print fill the page */
+  #section-to-print {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    page-break-inside: avoid;
+  }
+
+  /* Table styling for print */
+  #section-to-print table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+
+  #section-to-print thead {
+    display: table-header-group !important;
+  }
+
+  #section-to-print thead tr {
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #section-to-print th {
+    border-bottom: 2px solid #334155 !important;
+    padding: 6px 8px !important;
+    font-weight: 800 !important;
+    font-size: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  #section-to-print td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 5px 8px !important;
+    vertical-align: top !important;
+  }
+
+  #section-to-print tr {
+    page-break-inside: avoid !important;
+  }
+
+  #section-to-print tbody tr:nth-child(even) {
+    background: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Status badge print styling */
+  #section-to-print .rounded-full {
+    border: 1px solid #86efac !important;
+    background: #f0fdf4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Summary footer */
+  #section-to-print > div:last-child {
+    border-top: 2px solid #334155 !important;
+    font-weight: 700 !important;
+    padding: 8px !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+/* Screen-only: hide print header */
+.print-only-header {
+  display: none !important;
+}
+

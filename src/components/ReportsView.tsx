@@ -113,14 +113,24 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
 
   // Safe manual browser print layout trigger
   const handlePrint = () => {
+    const now = new Date();
+    const ts = document.getElementById('print-timestamp');
+    if (ts) ts.textContent = `Impresso em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
     window.print();
   };
 
   return (
     <div className="space-y-6">
       
+      {/* Print-only header */}
+      <div className="print-only-header p-4 border-b-2 border-slate-900 mb-4">
+        <h1 className="text-lg font-bold text-slate-900">RELATÓRIO CONSOLIDADO DE DESCARTES</h1>
+        <p className="text-xs text-slate-600 mt-1">Período: {formatDate(startDate)} a {formatDate(endDate)} | Bota Fora: {selectedBotaForaId === 'ALL' ? 'Todos' : botaForas.find(b => b.id === selectedBotaForaId)?.nome || 'Todos'}</p>
+        <p className="text-[10px] text-slate-400 mt-0.5" id="print-timestamp"></p>
+      </div>
+
       {/* Title Header with Export Callouts */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="no-print bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="font-sans font-bold text-lg text-slate-900 flex items-center gap-2">
             <FileText className="w-5 h-5 text-emerald-500" />
@@ -151,7 +161,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
       </div>
 
       {/* Reports Filtering Console */}
-      <div className="bg-slate-900 text-slate-100 p-5 rounded-xl border border-slate-800 shadow-lg grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="no-print bg-slate-900 text-slate-100 p-5 rounded-xl border border-slate-800 shadow-lg grid grid-cols-1 md:grid-cols-4 gap-4">
         
         {/* Start Date */}
         <div className="space-y-1.5">
@@ -217,7 +227,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
       </div>
 
       {/* Structured Metrics Summary Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-5">
+      <section className="no-print grid grid-cols-1 md:grid-cols-4 gap-5">
         
         {/* Metric 1 */}
         <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
@@ -369,7 +379,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
 
       </div>
 
-      <div className="bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-500 flex items-start gap-2.5 leading-relaxed">
+      <div className="no-print bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-500 flex items-start gap-2.5 leading-relaxed">
         <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
         <div>
           Este relatório cumpre as diretrizes legislativas ambientais nacionais de auditoria de <strong>Bota Foras e Gerenciadores de Resíduos de Construção Civil (RCC)</strong>. Os relatórios gerados por períodos são rastreados individualmente por suas assinaturas fiscais e auditores do sistema Relâmpago Caçambas.
