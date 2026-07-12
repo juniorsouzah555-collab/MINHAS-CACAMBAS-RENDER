@@ -40,6 +40,31 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", database: "sqlite" });
 });
 
+app.post("/api/descarga-rapida", async (req, res) => {
+  try {
+    const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao } = req.body;
+    if (!id || !bota_fora_id || !quantidade_cacambas) {
+      return res.status(400).json({ error: 'Campos obrigatórios: id, bota_fora_id, quantidade_cacambas' });
+    }
+    await db.insert(schema.lancamentos).values({
+      id,
+      botaForaId: bota_fora_id,
+      botaForaNome: bota_fora_nome || '',
+      quantidadeCacambas: quantidade_cacambas,
+      valor: valor || 0,
+      data: data || new Date().toISOString().split('T')[0],
+      driverName: driver_name || '',
+      vehicleId: vehicle_id || '',
+      status: status || 'CONCLUIDO',
+      observacao: observacao || '',
+      createdAt: new Date().toISOString(),
+    });
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/auth/login", (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });

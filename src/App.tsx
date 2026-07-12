@@ -62,6 +62,7 @@ import TrackingView from './components/TrackingView';
 import BoletoView from './components/BoletoView';
 import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
+import DescargaRapida from './components/DescargaRapida';
 import PayslipView from './components/PayslipView';
 
 export default function App() {
@@ -1727,6 +1728,21 @@ export default function App() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Rota pública: /?page=descarga&motorista=TADEU&veiculo=FLT-8829
+  const urlParams = new URLSearchParams(window.location.search);
+  const publicPage = urlParams.get('page');
+  if (publicPage === 'descarga') {
+    const pubMotorista = urlParams.get('motorista') || 'Motorista';
+    const pubVeiculo = urlParams.get('veiculo') || '';
+    return (
+      <DescargaRapida
+        motorista={pubMotorista}
+        veiculo={pubVeiculo}
+        botaForas={botaForas}
+      />
     );
   }
 
