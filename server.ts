@@ -129,6 +129,67 @@ app.get("/api/vehicle-locations", async (req, res) => {
   }
 });
 
+// ── OwnTracks Integration ──────────────────────────────────────────
+// Aceita POST do OwnTracks (formato JSON com _type: "location")
+app.post("/api/owntracks", async (req, res) => {
+  try {
+    const body = req.body;
+    if (!body || body._type !== 'location') {
+      return res.status(400).json({ error: 'Invalid OwnTracks payload' });
+    }
+    const vehicleId = body.tid || body.id || 'UNKNOWN';
+    const lat = body.lat;
+    const lng = body.lon;
+    if (lat == null || lng == null) {
+      return res.status(400).json({ error: 'Missing lat/lon' });
+    }
+    const now = new Date().toISOString();
+    await db.insert(schema.vehicleLocations).values({
+      vehicleId: `OT-${vehicleId}`,
+      driverName: body.name || vehicleId,
+      lat,
+      lng,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: schema.vehicleLocations.vehicleId,
+      set: { lat, lng, driverName: body.name || vehicleId, updatedAt: now },
+    });
+    locationsEtag = `loc-${Date.now()}`;
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Aceita GET do GPS Logger / qualquer app que envia via URL params
+// Ex: /api/gps?lat=-23.55&lng=-46.63&driver=TADEU&vehicle=FLT-8829
+app.get("/api/gps", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const driver = (req.query.driver as string) || 'Motorista';
+    const vehicle = (req.query.vehicle as string) || `GPS-${driver}`;
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: 'Missing or invalid lat/lng' });
+    }
+    const now = new Date().toISOString();
+    await db.insert(schema.vehicleLocations).values({
+      vehicleId: vehicle,
+      driverName: driver,
+      lat,
+      lng,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: schema.vehicleLocations.vehicleId,
+      set: { lat, lng, driverName: driver, updatedAt: now },
+    });
+    locationsEtag = `loc-${Date.now()}`;
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/auth/login", (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
