@@ -21,6 +21,7 @@ const DRIVER_PASSWORD = process.env.DRIVER_PASSWORD || 'parceiro123';
 const VALID_CREDENTIALS = [APP_PASSWORD, DRIVER_PASSWORD, '12345678'];
 
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
@@ -135,13 +136,13 @@ app.post("/api/owntracks", async (req, res) => {
   try {
     const body = req.body;
     if (!body || body._type !== 'location') {
-      return res.status(400).json({ error: 'Invalid OwnTracks payload' });
+      return res.json({ _type: 'response', result: true });
     }
     const vehicleId = body.tid || body.id || 'UNKNOWN';
     const lat = body.lat;
     const lng = body.lon;
     if (lat == null || lng == null) {
-      return res.status(400).json({ error: 'Missing lat/lon' });
+      return res.json({ _type: 'response', result: true });
     }
     const now = new Date().toISOString();
     await db.insert(schema.vehicleLocations).values({
@@ -155,9 +156,9 @@ app.post("/api/owntracks", async (req, res) => {
       set: { lat, lng, driverName: body.name || vehicleId, updatedAt: now },
     });
     locationsEtag = `loc-${Date.now()}`;
-    res.json({ success: true });
+    res.json({ _type: 'response', result: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.json({ _type: 'response', result: true });
   }
 });
 
