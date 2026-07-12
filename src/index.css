@@ -210,17 +210,13 @@
 
   /* Summary footer */
   #section-to-print > div:last-child {
-    border-top: 2px solid #334155 !important;
-    font-weight: 700 !important;
-    padding: 8px !important;
-    page-break-inside: avoid !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: #fff !important;
-    z-index: 9999 !important;
     border-top: 2px solid #1e293b !important;
+    font-weight: 700 !important;
+    padding: 10px 20px !important;
+    page-break-before: auto !important;
+    page-break-inside: avoid !important;
+    break-before: auto !important;
+    break-inside: avoid !important;
   }
 }
 
