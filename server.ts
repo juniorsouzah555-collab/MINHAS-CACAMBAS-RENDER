@@ -223,7 +223,10 @@ const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string
   { words: ['escritorio', 'material', 'papelaria', 'impressao'], categoria: 'Material de Escritório', centroCusto: 'Administrativo' },
   { words: ['marketing', 'publicidade', 'anuncio', 'google ads', 'facebook', 'instagram', 'divulgacao'], categoria: 'Marketing', centroCusto: 'Vendas' },
   { words: ['comissao', 'comissão'], categoria: 'Comissões', centroCusto: 'Vendas' },
-  { words: ['tarifa', 'taxa bancaria', 'cora', 'custo cartao', 'maquininha', 'anel', 'ted', 'doc', 'pix'], categoria: 'Tarifas Bancárias', centroCusto: 'Administrativo' },
+  { words: ['tarifa', 'taxa bancaria', 'taxa de manutencao', 'cesta servicos', 'cora', 'custo cartao', 'maquininha', 'anel'], categoria: 'Tarifas Bancárias', centroCusto: 'Administrativo' },
+  { words: ['pix recebido', 'recebimento pix', 'transferencia recebida', 'deposito', 'credito em conta', 'ted recebido', 'doc recebido'], categoria: 'Receita de Serviços', subcategoria: 'Transferências Recebidas', centroCusto: 'Operacional' },
+  { words: ['pix transferido', 'pix enviado', 'transferencia enviada', 'ted enviado', 'doc enviado'], categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' },
+  { words: ['pix', 'ted', 'doc', 'transferencia'], categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' },
   { words: ['juros', 'multa atraso', 'encargos'], categoria: 'Juros', centroCusto: 'Administrativo' },
   { words: ['simples nacional', 'das', 'fgts', 'inss', 'irpj', 'csll', 'pis', 'cofins'], categoria: 'Simples Nacional', centroCusto: 'Administrativo' },
   { words: ['iss', 'issqn'], categoria: 'ISS', centroCusto: 'Administrativo' },
@@ -250,40 +253,79 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
   if (!transacoes || !Array.isArray(transacoes) || transacoes.length === 0) {
     return res.status(400).json({ error: 'transacoes array is required' });
   }
-  const cache = new Map<string, { categoria: string; subcategoria: string | null; centroCusto: string | null }>();
+
+  const results = transacoes.map((t: any) => {
+    const localResult = localCategorize(t.descricao);
+    if (localResult.categoria !== 'PENDENTE') {
+      return { id: t.id, ...localResult };
+    }
+    return { id: t.id, ...localResult, _needsAI: true };
+  });
+
+  const needAI = results.filter((r: any) => r._needsAI);
+  if (needAI.length === 0) {
+    return res.json({ results: results.map(({ _needsAI, ...r }: any) => r) });
+  }
+
   const groqKey = process.env.GROQ_API_KEY;
-  if (groqKey) {
+  if (groqKey && needAI.length > 0) {
     try {
       const groq = new Groq({ apiKey: groqKey });
-      const catsStr = (catsList || []).join(',') || 'N/A';
-      const subsStr = (subsList || []).join(',') || 'N/A';
-      const ccsStr = (ccsList || []).join(',') || 'N/A';
-      const batchPrompt = transacoes.map((t: any) => `ID:${t.id} | "${t.descricao}" | R$${t.valor} | ${t.tipo}`).join('\n');
-      const systemPrompt = `Você é um categorizador financeiro brasileiro. Para cada transação, responda APENAS um JSON array de objetos com {id, c, s, cc}. c = categoria (escolha entre: ${catsStr}) s = subcategoria (escolha entre: ${subsStr}) ou null cc = centro de custo (escolha entre: ${ccsStr}) ou null Se não houver match, use c = "PENDENTE", s = null, cc = null.`;
-      const response = await groq.chat.completions.create({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: batchPrompt }], temperature: 0.1, max_tokens: 4096 });
+      const catsStr = (catsList || []).join(', ') || 'N/A';
+      const subsStr = (subsList || []).join(', ') || 'N/A';
+      const ccsStr = (ccsList || []).join(', ') || 'N/A';
+      const batch = needAI.map((t: any) => `- ID:${t.id} | "${t.descricao}" | R$${t.valor} | tipo:${t.tipo === 'CREDITO' ? 'entrada(saida)' : 'saida(debito)'}`).join('\n');
+      const systemPrompt = `Voce e um classificador financeiro para uma empresa de cacambas em Diadema/SP.
+Categorias disponiveis: ${catsStr}
+Subcategorias disponiveis: ${subsStr}
+Centros de custo: ${ccsStr}
+
+REGRAS:
+1. Responda SOMENTE um JSON array. Nenhum texto antes ou depois.
+2. Cada objeto: {"id":"...","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
+3. Regras de classificacao:
+   - PIX/TED/DOC RECEBIDO, transferencia recebida, deposito, credito em conta = Receita de Servicos (Recebimentos)
+   - PIX/TED/DOC ENVIADO, transferencia enviada, pagamento = Transferencias Enviadas (PIX/TED)
+   - Boleto pago = Pagamento de Boletos
+   - Diesel, gasolina, posto, abastecimento = Combustivel
+   - Oficina, mecanico, pneu, oleo, pecas = Manutencao de Frota
+   - Salario, prolabore, folha pagamento = Salarios
+   - Aluguel, locacao imovel = Aluguel
+   - Conta de luz, agua, telefone = Agua, Luz, Telefone
+   - Tarifa bancaria, cesta servicos, manutencao de conta = Tarifas Bancarias
+   - Simples, DAS, FGTS, INSS = Simples Nacional
+   - Cacamba, aluguel cacamba, locacao cacamba = Locacao de Cacambas
+   - Transporte, entulho, descarte, aterro = Transporte e Descarte
+   - Saque eletronico = Transferencias Enviadas
+4. Se nao tiver certeza, use c = "PENDENTE"`;
+      const response = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Classifique estas transacoes:\n${batch}` }
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+      });
       const rawText = response.choices?.[0]?.message?.content || '';
       if (rawText) {
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
           for (const item of parsed) {
-            if (item.id && item.c) {
-              const key = (transacoes.find((t: any) => t.id === item.id)?.descricao || '').toLowerCase().trim();
-              cache.set(key, { categoria: item.c !== 'PENDENTE' ? item.c : 'PENDENTE', subcategoria: item.s || null, centroCusto: item.cc || null });
+            if (item.id && item.c && item.c !== 'PENDENTE') {
+              const idx = results.findIndex((r: any) => r.id === item.id);
+              if (idx >= 0) {
+                results[idx] = { id: item.id, categoria: item.c, subcategoria: item.s || null, centroCusto: item.cc || null };
+              }
             }
           }
         }
       }
-    } catch (e) { console.error('[GROQ] error, falling back to local:', (e as any)?.message || e); }
+    } catch (e) { console.error('[GROQ] error:', (e as any)?.message || e); }
   }
-  const results = transacoes.map((t: any) => {
-    const key = (t.descricao || '').toLowerCase().trim();
-    if (cache.has(key)) return { id: t.id, ...cache.get(key)! };
-    const result = localCategorize(t.descricao);
-    cache.set(key, result);
-    return { id: t.id, ...result };
-  });
-  res.json({ results });
+
+  res.json({ results: results.map(({ _needsAI, ...r }: any) => r) });
 });
 
 // ---- GMAIL INTEGRATION (ported from api/gmail.ts, Firestore -> Turso) ----

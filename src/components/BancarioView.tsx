@@ -1022,7 +1022,13 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
         ...i, categorizadas: i.categorizadas + cats, pendentes: i.pendentes - cats
       })));
     }
-    setProcessing(false);
+
+    const aindaPendentes = updated.filter(t => t.status !== 'CATEGORIZADO');
+    if (aindaPendentes.length > 0) {
+      categorizarComIA(aindaPendentes).then(() => setProcessing(false));
+    } else {
+      setProcessing(false);
+    }
   };
 
   const updateTransacao = (id: string, updates: Partial<ExtratoTransacao>) => {
