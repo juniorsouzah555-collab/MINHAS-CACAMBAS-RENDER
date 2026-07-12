@@ -1334,62 +1334,78 @@ export default function App() {
     }
   };
 
-  // Action: Dar baixa em lote (todos os pendentes de um Bota Fora)
+  // Action: Dar baixa em lote (todos os pendentes de um Bota Fora) — abate ganancioso
   const handleBaixaTotal = (lancamentoIds: string[], totalDebito: number, valorPagoTotal: number) => {
-    const abatimentoTotal = totalDebito - valorPagoTotal;
+    let saldoRestante = Math.min(valorPagoTotal, totalDebito);
+    const hoje = new Date().toISOString().split('T')[0];
+    const pendentes = lancamentos.filter(l => lancamentoIds.includes(l.id));
+    const resultado: Record<string, { pago: boolean; valorPago: number }> = {};
+
+    for (const lan of pendentes) {
+      if (saldoRestante <= 0) {
+        resultado[lan.id] = { pago: false, valorPago: 0 };
+      } else if (saldoRestante >= lan.valor) {
+        resultado[lan.id] = { pago: true, valorPago: lan.valor };
+        saldoRestante -= lan.valor;
+      } else {
+        resultado[lan.id] = { pago: false, valorPago: saldoRestante };
+        saldoRestante = 0;
+      }
+    }
+
     setLancamentos(prev => prev.map(lan => {
-      if (!lancamentoIds.includes(lan.id)) return lan;
-      const propAbat = totalDebito > 0 ? (lan.valor / totalDebito) * abatimentoTotal : 0;
-      const vp = lan.valor - propAbat;
+      const r = resultado[lan.id];
+      if (!r) return lan;
       return {
         ...lan,
-        pago: true,
-        valorPago: Math.max(0, vp),
-        dataPagamento: new Date().toISOString().split('T')[0]
+        pago: r.pago,
+        valorPago: r.valorPago,
+        dataPagamento: r.valorPago > 0 ? hoje : lan.dataPagamento
       };
     }));
+
     if (isSupabaseConfigured()) {
-      lancamentoIds.forEach(id => {
-        const lan = lancamentos.find(l => l.id === id);
-        if (!lan) return;
-        const propAbat = totalDebito > 0 ? (lan.valor / totalDebito) * abatimentoTotal : 0;
-        const vp = lan.valor - propAbat;
+      for (const id of lancamentoIds) {
+        const r = resultado[id];
+        if (!r) continue;
         proxyUpdate('lancamentos', {
-          pago: true,
-          valor_pago: Math.max(0, vp),
-          data_pagamento: new Date().toISOString().split('T')[0]
+          pago: r.pago,
+          valor_pago: r.valorPago,
+          data_pagamento: r.valorPago > 0 ? hoje : null
         }, `id=eq.${id}`);
-      });
+      }
     }
+
+    const quitados = Object.values(resultado).filter(r => r.pago).length;
+    const parciais = Object.values(resultado).filter(r => !r.pago && r.valorPago > 0).length;
     handleShowToast(
       "Baixa Realizada",
-      `Pagamento de R$ ${valorPagoTotal.toFixed(2)} | Débito: R$ ${totalDebito.toFixed(2)} | Abatimento: R$ ${Math.max(0, abatimentoTotal).toFixed(2)}`,
+      `Pagamento: R$ ${valorPagoTotal.toFixed(2)} | Quitados: ${quitados} | Parciais: ${parciais} | Restante: R$ ${Math.max(0, saldoRestante).toFixed(2)}`,
       "success"
     );
   };
 
-  // Action: Dar baixa em Lançamento (com valor de abatimento opcional)
+  // Action: Dar baixa em Lançamento individual
   const handleBaixaLancamento = (id: string, valorAbatimento?: number) => {
-    setLancamentos(prev => prev.map(lan => {
-      if (lan.id !== id) return lan;
-      const valorPago = valorAbatimento !== undefined ? lan.valor - valorAbatimento : lan.valor;
-      return {
-        ...lan,
-        pago: true,
-        valorPago: Math.max(0, valorPago),
-        dataPagamento: new Date().toISOString().split('T')[0]
-      };
+    const lan = lancamentos.find(l => l.id === id);
+    if (!lan) return;
+    const valorPago = valorAbatimento !== undefined ? Math.min(lan.valor, lan.valor - valorAbatimento) : lan.valor;
+    const pago = valorPago >= lan.valor;
+    const hoje = new Date().toISOString().split('T')[0];
+
+    setLancamentos(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      return { ...l, pago, valorPago, dataPagamento: pago ? hoje : l.dataPagamento };
     }));
+
     if (isSupabaseConfigured()) {
-      const lan = lancamentos.find(l => l.id === id);
-      const valorPago = valorAbatimento !== undefined ? (lan?.valor || 0) - valorAbatimento : (lan?.valor || 0);
       proxyUpdate('lancamentos', {
-        pago: true,
-        valor_pago: Math.max(0, valorPago),
-        data_pagamento: new Date().toISOString().split('T')[0]
+        pago,
+        valor_pago: valorPago,
+        data_pagamento: pago ? hoje : null
       }, `id=eq.${id}`);
     }
-    handleShowToast("Baixa Realizada", `Lançamento ${id} quitado com sucesso.`, "success");
+    handleShowToast("Baixa Realizada", `Lançamento ${id} ${pago ? 'quitado' : 'parcialmente abatido'} — R$ ${valorPago.toFixed(2)}/${lan.valor.toFixed(2)}`, "success");
   };
 
   // Action: Reverter baixa de Lançamento
