@@ -368,17 +368,19 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
                 </tr>
               )}
             </tbody>
+            <tfoot className="print-tfoot">
+              <tr>
+                <td colSpan={7} className="px-5 py-4 border-t-2 border-slate-800 bg-slate-50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs font-bold text-slate-800 gap-2">
+                    <span>Total de Caçambas: <strong className="text-slate-900 text-sm">{summary.totalCacambas}</strong></span>
+                    <span>Total Geral: <strong className="text-emerald-700 text-sm">{formatCurrency(summary.totalValor)}</strong></span>
+                    <span>Média/Caçamba: <strong className="text-slate-900 text-sm">{formatCurrency(summary.averageValorPerCacamba)}</strong></span>
+                    <span>Lançamentos: <strong className="text-slate-900 text-sm">{summary.totalLancamentos}</strong></span>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-
-        {/* Summary aggregate footer for print accountability */}
-        <div className="p-5 border-t border-slate-200 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs font-semibold text-slate-705 gap-3">
-          <div>
-            Total de Caçambas Registradas no Período: <strong className="text-slate-900 font-bold text-sm ml-1">{summary.totalCacambas}</strong>
-          </div>
-          <div>
-            Soma Monetária dos Lançamentos Auditados: <strong className="text-emerald-700 font-bold text-sm ml-1">{formatCurrency(summary.totalValor)}</strong>
-          </div>
         </div>
 
       </div>

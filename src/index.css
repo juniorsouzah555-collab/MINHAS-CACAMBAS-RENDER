@@ -208,15 +208,18 @@
     print-color-adjust: exact !important;
   }
 
-  /* Summary footer */
-  #section-to-print > div:last-child {
+  /* Summary footer in tfoot */
+  .print-tfoot td {
     border-top: 2px solid #1e293b !important;
     font-weight: 700 !important;
     padding: 10px 20px !important;
-    page-break-before: auto !important;
+    background: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-tfoot tr {
     page-break-inside: avoid !important;
-    break-before: auto !important;
-    break-inside: avoid !important;
   }
 }
 
