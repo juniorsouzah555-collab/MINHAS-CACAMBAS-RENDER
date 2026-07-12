@@ -7,7 +7,7 @@ export default function NovoCliente() {
   const [endereco, setEndereco] = useState('');
   const [telefone, setTelefone] = useState('');
   const [dataLocacao, setDataLocacao] = useState(() => new Date().toISOString().split('T')[0]);
-  const [copyOk, setCopyOk] = useState(false);
+  const [copyOk, setCopyOk] = useState<string | null>(null);
 
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'BOM DIA' : hora < 18 ? 'BOA TARDE' : 'BOA NOITE';
@@ -37,20 +37,19 @@ export default function NovoCliente() {
     );
   };
 
-  const handleCopy = async () => {
-    const msg = gerarMensagem();
+  const handleCopy = async (text: string, id: string) => {
     try {
-      await navigator.clipboard.writeText(msg);
+      await navigator.clipboard.writeText(text);
     } catch {
       const ta = document.createElement('textarea');
-      ta.value = msg;
+      ta.value = text;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
     }
-    setCopyOk(true);
-    setTimeout(() => setCopyOk(false), 2000);
+    setCopyOk(id);
+    setTimeout(() => setCopyOk(null), 2000);
   };
 
   const handleSend = () => {
@@ -144,23 +143,35 @@ export default function NovoCliente() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={() => handleCopy('16.403.233.0001-75', 'pix')}
+                className={`py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  copyOk === 'pix'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+                }`}
+              >
+                {copyOk === 'pix' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copyOk === 'pix' ? '✓ Chave Copiada!' : '💰 Copiar Chave PIX'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCopy(gerarMensagem(), 'msg')}
                 className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                  copyOk
+                  copyOk === 'msg'
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {copyOk ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copyOk ? '✓ Copiado!' : '📋 Copiar Tudo'}
+                {copyOk === 'msg' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copyOk === 'msg' ? '✓ Copiado!' : '📋 Copiar Mensagem'}
               </button>
               <button
                 type="button"
                 onClick={handleSend}
-                className="flex-1 py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="py-3 px-5 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                🟢 Enviar no WhatsApp
+                Enviar
               </button>
             </div>
           </div>
