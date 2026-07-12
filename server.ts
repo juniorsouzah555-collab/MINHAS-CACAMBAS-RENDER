@@ -210,7 +210,7 @@ app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
 });
 
 const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string; centroCusto?: string }[] = [
-  { words: ['pix recebido', 'recebimento pix', 'pix-recebido'], categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' },
+  { words: ['pix recebido', 'recebimento pix', 'pix-recebido', 'retorno pix', 'entrada pix'], categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' },
   { words: ['transferencia recebida', 'ted recebido', 'doc recebido', 'credito em conta', 'deposito recebido', 'deposito'], categoria: 'Transferencias Recebidas', centroCusto: 'Operacional' },
   { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba', 'loca cacamba'], categoria: 'Servicos de Cacambas', centroCusto: 'Operacional' },
   { words: ['diesel', 'combustivel diesel', 'oleo diesel'], categoria: 'Combustivel', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
@@ -238,7 +238,7 @@ const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string
   { words: ['recebimento', 'pagamento cliente', 'servico prestado'], categoria: 'Servicos de Cacambas', centroCusto: 'Operacional' },
   { words: ['descarte', 'aterra', 'residuo', 'entulho'], categoria: 'Descarte e Aterro', centroCusto: 'Operacional' },
   { words: ['tarifa', 'cesta servicos', 'taxa bancaria', 'taxa de manutencao', 'manutencao da conta'], categoria: 'Tarifas Bancarias', subcategoria: 'Taxa de Manutencao', centroCusto: 'Administrativo' },
-  { words: ['pix transferido', 'pix enviado', 'transferencia enviada', 'ted enviado', 'doc enviado'], categoria: 'Transferencias Enviadas', subcategoria: 'TED/DOC', centroCusto: 'Administrativo' },
+  { words: ['pix enviado', 'pix transferido', 'transferencia enviada', 'ted enviado', 'doc enviado', 'pagto', 'pagamento'], categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' },
   { words: ['pix', 'ted', 'doc', 'transferencia', 'saque'], categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' },
   { words: ['boleto', 'pagamento de boleto'], categoria: 'Tarifas Bancarias', subcategoria: 'Boleto', centroCusto: 'Administrativo' },
   { words: ['maquininha', 'cielo', 'rede', 'getnet', 'ton'], categoria: 'Tarifas Bancarias', centroCusto: 'Administrativo' },
@@ -341,7 +341,8 @@ Se nao tiver certeza, use c = "PENDENTE"`;
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
-          const creditoCats = new Set(['Recebimentos PIX', 'Transferencias Recebidas']);
+          const despesaCats = new Set(['Combustivel','Manutencao de Frota','Descarte e Aterro','Pedagios','Seguro Veicular','IPVA e Licenciamento','Salarios e Encargos','Aluguel','Agua, Luz e Telefone','Internet e TI','Material de Escritorio','Marketing','Alimentacao','Saude','Comissoes','Tarifas Bancarias','Juros e Multas','Emprestimos','Cartao de Credito','Transferencias Enviadas','Simples Nacional','ISS','FGTS']);
+          const receitaCats = new Set(['Recebimentos PIX','Transferencias Recebidas','Servicos de Cacambas']);
           const results: any[] = [];
           for (const t of transacoes) {
             const ai = parsed.find((p: any) => p.id === t.id);
@@ -349,11 +350,11 @@ Se nao tiver certeza, use c = "PENDENTE"`;
               let cat = ai.c;
               let sub = ai.s && validSubs.has(ai.s) ? ai.s : null;
               let cc = ai.cc && validCCs.has(ai.cc) ? ai.cc : null;
-              if (t.tipo === 'CREDITO' && !creditoCats.has(cat) && cat !== 'Servicos de Cacambas') {
+              if (t.tipo === 'CREDITO' && despesaCats.has(cat)) {
                 cat = 'Recebimentos PIX';
                 sub = 'PIX Recebido';
                 cc = 'Operacional';
-              } else if (t.tipo === 'DEBITO' && creditoCats.has(cat)) {
+              } else if (t.tipo === 'DEBITO' && receitaCats.has(cat) && cat !== 'Servicos de Cacambas') {
                 cat = 'Transferencias Enviadas';
                 sub = 'Pix';
                 cc = 'Administrativo';
