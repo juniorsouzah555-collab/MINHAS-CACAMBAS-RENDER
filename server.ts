@@ -269,61 +269,54 @@ app.post('/api/bancario/categorize', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'transacoes array is required' });
   }
 
-  const results = transacoes.map((t: any) => {
-    const localResult = localCategorize(t.descricao);
-    if (localResult.categoria !== 'PENDENTE') {
-      return { id: t.id, ...localResult };
-    }
-    return { id: t.id, ...localResult, _needsAI: true };
-  });
-
-  const needAI = results.filter((r: any) => r._needsAI);
-  if (needAI.length === 0) {
-    return res.json({ results: results.map(({ _needsAI, ...r }: any) => r) });
-  }
+  const validCats = new Set((catsList || []).map((s: string) => s));
+  const validSubs = new Set((subsList || []).map((s: string) => s));
+  const validCCs = new Set((ccsList || []).map((s: string) => s));
 
   const groqKey = process.env.GROQ_API_KEY;
-  if (groqKey && needAI.length > 0) {
+  if (groqKey) {
     try {
       const groq = new Groq({ apiKey: groqKey });
       const catsStr = (catsList || []).join(', ') || 'N/A';
       const subsStr = (subsList || []).join(', ') || 'N/A';
       const ccsStr = (ccsList || []).join(', ') || 'N/A';
-      const batch = needAI.map((t: any) => `- ID:${t.id} | "${t.descricao}" | R$${t.valor} | tipo:${t.tipo === 'CREDITO' ? 'entrada(saida)' : 'saida(debito)'}`).join('\n');
+      const batch = transacoes.map((t: any) => `- ID:${t.id} | "${t.descricao}" | R$${t.valor} | tipo:${t.tipo}`).join('\n');
       const systemPrompt = `Voce e um classificador financeiro para uma empresa de cacambas em Diadema/SP.
-Categorias disponiveis: ${catsStr}
-Subcategorias disponiveis: ${subsStr}
-Centros de custo: ${ccsStr}
+Categorias disponiveis (USE EXATAMENTE ESTAS, sem alterar): ${catsStr}
+Subcategorias disponiveis (USE EXATAMENTE ESTAS ou null): ${subsStr}
+Centros de custo (USE EXATAMENTE ESTES ou null): ${ccsStr}
 
-REGRAS:
+REGRAS OBRIGATORIAS:
 1. Responda SOMENTE um JSON array. Nenhum texto antes ou depois.
-2. Cada objeto: {"id":"...","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
-3. Regras de classificacao:
-   - PIX/TED/DOC RECEBIDO, transferencia recebida, deposito, credito em conta = Recebimentos PIX (PIX Recebido) ou Transferencias Recebidas
-   - PIX/TED/DOC ENVIADO, transferencia enviada, pagamento = Transferencias Enviadas (TED/DOC ou Pix)
-   - Boleto pago = Tarifas Bancarias (Boleto)
-   - Diesel, gasolina, posto, abastecimento = Combustivel (Diesel S10 ou Gasolina)
-   - Oficina, mecanico, pneu, oleo, pecas = Manutencao de Frota
-   - Salario, prolabore, folha pagamento = Salarios e Encargos (Salario Base)
-   - Aluguel, locacao imovel = Aluguel
-   - Conta de luz, agua, telefone = Agua, Luz e Telefone
-   - Tarifa bancaria, cesta servicos, manutencao de conta = Tarifas Bancarias (Taxa de Manutencao)
-   - Simples, DAS = Simples Nacional
-   - FGTS = FGTS
-   - INSS = Salarios e Encargos (INSS)
-   - Cacamba, aluguel cacamba, locacao cacamba = Servicos de Cacambas
-   - Transporte, entulho, descarte, aterro = Descarte e Aterro
-   - Saque eletronico = Transferencias Enviadas (Pix)
-   - Seguro = Seguro Veicular
-   - IPVA, licenciamento = IPVA e Licenciamento
-   - Pedagio, sem parar = Pedagios
-   - Marketing, publicidade = Marketing
-   - Farmacia, remedio = Saude
-   - Cartao de credito, fatura = Cartao de Credito (Compra)
-   - Contabilidade, contador = Comissoes
-   - ISS = ISS
-4. Os nomes das categorias e subcategorias devem ser EXATAMENTE como listados acima (sem acentos).
-5. Se nao tiver certeza, use c = "PENDENTE"`;
+2. Cada objeto: {"id":"ID_DA_TRANSACAO","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
+3. Os valores de c, s e cc DEVEM ser EXATAMENTE iguais a uma das opcoes listadas acima. Nao invente nomes.
+4. Regras de classificacao:
+   - tipo CREDITO (entrada): se receber dinheiro do cliente → "Recebimentos PIX" s:"PIX Recebido" cc:"Operacional"
+   - tipo CREDITO (entrada): se for transferencia/DOC/TED recebido → "Transferencias Recebidas" cc:"Operacional"
+   - tipo CREDITO (entrada): se for servico de cacamba → "Servicos de Cacambas" cc:"Operacional"
+   - tipo DEBITO (saida): diesel, gasolina, posto → "Combustivel" s:"Diesel S10" cc:"Frota"
+   - tipo DEBITO (saida): oficina, mecanico, pneu, pecas → "Manutencao de Frota" cc:"Frota"
+   - tipo DEBITO (saida): salario, prolabore → "Salarios e Encargos" s:"Salario Base" cc:"Administrativo"
+   - tipo DEBITO (saida): aluguel → "Aluguel" cc:"Administrativo"
+   - tipo DEBITO (saida): luz, agua, telefone → "Agua, Luz e Telefone" cc:"Administrativo"
+   - tipo DEBITO (saida): tarifa bancaria, cesta → "Tarifas Bancarias" s:"Taxa de Manutencao" cc:"Administrativo"
+   - tipo DEBITO (saida): simples nacional, DAS → "Simples Nacional" cc:"Administrativo"
+   - tipo DEBITO (saida): fgts → "FGTS" cc:"Administrativo"
+   - tipo DEBITO (saida): inss → "Salarios e Encargos" s:"INSS" cc:"Administrativo"
+   - tipo DEBITO (saida): seguro → "Seguro Veicular" cc:"Frota"
+   - tipo DEBITO (saida): ipva → "IPVA e Licenciamento" cc:"Frota"
+   - tipo DEBITO (saida): pedagio → "Pedagios" cc:"Frota"
+   - tipo DEBITO (saida): cacamba alugada → "Servicos de Cacambas" cc:"Operacional"
+   - tipo DEBITO (saida): descarte, entulho, aterro → "Descarte e Aterro" cc:"Operacional"
+   - tipo DEBITO (saida): cartao credito, fatura → "Cartao de Credito" s:"Compra" cc:"Administrativo"
+   - tipo DEBITO (saida): marketing, publicidade → "Marketing" cc:"Vendas"
+   - tipo DEBITO (saida): farmacia, remedio → "Saude" cc:"Administrativo"
+   - tipo DEBITO (saida): ISS → "ISS" cc:"Administrativo"
+   - tipo DEBITO (saida): PIX/TED/DOC enviado, transferencia enviada → "Transferencias Enviadas" s:"Pix" cc:"Administrativo"
+   - tipo DEBITO (saida): boleto pago → "Tarifas Bancarias" s:"Boleto" cc:"Administrativo"
+   - tipo DEBITO (saida): juros, multa atraso → "Juros e Multas" cc:"Administrativo"
+   - tipo DEBITO (saida): emprestimo → "Emprestimos" cc:"Administrativo"
+5. Se nao souber, use c = "PENDENTE"`;
       const response = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
@@ -338,20 +331,28 @@ REGRAS:
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            if (item.id && item.c && item.c !== 'PENDENTE') {
-              const idx = results.findIndex((r: any) => r.id === item.id);
-              if (idx >= 0) {
-                results[idx] = { id: item.id, categoria: item.c, subcategoria: item.s || null, centroCusto: item.cc || null };
-              }
+          const results: any[] = [];
+          for (const t of transacoes) {
+            const ai = parsed.find((p: any) => p.id === t.id);
+            if (ai && ai.c && ai.c !== 'PENDENTE' && validCats.has(ai.c)) {
+              const sub = ai.s && validSubs.has(ai.s) ? ai.s : null;
+              const cc = ai.cc && validCCs.has(ai.cc) ? ai.cc : null;
+              results.push({ id: t.id, categoria: ai.c, subcategoria: sub, centroCusto: cc });
+            } else {
+              const local = localCategorize(t.descricao);
+              results.push({ id: t.id, ...local });
             }
           }
+          return res.json({ results });
         }
       }
     } catch (e) { console.error('[GROQ] error:', (e as any)?.message || e); }
   }
 
-  res.json({ results: results.map(({ _needsAI, ...r }: any) => r) });
+  const results = transacoes.map((t: any) => {
+    return { id: t.id, ...localCategorize(t.descricao) };
+  });
+  res.json({ results });
 });
 
 // ---- GMAIL INTEGRATION (ported from api/gmail.ts, Firestore -> Turso) ----
