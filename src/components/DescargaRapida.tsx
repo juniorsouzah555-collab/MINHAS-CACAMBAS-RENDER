@@ -32,7 +32,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
     setError('');
     try {
       const valorFinal = isPortoDeAreia
-        ? parseFloat(valorCustomizado) * quantidade
+        ? parseFloat(valorCustomizado)
         : (selectedBf?.valorPadraoDescarte || 0) * quantidade;
       const res = await fetch('/api/descarga-rapida', {
         method: 'POST',
@@ -76,7 +76,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
             const local = botaForas.find(b => b.id === selectedBotaFora)?.nome || '';
             const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
             const valorTotal = isPortoDeAreia
-              ? parseFloat(valorCustomizado || '0') * quantidade
+              ? parseFloat(valorCustomizado || '0')
               : (botaForas.find(b => b.id === selectedBotaFora)?.valorPadraoDescarte || 0) * quantidade;
             const valorLinha = valorTotal > 0 ? `\n💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}` : '';
             const msg = encodeURIComponent(
@@ -200,7 +200,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           {/* Valor do descarte — só PORTO DE AREIA */}
           {isPortoDeAreia && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <label className="text-[10px] font-black uppercase text-amber-700 mb-1 block tracking-wider">Valor do descarte (R$/caçamba)</label>
+              <label className="text-[10px] font-black uppercase text-amber-700 mb-1 block tracking-wider">Valor total do descarte (R$)</label>
               <input
                 type="number"
                 value={valorCustomizado}
@@ -208,11 +208,6 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
                 placeholder="Ex: 350"
                 className="w-full bg-white border border-amber-300 rounded-xl px-4 py-3 text-lg font-bold text-amber-900 placeholder:text-amber-300 focus:outline-none focus:border-amber-500"
               />
-              {valorCustomizado && quantidade > 0 && (
-                <p className="text-xs text-amber-600 mt-2 font-bold">
-                  Total: R$ {(parseFloat(valorCustomizado) * quantidade).toFixed(2).replace('.', ',')}
-                </p>
-              )}
             </div>
           )}
 
