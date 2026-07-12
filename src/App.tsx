@@ -62,6 +62,7 @@ import TrackingView from './components/TrackingView';
 import BoletoView from './components/BoletoView';
 import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
+import PayslipView from './components/PayslipView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -1975,6 +1976,10 @@ export default function App() {
               onUpdateManutencao={handleUpdateManutencao}
               onDeleteManutencao={handleDeleteManutencao}
             />
+          )}
+
+          {currentTab === 'payslip' && (
+            <PayslipView />
           )}
 
           {currentTab === 'settings' && (

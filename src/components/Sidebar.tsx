@@ -49,6 +49,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'manutencao', name: 'Manutenção', icon: Wrench },
+    { id: 'payslip', name: 'Holerites', icon: FileText },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }
   ].filter(item => {
     if (isDriver) {
