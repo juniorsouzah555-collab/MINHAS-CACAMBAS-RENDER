@@ -17,6 +17,8 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const [data, setData] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [observacao, setObservacao] = useState('');
   const [valorCustomizado, setValorCustomizado] = useState('');
+  const [copyOk, setCopyOk] = useState(false);
+
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
@@ -138,16 +140,45 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               `📅 Data: ${dataFmt}` +
               (observacao ? `\n📝 Obs: ${observacao}` : '');
             const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            const handleCopy = async () => {
+              try {
+                await navigator.clipboard.writeText(msg);
+                setCopyOk(true);
+                setTimeout(() => setCopyOk(false), 2000);
+              } catch {
+                const ta = document.createElement('textarea');
+                ta.value = msg;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                setCopyOk(true);
+                setTimeout(() => setCopyOk(false), 2000);
+              }
+            };
             return (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2 no-underline"
-              >
-                <Send className="w-4 h-4" />
-                Enviar no WhatsApp
-              </a>
+              <div className="flex gap-2">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2 no-underline"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar no WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className={`py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer ${
+                    copyOk
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {copyOk ? '✓ Copiado!' : '📋 Copiar'}
+                </button>
+              </div>
             );
           })()}
 
