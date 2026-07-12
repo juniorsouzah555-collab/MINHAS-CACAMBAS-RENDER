@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MapPin, Users, RefreshCw, Navigation, Loader } from 'lucide-react';
 import { Vehicle } from '../types';
 import DriverLiveMap from './DriverLiveMap';
@@ -18,37 +18,27 @@ interface TrackingViewProps {
 
 export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
-  const etagRef = useRef<string>('');
-  const lastDataRef = useRef<string>('');
 
   const poll = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (etagRef.current) headers['If-None-Match'] = etagRef.current;
-      const res = await fetch('/api/vehicle-locations', { headers });
-      if (res.status === 304) return; // Zero bytes — nada mudou
+      const res = await fetch('/api/vehicle-locations?_=' + Date.now());
       if (!res.ok) return;
-      const etag = res.headers.get('ETag');
-      if (etag) etagRef.current = etag;
-      const text = await res.text();
-      if (text === lastDataRef.current) return; // Dados idênticos
-      lastDataRef.current = text;
-      const data = JSON.parse(text);
+      const data = await res.json();
       if (Array.isArray(data)) setLocations(data);
     } catch {}
   }, []);
 
   useEffect(() => {
     poll();
-    const id = setInterval(poll, 30000); // Poll a cada 30s, mas 304 = 0 bytes
+    const id = setInterval(poll, 10000); // Poll a cada 10s pra tempo real
     return () => clearInterval(id);
   }, [poll]);
 
-  // Filtra só motoristas com localização recente (últimos 5 min)
+  // Filtra só motoristas com localização recente (últimos 30 min)
   const now = Date.now();
   const online = locations.filter(l => {
     const diff = now - new Date(l.updatedAt).getTime();
-    return diff < 5 * 60 * 1000 && motoristas.some(m => m.toLowerCase() === (l.driverName || '').toLowerCase());
+    return diff < 30 * 60 * 1000 && motoristas.some(m => m.toLowerCase() === (l.driverName || '').toLowerCase());
   });
 
   const onlineUsers = online.map(l => ({
@@ -105,7 +95,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Motoristas Online
           </h3>
           <span className="text-[10px] font-bold text-slate-400">
-            Últimos 5 minutos
+            Últimos 30 minutos
           </span>
         </div>
         <div className="divide-y divide-slate-100">
