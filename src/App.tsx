@@ -387,6 +387,22 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  // Carrega dados mínimos para a página pública de descarga (sem auth)
+  useEffect(() => {
+    const publicPage = new URLSearchParams(window.location.search).get('page');
+    if (publicPage !== 'descarga') return;
+    (async () => {
+      try {
+        const [resVehicles, resBf] = await Promise.all([
+          fetch('/api/vehicles'),
+          fetch('/api/botaforas'),
+        ]);
+        if (resVehicles.ok) setVehicles(await resVehicles.json());
+        if (resBf.ok) setBotaForas(await resBf.json());
+      } catch {}
+    })();
+  }, []);
+
   // Sincronização em tempo real via Supabase Realtime (postgres_changes) entre
   // motorista (mobile) e admin (web). Substitui o polling antigo (que reconsultava
   // as tabelas inteiras a cada 60s) por um WebSocket que só recebe as mudanças.
