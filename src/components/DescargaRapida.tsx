@@ -27,8 +27,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   vehicleRef.current = selectedVehicleId;
 
   const sendLocation = async (lat: number, lng: number) => {
-    const vid = vehicleRef.current;
-    if (!vid) return;
+    const vid = vehicleRef.current || `GPS-${motorista}`;
     try {
       await fetch('/api/vehicle-location', {
         method: 'POST',
