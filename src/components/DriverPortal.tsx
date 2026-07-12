@@ -309,48 +309,6 @@ export default function DriverPortal({
     };
   }, [currentUserEmail]);
 
-  // ── GPS Tracking Inteligente (egress mínimo) ────────────────────────
-  // Só envia quando: moveu >100m OU passaram 5 minutos
-  const lastSentRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
-  useEffect(() => {
-    if (!selectedVehicleId) return;
-    const sendLocation = async (lat: number, lng: number) => {
-      try {
-        await fetch('/api/vehicle-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            vehicle_id: selectedVehicleId,
-            driver_name: selectedDriver,
-            lat,
-            lng,
-          }),
-        });
-        lastSentRef.current = { lat, lng, time: Date.now() };
-      } catch {}
-    };
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const last = lastSentRef.current;
-        if (!last) { sendLocation(lat, lng); return; }
-        // Distância haversine simplificada
-        const R = 6371000;
-        const dLat = ((lat - last.lat) * Math.PI) / 180;
-        const dLng = ((lng - last.lng) * Math.PI) / 180;
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos((last.lat * Math.PI) / 180) * Math.cos((lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const elapsed = Date.now() - last.time;
-        if (dist > 100 || elapsed > 5 * 60 * 1000) {
-          sendLocation(lat, lng);
-        }
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [selectedVehicleId, selectedDriver]);
-
   // Online badge (polling a cada 15s)
   const [onlineUsers, setOnlineUsers] = useState<{ name: string; lat: number; lng: number }[]>([]);
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Minus, Plus, CheckCircle2, Truck, Clock, Send } from 'lucide-react';
 import { BotaFora, Vehicle } from '../types';
 
@@ -20,6 +20,44 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+
+  // ── GPS Tracking Inteligente (só no PWA do celular) ──────────────
+  const lastSentRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const vehicleRef = useRef(selectedVehicleId);
+  vehicleRef.current = selectedVehicleId;
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const sendLocation = async (lat: number, lng: number) => {
+      const vid = vehicleRef.current;
+      if (!vid) return;
+      try {
+        await fetch('/api/vehicle-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicle_id: vid, driver_name: motorista, lat, lng }),
+        });
+        lastSentRef.current = { lat, lng, time: Date.now() };
+      } catch {}
+    };
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const last = lastSentRef.current;
+        if (!last) { sendLocation(lat, lng); return; }
+        const R = 6371000;
+        const dLat = ((lat - last.lat) * Math.PI) / 180;
+        const dLng = ((lng - last.lng) * Math.PI) / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos((last.lat * Math.PI) / 180) * Math.cos((lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const elapsed = Date.now() - last.time;
+        if (dist > 100 || elapsed > 5 * 60 * 1000) sendLocation(lat, lng);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [motorista]);
 
   const selectedBf = botaForas.find(b => b.id === selectedBotaFora);
   const isPortoDeAreia = selectedBf?.nome?.toUpperCase().includes('PORTO DE AREIA') || false;
