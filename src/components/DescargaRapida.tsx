@@ -16,26 +16,33 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const [quantidade, setQuantidade] = useState<number>(1);
   const [data, setData] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [observacao, setObservacao] = useState('');
+  const [valorCustomizado, setValorCustomizado] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
+  const selectedBf = botaForas.find(b => b.id === selectedBotaFora);
+  const isPortoDeAreia = selectedBf?.nome?.toUpperCase().includes('PORTO DE AREIA') || false;
+
   const handleSubmit = async () => {
     if (!selectedBotaFora) { setError('Selecione o local de descarga'); return; }
     if (!selectedVehicleId) { setError('Selecione o veículo'); return; }
+    if (isPortoDeAreia && (!valorCustomizado || parseFloat(valorCustomizado) <= 0)) { setError('Informe o valor do descarte'); return; }
     setSending(true);
     setError('');
     try {
-      const bf = botaForas.find(b => b.id === selectedBotaFora);
+      const valorFinal = isPortoDeAreia
+        ? parseFloat(valorCustomizado) * quantidade
+        : (selectedBf?.valorPadraoDescarte || 0) * quantidade;
       const res = await fetch('/api/descarga-rapida', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: crypto.randomUUID(),
           bota_fora_id: selectedBotaFora,
-          bota_fora_nome: bf?.nome || '',
+          bota_fora_nome: selectedBf?.nome || '',
           quantidade_cacambas: quantidade,
-          valor: (bf?.valorPadraoDescarte || 0) * quantidade,
+          valor: valorFinal,
           data,
           driver_name: motorista,
           vehicle_id: selectedVehicleId,
@@ -68,10 +75,15 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           {(() => {
             const local = botaForas.find(b => b.id === selectedBotaFora)?.nome || '';
             const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
+            const valorTotal = isPortoDeAreia
+              ? parseFloat(valorCustomizado || '0') * quantidade
+              : (botaForas.find(b => b.id === selectedBotaFora)?.valorPadraoDescarte || 0) * quantidade;
+            const valorLinha = valorTotal > 0 ? `\n💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}` : '';
             const msg = encodeURIComponent(
               `✅ *Descarga registrada*\n` +
               `📍 Local: ${local}\n` +
               `📦 Quantidade: ${quantidade} caçamba${quantidade > 1 ? 's' : ''}\n` +
+              valorLinha +
               `🚛 Veículo: ${selectedVehicleId}\n` +
               `👷 Motorista: ${motorista}\n` +
               `📅 Data: ${dataFmt}` +
@@ -184,6 +196,25 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               </button>
             </div>
           </div>
+
+          {/* Valor do descarte — só PORTO DE AREIA */}
+          {isPortoDeAreia && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <label className="text-[10px] font-black uppercase text-amber-700 mb-1 block tracking-wider">Valor do descarte (R$/caçamba)</label>
+              <input
+                type="number"
+                value={valorCustomizado}
+                onChange={e => setValorCustomizado(e.target.value)}
+                placeholder="Ex: 350"
+                className="w-full bg-white border border-amber-300 rounded-xl px-4 py-3 text-lg font-bold text-amber-900 placeholder:text-amber-300 focus:outline-none focus:border-amber-500"
+              />
+              {valorCustomizado && quantidade > 0 && (
+                <p className="text-xs text-amber-600 mt-2 font-bold">
+                  Total: R$ {(parseFloat(valorCustomizado) * quantidade).toFixed(2).replace('.', ',')}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Data */}
           <div>
