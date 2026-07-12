@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Users, RefreshCw, Navigation, Loader } from 'lucide-react';
 import { Vehicle } from '../types';
-import { getOnlineUsers, getAddressFromCoords } from '../lib/supabase';
 import DriverLiveMap from './DriverLiveMap';
 
-interface OnlineUser {
-  name: string;
+interface VehicleLocation {
+  vehicleId: string;
+  driverName: string | null;
   lat: number;
   lng: number;
-  address: string;
+  updatedAt: string;
 }
 
 interface TrackingViewProps {
@@ -17,32 +17,46 @@ interface TrackingViewProps {
 }
 
 export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const [loadingAddress, setLoadingAddress] = useState<Set<string>>(new Set());
-
-  const fetchAddresses = useCallback(async (users: { name: string; lat: number; lng: number }[]) => {
-    const filtered = users.filter(u => motoristas.some(m => m.toLowerCase() === u.name.toLowerCase()));
-    const enriched: OnlineUser[] = await Promise.all(
-      filtered.map(async (u) => {
-        const address = await getAddressFromCoords(u.lat, u.lng);
-        return { ...u, address };
-      })
-    );
-    setOnlineUsers(enriched);
-  }, [motoristas]);
+  const [locations, setLocations] = useState<VehicleLocation[]>([]);
+  const etagRef = useRef<string>('');
+  const lastDataRef = useRef<string>('');
 
   const poll = useCallback(async () => {
     try {
-      const r = await getOnlineUsers();
-      fetchAddresses(r);
+      const headers: Record<string, string> = {};
+      if (etagRef.current) headers['If-None-Match'] = etagRef.current;
+      const res = await fetch('/api/vehicle-locations', { headers });
+      if (res.status === 304) return; // Zero bytes — nada mudou
+      if (!res.ok) return;
+      const etag = res.headers.get('ETag');
+      if (etag) etagRef.current = etag;
+      const text = await res.text();
+      if (text === lastDataRef.current) return; // Dados idênticos
+      lastDataRef.current = text;
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) setLocations(data);
     } catch {}
-  }, [fetchAddresses]);
+  }, []);
 
   useEffect(() => {
     poll();
-    const id = setInterval(poll, 15000);
+    const id = setInterval(poll, 30000); // Poll a cada 30s, mas 304 = 0 bytes
     return () => clearInterval(id);
   }, [poll]);
+
+  // Filtra só motoristas com localização recente (últimos 5 min)
+  const now = Date.now();
+  const online = locations.filter(l => {
+    const diff = now - new Date(l.updatedAt).getTime();
+    return diff < 5 * 60 * 1000 && motoristas.some(m => m.toLowerCase() === (l.driverName || '').toLowerCase());
+  });
+
+  const onlineUsers = online.map(l => ({
+    name: l.driverName || 'Motorista',
+    lat: l.lat,
+    lng: l.lng,
+    address: '',
+  }));
 
   return (
     <div className="space-y-6">
@@ -54,13 +68,13 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Rastreamento de Motoristas
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Acompanhe a localização dos motoristas em tempo real
+            GPS a cada 5min ou 100m · ETag cache (egress mínimo)
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-emerald-50 border border-emerald-200/60 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" />
-            {onlineUsers.length} online
+            {online.length} online
           </div>
           <button
             type="button"
@@ -73,7 +87,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
         </div>
       </div>
 
-      {/* Live Map — só mostra veículos com motoristas cadastrados */}
+      {/* Live Map */}
       <DriverLiveMap
         coords={null}
         vehicles={vehicles.filter(v => (v.status === 'In Transit' || v.status === 'Assigned') && motoristas.some(m => m.toLowerCase() === (v.driver || '').toLowerCase()))}
@@ -91,31 +105,31 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Motoristas Online
           </h3>
           <span className="text-[10px] font-bold text-slate-400">
-            Últimos 2 minutos
+            Últimos 5 minutos
           </span>
         </div>
         <div className="divide-y divide-slate-100">
-          {onlineUsers.length === 0 ? (
+          {online.length === 0 ? (
             <div className="px-5 py-8 text-center">
               <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-semibold text-slate-400">Nenhum motorista online no momento</p>
-              <p className="text-[10px] text-slate-300 mt-1">Peça para um motorista fazer login pelo celular</p>
+              <p className="text-[10px] text-slate-300 mt-1">GPS atualizado a cada 5 minutos pelo PWA</p>
             </div>
           ) : (
-            onlineUsers.map((u, i) => (
-              <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+            online.map((l, i) => (
+              <div key={l.vehicleId || i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-sm font-semibold text-slate-800 block truncate">{u.name}</span>
+                    <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
                     <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
-                      {u.address || <Loader className="w-3 h-3 inline animate-spin" />}
+                      {l.vehicleId}
                     </span>
                   </div>
                 </div>
-                {u.lat && u.lng && (
+                {l.lat && l.lng && (
                   <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">
-                    {u.lat.toFixed(4)}, {u.lng.toFixed(4)}
+                    {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
                   </span>
                 )}
               </div>

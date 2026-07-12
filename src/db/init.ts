@@ -31,6 +31,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS gmail_aliases (id TEXT PRIMARY KEY, sender TEXT NOT NULL, alias TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS gmail_hidden (id TEXT PRIMARY KEY, message_id TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS folha_pagamento (id TEXT PRIMARY KEY, competencia TEXT NOT NULL, funcionario_data TEXT NOT NULL, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS vehicle_locations (vehicle_id TEXT PRIMARY KEY, driver_name TEXT, lat REAL NOT NULL, lng REAL NOT NULL, updated_at TEXT NOT NULL)`,
 ];
 
 const MIGRATIONS = [

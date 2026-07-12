@@ -30,6 +30,14 @@ export const lancamentos = sqliteTable('lancamentos', {
   source: text('source'),
 });
 
+export const vehicleLocations = sqliteTable('vehicle_locations', {
+  vehicleId: text('vehicle_id').primaryKey(),
+  driverName: text('driver_name'),
+  lat: real('lat').notNull(),
+  lng: real('lng').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const vehicles = sqliteTable('vehicles', {
   id: text('id').primaryKey(),
   status: text('status').notNull(),

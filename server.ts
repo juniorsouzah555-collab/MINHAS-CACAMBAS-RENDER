@@ -85,6 +85,50 @@ app.post("/api/descarga-rapida", async (req, res) => {
   }
 });
 
+// ── Vehicle Location (Rastreamento) ──────────────────────────────────
+// POST: motorista envia GPS (sem auth pra funcionar no PWA)
+let locationsEtag = `loc-${Date.now()}`;
+
+app.post("/api/vehicle-location", async (req, res) => {
+  try {
+    const { vehicle_id, driver_name, lat, lng } = req.body;
+    if (!vehicle_id || lat == null || lng == null) {
+      return res.status(400).json({ error: 'Campos obrigatórios: vehicle_id, lat, lng' });
+    }
+    const now = new Date().toISOString();
+    await db.insert(schema.vehicleLocations).values({
+      vehicleId: vehicle_id,
+      driverName: driver_name || null,
+      lat,
+      lng,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: schema.vehicleLocations.vehicleId,
+      set: { lat, lng, driverName: driver_name || null, updatedAt: now },
+    });
+    locationsEtag = `loc-${Date.now()}`;
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET: admin busca localizações — retorna 304 se nada mudou (zero egress)
+app.get("/api/vehicle-locations", async (req, res) => {
+  try {
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch === locationsEtag) {
+      return res.status(304).end(); // Zero bytes!
+    }
+    const rows = await db.select().from(schema.vehicleLocations);
+    res.set('ETag', locationsEtag);
+    res.set('Cache-Control', 'no-cache');
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/auth/login", (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
