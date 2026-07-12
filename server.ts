@@ -200,6 +200,7 @@ crud('planos-pagamento', schema.planosPagamento);
 crud('planos_pagamento', schema.planosPagamento);
 crud('clientes', schema.clientes);
 crud('user-approvals', schema.userApprovals);
+crud('folha_pagamento', schema.folhaPagamento);
 
 app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
   try {

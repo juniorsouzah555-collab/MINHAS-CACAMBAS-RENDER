@@ -315,18 +315,83 @@ export default function PayslipView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showEncargos, setShowEncargos] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
+  const [loadedFromApi, setLoadedFromApi] = useState(false);
 
-  // Persistir no localStorage
+  // Carregar do servidor ao montar
   useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/folha_pagamento');
+        if (!res.ok) return;
+        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const match = rows.filter(r => r.competencia === competencia);
+        if (match.length > 0) {
+          const parsed = match.map(r => JSON.parse(r.funcionario_data) as Funcionario);
+          setFuncionarios(parsed);
+          setLoadedFromApi(true);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Salvar no servidor + localStorage ao mudar
+  useEffect(() => {
+    if (funcionarios.length === 0) return;
     localStorage.setItem('payslip_funcionarios', JSON.stringify(funcionarios));
-  }, [funcionarios]);
-  useEffect(() => {
     localStorage.setItem('payslip_competencia', competencia);
-  }, [competencia]);
 
-  const handleCompetenciaChange = useCallback((newComp: string) => {
+    // Salvar no servidor (debounce 500ms)
+    const timer = setTimeout(async () => {
+      try {
+        // Buscar registros existentes desta competência
+        const res = await fetch('/api/folha_pagamento');
+        if (!res.ok) return;
+        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const existentes = rows.filter(r => r.competencia === competencia);
+
+        // Deletar os antigos
+        for (const row of existentes) {
+          await fetch(`/api/folha_pagamento/${row.id}`, { method: 'DELETE' });
+        }
+
+        // Inserir os novos
+        for (const func of funcionarios) {
+          await fetch('/api/folha_pagamento', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: crypto.randomUUID(),
+              competencia,
+              funcionario_data: JSON.stringify(func),
+              created_at: new Date().toISOString(),
+            }),
+          });
+        }
+        setLoadedFromApi(true);
+      } catch {}
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [funcionarios, competencia]);
+
+  const handleCompetenciaChange = useCallback(async (newComp: string) => {
     setCompetencia(newComp);
     const novosDias = calcDiasMes(newComp);
+
+    // Tentar carregar do servidor
+    try {
+      const res = await fetch('/api/folha_pagamento');
+      if (res.ok) {
+        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const match = rows.filter(r => r.competencia === newComp);
+        if (match.length > 0) {
+          const parsed = match.map(r => JSON.parse(r.funcionario_data) as Funcionario);
+          setFuncionarios(parsed);
+          return;
+        }
+      }
+    } catch {}
+
+    // Se não tem no servidor, manter atuais mas ajustar dias
     setFuncionarios(prev => prev.map(f => ({
       ...f,
       diasTrabalhados: novosDias.totalDias,

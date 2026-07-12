@@ -301,3 +301,10 @@ export const clientes = sqliteTable('clientes', {
   observacao: text('observacao'),
   createdAt: text('created_at'),
 });
+
+export const folhaPagamento = sqliteTable('folha_pagamento', {
+  id: text('id').primaryKey(),
+  competencia: text('competencia').notNull(),
+  funcionarioData: text('funcionario_data').notNull(),
+  createdAt: text('created_at'),
+});
