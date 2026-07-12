@@ -403,6 +403,14 @@ export default function App() {
     })();
   }, []);
 
+  // Keep-alive: pinga o servidor a cada 4 min pra não dormir no Render free
+  useEffect(() => {
+    const ping = () => fetch('/api/health').catch(() => {});
+    ping();
+    const interval = setInterval(ping, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Sincronização em tempo real via Supabase Realtime (postgres_changes) entre
   // motorista (mobile) e admin (web). Substitui o polling antigo (que reconsultava
   // as tabelas inteiras a cada 60s) por um WebSocket que só recebe as mudanças.
