@@ -1762,13 +1762,8 @@ export default function App() {
     );
   }
 
-  // Rota pública: /?page=admin — tela de login
-  if (publicPage === 'admin') {
-    // Caí aqui, mas isAuthenticated é true → redireciona pro painel
-    if (isAuthenticated) {
-      setCurrentView('fleet');
-      return null;
-    }
+  // Rota pública: /?page=admin — tela de login (só mostra se NÃO autenticado)
+  if (publicPage === 'admin' && !isAuthenticated) {
     return (
       <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
