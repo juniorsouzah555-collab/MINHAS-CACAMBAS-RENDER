@@ -294,16 +294,35 @@ const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
 
 export default function PayslipView() {
   const [competencia, setCompetencia] = useState<string>(() => {
+    const saved = localStorage.getItem('payslip_competencia');
+    if (saved) return saved;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
   const diasInfo = useMemo(() => calcDiasMes(competencia), [competencia]);
 
-  const [funcionarios, setFuncionarios] = useState<Funcionario[]>(() => [createFuncionario(diasInfo.totalDias, diasInfo.diasUteis)]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>(() => {
+    const saved = localStorage.getItem('payslip_funcionarios');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Funcionario[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [createFuncionario(diasInfo.totalDias, diasInfo.diasUteis)];
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showEncargos, setShowEncargos] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
+
+  // Persistir no localStorage
+  useEffect(() => {
+    localStorage.setItem('payslip_funcionarios', JSON.stringify(funcionarios));
+  }, [funcionarios]);
+  useEffect(() => {
+    localStorage.setItem('payslip_competencia', competencia);
+  }, [competencia]);
 
   const handleCompetenciaChange = useCallback((newComp: string) => {
     setCompetencia(newComp);
