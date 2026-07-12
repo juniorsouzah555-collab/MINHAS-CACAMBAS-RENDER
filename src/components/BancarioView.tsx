@@ -682,16 +682,17 @@ function ExtratoImportView() {
   // Tenta OpenRouter no background (não bloqueia o import)
   const categorizarComIA = async (pendentes: ExtratoTransacao[]) => {
     if (pendentes.length === 0) return;
+    setUsandoIA(true);
     try {
-      setUsandoIA(true);
       const catNomes = categorias.map(c => c.nome);
       const subNomes = subcategorias.map(s => s.nome);
       const ccNomes = centrosCusto.map(c => c.nome);
 
       let resultados: { id: string; c: string; s: string | null; cc: string | null }[] = [];
 
+      const batch = pendentes.map(t => ({ id: t.id, descricao: t.descricao, valor: t.valor, tipo: t.tipo }));
+
       if (aiKey) {
-        // OpenRouter (chave do usuário)
         const prompt = `Categorize cada transacao bancaria. Responda SOMENTE JSON array [{id,c,s,cc}].
 Categorias: ${catNomes.join(' | ')}
 Subcategorias: ${subNomes.join(' | ')}
@@ -715,43 +716,57 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
           }),
         });
 
-        if (!r.ok) { console.error('[IA] OpenRouter erro HTTP', r.status, await r.text().catch(() => '')); return; }
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          console.error('[IA] OpenRouter erro HTTP', r.status, errText);
+          setErrorMsg(`Erro OpenRouter (${r.status}): ${errText.slice(0, 200)}`);
+          return;
+        }
         const d = await r.json();
         const rawText = d.choices?.[0]?.message?.content || '';
-        if (!rawText) { console.error('[IA] Resposta vazia da API'); return; }
+        if (!rawText) { console.error('[IA] Resposta vazia'); setErrorMsg('IA retornou resposta vazia'); return; }
         const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) resultados = parsed;
       } else {
-        // Groq do servidor (grátis, sem chave do usuário)
-        console.log('[IA] Sem chave OpenRouter, usando Groq do servidor...');
-        const batch = pendentes.map(t => ({ id: t.id, descricao: t.descricao, valor: t.valor, tipo: t.tipo }));
+        console.log(`[IA] Enviando ${batch.length} transacoes para Groq do servidor...`);
         const r = await fetch(`${API_BASE}/api/bancario/categorize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('relampago_token') || ''}` },
           body: JSON.stringify({ transacoes: batch, categorias: catNomes, subcategorias: subNomes, centrosCusto: ccNomes }),
         });
-        if (!r.ok) { console.error('[IA] Groq erro HTTP', r.status); return; }
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          console.error('[IA] Groq erro HTTP', r.status, errText);
+          setErrorMsg(`Erro servidor IA (${r.status}): ${errText.slice(0, 200)}`);
+          return;
+        }
         const d = await r.json();
+        console.log('[IA] Resposta Groq:', d.results?.length, 'resultados');
         if (Array.isArray(d.results)) {
           resultados = d.results.map((item: any) => ({ id: item.id, c: item.categoria, s: item.subcategoria || null, cc: item.centroCusto || null }));
         }
       }
 
-      if (resultados.length === 0) return;
+      if (resultados.length === 0) {
+        console.warn('[IA] Nenhum resultado retornado');
+        return;
+      }
 
       const map = new Map(resultados.map(item => [item.id, item]));
-      let mudou = false;
+      let classificadas = 0;
       const updated = pendentes.map(t => {
         const r = map.get(t.id);
         if (r && r.c && r.c !== 'PENDENTE') {
-          mudou = true;
+          classificadas++;
           return { ...t, categoria: r.c, subcategoria: r.s || undefined, centroCustoId: r.cc || undefined, status: 'CATEGORIZADO' as const };
         }
         return t;
       });
 
-      if (mudou) {
+      console.log(`[IA] ${classificadas}/${pendentes.length} classificadas pela IA`);
+
+      if (classificadas > 0) {
         setTransacoes(prev => {
           const mp = new Map(prev.map((x: ExtratoTransacao) => [x.id, x]));
           for (const u of updated) mp.set(u.id, u);
@@ -759,8 +774,14 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
           saveLocal('bancario_transacoes', next);
           return next;
         });
+        setImportacoes(prev => prev.map(i => ({
+          ...i, categorizadas: i.categorizadas + classificadas, pendentes: Math.max(0, i.pendentes - classificadas)
+        })));
       }
-    } catch (e) { console.error('[IA] Erro categorizando', e); } finally {
+    } catch (e) {
+      console.error('[IA] Erro categorizando:', e);
+      setErrorMsg(`Erro na IA: ${(e as Error).message}`);
+    } finally {
       setUsandoIA(false);
     }
   };
@@ -964,10 +985,10 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
       ));
     }
 
-    // Tenta IA no background pro que sobrou
+    // IA para o que sobrou — AGUARDA resultado
     const aindaPendentes = categorizadas.filter(t => t.status !== 'CATEGORIZADO');
     if (aindaPendentes.length > 0) {
-      categorizarComIA(aindaPendentes);
+      await categorizarComIA(aindaPendentes);
     }
 
     setProcessing(false);
@@ -1001,13 +1022,15 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
     URL.revokeObjectURL(url);
   };
 
-  const autoCategorizeNow = () => {
+  const autoCategorizeNow = async () => {
     const pending = transacoes.filter(t => t.status === 'PENDENTE');
     if (pending.length === 0) return;
 
     setProcessing(true);
-    const updated = categorizeBatch(pending);
+    setUsandoIA(true);
 
+    // Fase 1: regras locais
+    const updated = categorizeBatch(pending);
     const cats = updated.filter(u => u.status === 'CATEGORIZADO').length;
     setTransacoes(prev => {
       const map = new Map(prev.map(x => [x.id, x]));
@@ -1016,19 +1039,20 @@ ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, ti
       saveLocal('bancario_transacoes', next);
       return next;
     });
-
     if (cats > 0) {
       setImportacoes(prev => prev.map(i => ({
         ...i, categorizadas: i.categorizadas + cats, pendentes: i.pendentes - cats
       })));
     }
 
+    // Fase 2: IA para o que sobrou
     const aindaPendentes = updated.filter(t => t.status !== 'CATEGORIZADO');
     if (aindaPendentes.length > 0) {
-      categorizarComIA(aindaPendentes).then(() => setProcessing(false));
-    } else {
-      setProcessing(false);
+      await categorizarComIA(aindaPendentes);
     }
+
+    setProcessing(false);
+    setUsandoIA(false);
   };
 
   const updateTransacao = (id: string, updates: Partial<ExtratoTransacao>) => {
