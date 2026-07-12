@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   FileText, Plus, Trash2, Calculator, Users,
   ChevronDown, ChevronUp, Printer, DollarSign, Percent,
@@ -316,13 +316,16 @@ export default function PayslipView() {
   const [showEncargos, setShowEncargos] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [loadedFromApi, setLoadedFromApi] = useState(false);
+  const initialLoadDone = useRef(false);
+
+  const getToken = () => localStorage.getItem('relampago_token') || '';
 
   // Carregar do servidor ao montar
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/folha_pagamento', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('relampago_token') || ''}` }
+          headers: { Authorization: `Bearer ${getToken()}` }
         });
         if (!res.ok) return;
         const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
@@ -330,24 +333,24 @@ export default function PayslipView() {
         if (match.length > 0) {
           const parsed = match.map(r => JSON.parse(r.funcionarioData) as Funcionario);
           setFuncionarios(parsed);
-          setLoadedFromApi(true);
         }
       } catch {}
+      initialLoadDone.current = true;
+      setLoadedFromApi(true);
     })();
   }, []);
 
-  // Salvar no servidor + localStorage ao mudar
+  // Salvar no servidor + localStorage — só depois do carregamento inicial
   useEffect(() => {
+    if (!initialLoadDone.current) return;
     if (funcionarios.length === 0) return;
     localStorage.setItem('payslip_funcionarios', JSON.stringify(funcionarios));
     localStorage.setItem('payslip_competencia', competencia);
 
-    const token = localStorage.getItem('relampago_token') || '';
+    const token = getToken();
 
-    // Salvar no servidor (debounce 500ms)
     const timer = setTimeout(async () => {
       try {
-        // Buscar registros existentes desta competência
         const res = await fetch('/api/folha_pagamento', {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -355,7 +358,6 @@ export default function PayslipView() {
         const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
         const existentes = rows.filter(r => r.competencia === competencia);
 
-        // Deletar os antigos
         for (const row of existentes) {
           await fetch(`/api/folha_pagamento/${row.id}`, {
             method: 'DELETE',
@@ -363,7 +365,6 @@ export default function PayslipView() {
           });
         }
 
-        // Inserir os novos
         for (const func of funcionarios) {
           await fetch('/api/folha_pagamento', {
             method: 'POST',
@@ -376,21 +377,18 @@ export default function PayslipView() {
             }),
           });
         }
-        setLoadedFromApi(true);
       } catch {}
     }, 500);
     return () => clearTimeout(timer);
-  }, [funcionarios, competencia]);
+  }, [funcionarios, competencia, loadedFromApi]);
 
   const handleCompetenciaChange = useCallback(async (newComp: string) => {
     setCompetencia(newComp);
     const novosDias = calcDiasMes(newComp);
-    const token = localStorage.getItem('relampago_token') || '';
 
-    // Tentar carregar do servidor
     try {
       const res = await fetch('/api/folha_pagamento', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       });
       if (res.ok) {
         const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
@@ -403,14 +401,7 @@ export default function PayslipView() {
       }
     } catch {}
 
-    // Se não tem no servidor, manter atuais mas ajustar dias
-    setFuncionarios(prev => prev.map(f => ({
-      ...f,
-      diasTrabalhados: novosDias.totalDias,
-      diasUteis: novosDias.diasUteis,
-      vtDias: novosDias.diasUteis,
-      vaDias: novosDias.diasUteis,
-    })));
+    setFuncionarios([createFuncionario(novosDias.totalDias, novosDias.diasUteis)]);
   }, []);
 
   const addFuncionario = () => {
