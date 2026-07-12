@@ -38,7 +38,13 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const now = Date.now();
   const online = locations.filter(l => {
     const diff = now - new Date(l.updatedAt).getTime();
-    return diff < 30 * 60 * 1000 && motoristas.some(m => m.toLowerCase() === (l.driverName || '').toLowerCase());
+    if (diff >= 30 * 60 * 1000) return false;
+    const name = (l.driverName || '').toLowerCase();
+    const vid = (l.vehicleId || '').toLowerCase();
+    return motoristas.some(m => {
+      const ml = m.toLowerCase();
+      return ml === name || ml.startsWith(name) || vid.includes(ml) || vid.startsWith('ot-' + ml);
+    });
   });
 
   const onlineUsers = online.map(l => ({
