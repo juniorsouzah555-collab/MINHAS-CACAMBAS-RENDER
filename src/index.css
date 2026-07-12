@@ -122,6 +122,12 @@
   margin: 10mm 12mm;
 }
 
+/* Payslip print = portrait */
+@page payslip {
+  size: A4 portrait;
+  margin: 12mm 15mm;
+}
+
 @media print {
 
   body {
@@ -223,19 +229,202 @@
   }
 }
 
-/* Screen-only: hide print header */
+/* Screen-only: hide print header and holerite */
 .print-only-header {
   display: none !important;
 }
+.print-holerite {
+  display: none !important;
+}
 
-/* Force landscape orientation hint for browser print dialog */
+/* ===== HOLERITE PRINT STYLES ===== */
 @media print {
-  html.printing-landscape {
-    direction: ltr;
+  /* Use portrait page for holerite */
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
   }
-  html.printing-landscape body {
-    min-width: 297mm !important;
-    min-height: 210mm !important;
+
+  /* Show only the print-holerite section */
+  .print-holerite {
+    display: block !important;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 10px;
+    color: #1e293b;
+    line-height: 1.4;
+  }
+
+  .holerite-header {
+    text-align: center;
+    border-bottom: 2px solid #1e293b;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .holerite-company {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .holerite-company span {
+    font-size: 9px;
+    font-weight: 500;
+    color: #475569;
+  }
+  .holerite-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #334155;
+    margin-top: 6px;
+  }
+
+  .holerite-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 4px 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid #cbd5e1;
+    margin-bottom: 10px;
+  }
+  .holerite-info-item {
+    display: flex;
+    gap: 4px;
+    align-items: baseline;
+  }
+  .holerite-label {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    white-space: nowrap;
+  }
+  .holerite-value {
+    font-size: 10px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .holerite-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+    margin-bottom: 8px;
+  }
+  .holerite-th-prov, .holerite-th-desc {
+    text-align: left;
+    padding: 5px 6px;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: #f1f5f9;
+    border-bottom: 2px solid #334155;
+  }
+  .holerite-th-valor {
+    text-align: right;
+    padding: 5px 6px;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: #f1f5f9;
+    border-bottom: 2px solid #334155;
+  }
+  .holerite-td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 500;
+  }
+  .holerite-td-valor {
+    padding: 3px 6px;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .holerite-tf {
+    padding: 5px 6px;
+    border-top: 2px solid #1e293b;
+    background: #f8fafc;
+    font-weight: 800;
+    font-size: 9px;
+  }
+  .holerite-tf-valor {
+    padding: 5px 6px;
+    text-align: right;
+    border-top: 2px solid #1e293b;
+    background: #f8fafc;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 9px;
+  }
+
+  .holerite-liquido {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fdf4;
+    border: 2px solid #16a34a;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .holerite-liquido strong {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #15803d;
+  }
+
+  .holerite-encargos {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-top: 1px dashed #cbd5e1;
+    margin-bottom: 10px;
+  }
+
+  .holerite-signature {
+    margin-top: 24px;
+    page-break-inside: avoid;
+  }
+  .holerite-sig-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+  }
+  .holerite-sig-line span {
+    font-size: 9px;
+    color: #475569;
+    text-align: center;
+    display: inline-block;
+    width: 40%;
+  }
+  .holerite-sig-labels {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 20px 0;
+  }
+  .holerite-sig-labels span {
+    font-size: 8px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    display: inline-block;
+    width: 40%;
+    text-transform: uppercase;
+  }
+
+  .holerite-footer {
+    text-align: center;
+    font-size: 7px;
+    color: #94a3b8;
+    margin-top: 10px;
+    padding-top: 4px;
+    border-top: 1px solid #e2e8f0;
   }
 }
 

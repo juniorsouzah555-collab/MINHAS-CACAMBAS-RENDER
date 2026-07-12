@@ -394,7 +394,7 @@ export default function PayslipView() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-lg relative overflow-hidden">
+      <div className="no-print bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -426,7 +426,7 @@ export default function PayslipView() {
       </div>
 
       {/* Competência + dias info */}
-      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="no-print bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-purple-600" />
@@ -454,7 +454,7 @@ export default function PayslipView() {
 
       {/* Config Panel - Encargos toggles */}
       {showConfig && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <div className="no-print bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
           <h4 className="font-sans font-bold text-sm text-slate-900 mb-3">Encargos que a empresa paga (por funcionário)</h4>
           <p className="text-[11px] text-slate-500 mb-4">Ative/desative os direitos trabalhistas que você precisa calcular na folha.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -488,7 +488,7 @@ export default function PayslipView() {
       )}
 
       {/* Totais Gerais */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section className="no-print grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white border border-slate-200 p-3 rounded-xl text-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Bruto</span>
           <p className="text-lg font-black text-slate-900 mt-0.5">{formatBRL(totaisGerais.totalBruto)}</p>
@@ -520,7 +520,7 @@ export default function PayslipView() {
 
             {/* Header do funcionário */}
             <div
-              className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+              className="no-print flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
               onClick={() => setExpandedId(isOpen ? null : func.id)}
             >
               <div className="flex items-center gap-3">
@@ -572,7 +572,7 @@ export default function PayslipView() {
 
             {/* Detalhes expandidos */}
             {isOpen && (
-              <div className="border-t border-slate-100 p-5 space-y-5">
+              <div className="no-print border-t border-slate-100 p-5 space-y-5">
 
                 {/* Dados base */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -855,6 +855,106 @@ export default function PayslipView() {
 
               </div>
             )}
+
+            {/* ================== HOLERITE PARA IMPRESSÃO ================== */}
+            <div className="print-holerite hidden">
+              {/* Cabeçalho da empresa */}
+              <div className="holerite-header">
+                <div className="holerite-company">
+                  <strong>RELAMPAGÕS E CACAMBAS LTDA</strong>
+                  <span>CNPJ: XX.XXX.XXX/XXXX-XX</span>
+                </div>
+                <div className="holerite-title">RECIBO DE PAGAMENTO DE SALÁRIO</div>
+              </div>
+
+              {/* Dados do funcionário */}
+              <div className="holerite-info-grid">
+                <div className="holerite-info-item">
+                  <span className="holerite-label">Funcionário:</span>
+                  <span className="holerite-value">{func.nome || '—'}</span>
+                </div>
+                <div className="holerite-info-item">
+                  <span className="holerite-label">Cargo:</span>
+                  <span className="holerite-value">{func.cargo || '—'}</span>
+                </div>
+                <div className="holerite-info-item">
+                  <span className="holerite-label">Competência:</span>
+                  <span className="holerite-value">{competenciaLabel}</span>
+                </div>
+                <div className="holerite-info-item">
+                  <span className="holerite-label">Salário Base:</span>
+                  <span className="holerite-value">{formatBRL(func.salarioBase)}</span>
+                </div>
+              </div>
+
+              {/* Tabela principal */}
+              <table className="holerite-table">
+                <thead>
+                  <tr>
+                    <th className="holerite-th-prov">PROVENTOS</th>
+                    <th className="holerite-th-valor">Valor (R$)</th>
+                    <th className="holerite-th-desc">DESCONTOS</th>
+                    <th className="holerite-th-valor">Valor (R$)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const maxLen = Math.max(r.detalhesProventos.length, r.detalhesDescontos.length);
+                    const rows: React.ReactNode[] = [];
+                    for (let i = 0; i < maxLen; i++) {
+                      const p = r.detalhesProventos[i];
+                      const d = r.detalhesDescontos[i];
+                      rows.push(
+                        <tr key={i}>
+                          <td className="holerite-td">{p?.nome || ''}</td>
+                          <td className="holerite-td-valor">{p ? formatBRL(p.valor) : ''}</td>
+                          <td className="holerite-td">{d?.nome || ''}</td>
+                          <td className="holerite-td-valor">{d ? formatBRL(d.valor) : ''}</td>
+                        </tr>
+                      );
+                    }
+                    return rows;
+                  })()}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="holerite-tf"><strong>TOTAL PROVENTOS</strong></td>
+                    <td className="holerite-tf-valor"><strong>{formatBRL(r.totalProventos)}</strong></td>
+                    <td className="holerite-tf"><strong>TOTAL DESCONTOS</strong></td>
+                    <td className="holerite-tf-valor"><strong>{formatBRL(r.totalDescontos)}</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* Valor líquido */}
+              <div className="holerite-liquido">
+                <span>VALOR LÍQUIDO A RECEBER:</span>
+                <strong>{formatBRL(r.liquido)}</strong>
+              </div>
+
+              {/* Encargos empresa */}
+              <div className="holerite-encargos">
+                <span className="holerite-label">Encargos Patronais: {formatBRL(r.totalEncargos)}</span>
+                <span className="holerite-label">Custo Total Empresa: {formatBRL(r.custoTotal)}</span>
+              </div>
+
+              {/* Assinatura */}
+              <div className="holerite-signature">
+                <div className="holerite-sig-line">
+                  <span>________________________________</span>
+                  <span>________________</span>
+                </div>
+                <div className="holerite-sig-labels">
+                  <span>Assinatura do Funcionário</span>
+                  <span>Data</span>
+                </div>
+              </div>
+
+              <div className="holerite-footer">
+                <span>Documento gerado eletronicamente — {new Date().toLocaleDateString('pt-BR')}</span>
+              </div>
+            </div>
+
           </div>
         );
       })}
@@ -863,7 +963,7 @@ export default function PayslipView() {
       {funcionarios.length > 0 && (
         <button
           onClick={addFuncionario}
-          className="w-full border-2 border-dashed border-slate-300 rounded-xl p-4 text-xs font-bold text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="no-print w-full border-2 border-dashed border-slate-300 rounded-xl p-4 text-xs font-bold text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Adicionar Funcionário
