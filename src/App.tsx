@@ -1808,6 +1808,11 @@ export default function App() {
               invoices={invoices}
               fuelLogs={fuelLogs}
               lancamentos={lancamentos}
+              botaForas={botaForas}
+              motoristas={motoristas}
+              comissoes={comissoes}
+              manutencoes={manutencoes}
+              alerts={alerts}
               setCurrentTab={setCurrentTab}
               onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
             />
