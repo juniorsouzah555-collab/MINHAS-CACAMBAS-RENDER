@@ -394,8 +394,8 @@ export default function App() {
     (async () => {
       try {
         const [resVehicles, resBf] = await Promise.all([
-          fetch('/api/vehicles'),
-          fetch('/api/botaforas'),
+          fetch('/api/public/vehicles'),
+          fetch('/api/public/botaforas'),
         ]);
         if (resVehicles.ok) setVehicles(await resVehicles.json());
         if (resBf.ok) setBotaForas(await resBf.json());

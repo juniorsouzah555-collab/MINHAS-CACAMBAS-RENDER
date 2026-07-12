@@ -40,6 +40,25 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", database: "sqlite" });
 });
 
+// Endpoints públicos (sem auth) para a página de descarga rápida
+app.get("/api/public/vehicles", async (_req, res) => {
+  try {
+    const rows = await db.select().from(schema.vehicles);
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/public/botaforas", async (_req, res) => {
+  try {
+    const rows = await db.select().from(schema.botaForas);
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/descarga-rapida", async (req, res) => {
   try {
     const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao } = req.body;
