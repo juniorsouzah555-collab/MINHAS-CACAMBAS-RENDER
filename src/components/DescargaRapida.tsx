@@ -19,6 +19,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const [valorCustomizado, setValorCustomizado] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [copiedMsg, setCopiedMsg] = useState(false);
   const [error, setError] = useState('');
 
   const selectedBf = botaForas.find(b => b.id === selectedBotaFora);
@@ -71,7 +72,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           <p className="text-sm text-slate-500 mb-4">{botaForas.find(b => b.id === selectedBotaFora)?.nome}</p>
           <p className="text-xs text-slate-400 mb-4">{motorista} • {selectedVehicleId}</p>
 
-          {/* Botão WhatsApp */}
+          {/* Botão copiar mensagem */}
           {(() => {
             const local = botaForas.find(b => b.id === selectedBotaFora)?.nome || '';
             const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
@@ -79,7 +80,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               ? parseFloat(valorCustomizado || '0')
               : (botaForas.find(b => b.id === selectedBotaFora)?.valorPadraoDescarte || 0) * quantidade;
             const valorLinha = valorTotal > 0 ? `\n💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}` : '';
-            const msg = encodeURIComponent(
+            const msg =
               `✅ *Descarga registrada*\n` +
               `📍 Local: ${local}\n` +
               `📦 Quantidade: ${quantidade} caçamba${quantidade > 1 ? 's' : ''}\n` +
@@ -87,17 +88,31 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               `🚛 Veículo: ${selectedVehicleId}\n` +
               `👷 Motorista: ${motorista}\n` +
               `📅 Data: ${dataFmt}` +
-              (observacao ? `\n📝 Obs: ${observacao}` : '')
-            );
+              (observacao ? `\n📝 Obs: ${observacao}` : '');
             return (
-              <a
-                href={`https://wa.me/?text=${msg}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full bg-[#25D366] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#20b858] transition-all cursor-pointer text-center no-underline"
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(msg);
+                    setCopiedMsg(true);
+                  } catch {
+                    const ta = document.createElement('textarea');
+                    ta.value = msg;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    setCopiedMsg(true);
+                  }
+                }}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                  copiedMsg
+                    ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300'
+                    : 'bg-[#25D366] text-white hover:bg-[#20b858]'
+                }`}
               >
-                📲 Enviar pro WhatsApp
-              </a>
+                {copiedMsg ? '✅ Mensagem copiada! Cole no grupo do WhatsApp' : '📋 Copiar mensagem pro WhatsApp'}
+              </button>
             );
           })()}
 

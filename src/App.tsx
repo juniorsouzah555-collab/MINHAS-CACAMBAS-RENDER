@@ -13,7 +13,8 @@ import {
   HelpCircle,
   Clock,
   BookOpen,
-  LifeBuoy
+  LifeBuoy,
+  Truck
 } from 'lucide-react';
 
 // Data types & Pre-populated datasets
@@ -1699,6 +1700,10 @@ export default function App() {
   const transitBadgeCount = vehicles.filter(v => v.status === 'In Transit').length;
   const [boletosBadgeCount, setBoletosBadgeCount] = useState(0);
 
+  // URL params — precisa estar ANTES dos checks de render
+  const urlParams = new URLSearchParams(window.location.search);
+  const publicPage = urlParams.get('page');
+
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
     return (
@@ -1756,8 +1761,6 @@ export default function App() {
   }
 
   // Rota pública: /?page=descarga&motorista=TADEU&veiculo=FLT-8829
-  const urlParams = new URLSearchParams(window.location.search);
-  const publicPage = urlParams.get('page');
   if (publicPage === 'descarga') {
     const pubMotorista = urlParams.get('motorista') || 'Motorista';
     const pubVeiculo = urlParams.get('veiculo') || '';
@@ -1768,6 +1771,36 @@ export default function App() {
         botaForas={botaForas}
         vehicles={vehicles}
       />
+    );
+  }
+
+  // Rota pública sem parâmetros (PWA instalado): mostra seleção de motorista
+  if (!isAuthenticated && !publicPage) {
+    return (
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6">
+        <div className="text-center max-w-sm w-full">
+          <Truck className="w-14 h-14 text-emerald-400 mx-auto mb-4" />
+          <h1 className="text-xl font-black text-white mb-1">Relâmpago Caçambas</h1>
+          <p className="text-sm text-slate-400 mb-8">Selecione seu nome para registrar descarga</p>
+          <div className="space-y-3">
+            {['TADEU', 'JUNIOR', 'RAMON'].map(nome => (
+              <button
+                key={nome}
+                onClick={() => { window.location.href = `/?page=descarga&motorista=${nome}`; }}
+                className="w-full py-4 rounded-xl bg-emerald-600 text-white font-black text-lg hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
+              >
+                {nome}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setIsAuthenticated(false)}
+            className="mt-8 text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
+          >
+            Acessar como administrador
+          </button>
+        </div>
+      </div>
     );
   }
 
