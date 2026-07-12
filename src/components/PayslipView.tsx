@@ -54,8 +54,10 @@ interface Funcionario {
   adicionalNoturno: number;
   diasTrabalhados: number;
   diasUteis: number;
+  diasFalta: number;
   vtValorDiario: number;
   vtDias: number;
+  vtDescontar6: boolean;
   vaValorDiario: number;
   vaDias: number;
   proventos: Provento[];
@@ -109,8 +111,10 @@ function createFuncionario(totalDias: number, diasUteis: number): Funcionario {
     adicionalNoturno: 0,
     diasTrabalhados: totalDias,
     diasUteis: diasUteis,
+    diasFalta: 0,
     vtValorDiario: 0,
     vtDias: diasUteis,
+    vtDescontar6: false,
     vaValorDiario: 0,
     vaDias: diasUteis,
     proventos: defaultProventos(),
@@ -191,11 +195,27 @@ function calcHolerite(f: Funcionario) {
   }
 
   // --- DESCONTOS ---
+  let totalDescontos = 0;
+  const detalhesDescontos: { nome: string; valor: number }[] = [];
+
+  // Desconto por faltas: (faltas / diasUteis) * salarioBase
+  if (f.diasFalta > 0 && f.diasUteis > 0) {
+    const descFalta = (f.diasFalta / f.diasUteis) * f.salarioBase;
+    totalDescontos += descFalta;
+    detalhesDescontos.push({ nome: `Faltas (${f.diasFalta} dia${f.diasFalta > 1 ? 's' : ''})`, valor: descFalta });
+  }
+
+  // Desconto VT 6% do salário base (funcionário paga 6%)
+  if (f.vtDescontar6 && f.vtValorDiario > 0) {
+    const descVT6 = f.salarioBase * 0.06;
+    totalDescontos += descVT6;
+    detalhesDescontos.push({ nome: 'VT Desconto 6% (Funcionário)', valor: descVT6 });
+  }
+
+  // INSS
   const inss = calcINSS(totalProventos);
-  let totalDescontos = inss;
-  const detalhesDescontos: { nome: string; valor: number }[] = [
-    { nome: 'INSS (Funcionário)', valor: inss }
-  ];
+  totalDescontos += inss;
+  detalhesDescontos.push({ nome: 'INSS (Funcionário)', valor: inss });
 
   const descontosCalculados = f.descontos.filter(d => d.habilitado);
   for (const d of descontosCalculados) {
@@ -575,7 +595,7 @@ export default function PayslipView() {
                 </div>
 
                 {/* Dias trabalhados */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Dias Trabalhados</label>
                     <input type="number" value={func.diasTrabalhados} onChange={e => updateField(func.id, 'diasTrabalhados', parseInt(e.target.value) || 0)}
@@ -587,6 +607,14 @@ export default function PayslipView() {
                     <input type="number" value={func.diasUteis} onChange={e => updateField(func.id, 'diasUteis', parseInt(e.target.value) || 1)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" />
                     <span className="text-[10px] text-slate-400">Seg-Sáb: {diasInfo.diasUteis} dias</span>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Faltas (dias)</label>
+                    <input type="number" value={func.diasFalta || ''} onChange={e => updateField(func.id, 'diasFalta', parseInt(e.target.value) || 0)}
+                      className="w-full bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-bold text-red-800 focus:outline-hidden focus:border-red-500" placeholder="0" />
+                    {func.diasFalta > 0 && (
+                      <span className="text-[10px] text-red-500 font-bold">-{formatBRL((func.diasFalta / (func.diasUteis || 1)) * func.salarioBase)}</span>
+                    )}
                   </div>
                 </div>
 
@@ -618,6 +646,14 @@ export default function PayslipView() {
                         <span className="text-blue-700 font-medium">Total VT mês:</span>
                         <span className="font-black text-blue-800">{formatBRL(func.vtValorDiario * func.vtDias)}</span>
                       </div>
+                      <label className="mt-2 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={func.vtDescontar6} onChange={() => updateField(func.id, 'vtDescontar6', !func.vtDescontar6)}
+                          className="w-3.5 h-3.5 rounded accent-blue-600" />
+                        <span className="text-[11px] font-bold text-slate-600">Descontar 6% do salário (funcionário)</span>
+                      </label>
+                      {func.vtDescontar6 && (
+                        <span className="text-[10px] text-red-500 font-bold ml-5">Desconto: -{formatBRL(func.salarioBase * 0.06)}</span>
+                      )}
                     </div>
                     <div className="bg-white border border-emerald-200 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
