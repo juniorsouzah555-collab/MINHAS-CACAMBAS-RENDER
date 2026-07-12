@@ -1742,6 +1742,7 @@ export default function App() {
         motorista={pubMotorista}
         veiculo={pubVeiculo}
         botaForas={botaForas}
+        vehicles={vehicles}
       />
     );
   }

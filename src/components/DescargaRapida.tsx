@@ -6,11 +6,11 @@ interface DescargaRapidaProps {
   motorista: string;
   veiculo: string;
   botaForas: BotaFora[];
+  vehicles: Vehicle[];
   onSuccess?: () => void;
 }
 
-export default function DescargaRapida({ motorista, veiculo, botaForas, onSuccess }: DescargaRapidaProps) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles, onSuccess }: DescargaRapidaProps) {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>(veiculo || '');
   const [selectedBotaFora, setSelectedBotaFora] = useState<string>('');
   const [quantidade, setQuantidade] = useState<number>(1);
@@ -19,12 +19,6 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, onSucces
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch('/api/vehicles').then(r => r.json()).then(d => {
-      if (Array.isArray(d)) setVehicles(d);
-    }).catch(() => {});
-  }, []);
 
   const handleSubmit = async () => {
     if (!selectedBotaFora) { setError('Selecione o local de descarga'); return; }
