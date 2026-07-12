@@ -2,7 +2,7 @@ import { libsqlClient } from './index.ts';
 
 const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS bota_foras (id TEXT PRIMARY KEY, nome TEXT NOT NULL, cnpj TEXT NOT NULL, telefone TEXT NOT NULL, endereco TEXT NOT NULL, valor_padrao_descarte REAL, created_at TEXT)`,
-  `CREATE TABLE IF NOT EXISTS lancamentos (id TEXT PRIMARY KEY, bota_fora_id TEXT NOT NULL, bota_fora_nome TEXT NOT NULL, quantidade_cacambas INTEGER NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL, driver_name TEXT, vehicle_id TEXT, status TEXT NOT NULL, created_at TEXT, lat REAL, lng REAL, observacao TEXT, pago INTEGER DEFAULT 0, valor_pago REAL, data_pagamento TEXT)`,
+  `CREATE TABLE IF NOT EXISTS lancamentos (id TEXT PRIMARY KEY, bota_fora_id TEXT NOT NULL, bota_fora_nome TEXT NOT NULL, quantidade_cacambas INTEGER NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL, driver_name TEXT, vehicle_id TEXT, status TEXT NOT NULL, created_at TEXT, lat REAL, lng REAL, observacao TEXT, pago INTEGER DEFAULT 0, valor_pago REAL, data_pagamento TEXT, source TEXT)`,
   `CREATE TABLE IF NOT EXISTS vehicles (id TEXT PRIMARY KEY, status TEXT NOT NULL, efficiency REAL NOT NULL, fuel_used REAL NOT NULL, cost_per_km REAL NOT NULL, driver TEXT NOT NULL, trend TEXT, last_maintenance_date TEXT, speed INTEGER, lat REAL NOT NULL, lng REAL NOT NULL, is_active INTEGER DEFAULT 1 NOT NULL, type TEXT, initial_km INTEGER)`,
   `CREATE TABLE IF NOT EXISTS fuel_logs (id TEXT PRIMARY KEY, vehicle_id TEXT NOT NULL, quantidade_litros REAL NOT NULL, km_inicial INTEGER, km_final INTEGER, valor_pago REAL NOT NULL, data TEXT NOT NULL, driver TEXT, media_km_l REAL, tipo TEXT, is_retirada_diversa INTEGER DEFAULT 0, lat REAL, lng REAL, observacao TEXT, foto_nota TEXT)`,
   `CREATE TABLE IF NOT EXISTS maintenance_alerts (id TEXT PRIMARY KEY, vehicle_id TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, time_ago TEXT NOT NULL, severity TEXT NOT NULL, type TEXT NOT NULL, resolved INTEGER DEFAULT 0 NOT NULL)`,
@@ -37,6 +37,7 @@ const MIGRATIONS = [
   `ALTER TABLE manutencoes ADD COLUMN local TEXT DEFAULT 'Oficina'`,
   `ALTER TABLE manutencoes ADD COLUMN valor_mao_de_obra REAL DEFAULT 0`,
   `ALTER TABLE manutencoes ADD COLUMN valor_peca REAL DEFAULT 0`,
+  `ALTER TABLE lancamentos ADD COLUMN source TEXT`,
 ];
 
 async function deduplicateFolhaPagamento() {

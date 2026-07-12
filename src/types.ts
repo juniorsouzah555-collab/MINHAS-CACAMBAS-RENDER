@@ -30,6 +30,7 @@ export interface Lancamento {
   pago?: boolean;
   valorPago?: number;
   dataPagamento?: string;
+  source?: string;
 }
 
 export interface Vehicle {

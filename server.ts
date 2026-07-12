@@ -61,7 +61,7 @@ app.get("/api/public/botaforas", async (_req, res) => {
 
 app.post("/api/descarga-rapida", async (req, res) => {
   try {
-    const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao } = req.body;
+    const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao, source } = req.body;
     if (!id || !bota_fora_id || !quantidade_cacambas) {
       return res.status(400).json({ error: 'Campos obrigatórios: id, bota_fora_id, quantidade_cacambas' });
     }
@@ -77,6 +77,7 @@ app.post("/api/descarga-rapida", async (req, res) => {
       status: status || 'CONCLUIDO',
       observacao: observacao || '',
       createdAt: new Date().toISOString(),
+      source: source || null,
     });
     res.json({ success: true });
   } catch (e: any) {

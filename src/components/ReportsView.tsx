@@ -59,7 +59,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
       }
 
       return matchesDate && matchesBotaFora;
-    });
+    }).sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [lancamentos, startDate, endDate, selectedBotaForaId, searchedBotaForas, searchBotaFora]);
 
   // Metrics
@@ -326,7 +326,7 @@ export default function ReportsView({ botaForas, lancamentos }: ReportsViewProps
                 const valorCacambaStr = formatCurrency(lan.quantidadeCacambas > 0 ? lan.valor / lan.quantidadeCacambas : 0);
 
                 return (
-                  <tr key={lan.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr key={lan.id} className={`hover:bg-slate-50/60 transition-colors ${lan.source === 'mobile' ? 'bg-orange-50/60 shadow-[inset_4px_0_0_0_rgba(251,146,60,0.8)]' : ''}`}>
                     <td className="px-5 py-3.5 font-mono font-bold text-slate-900">{lan.id}</td>
                     <td className="px-5 py-3.5">
                       <div>

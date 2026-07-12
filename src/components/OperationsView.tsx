@@ -76,7 +76,7 @@ export default function OperationsView({
       );
     }
 
-    return result;
+    return result.sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [lancamentos, botaForaFilter, filterStartDate, filterEndDate, searchTerm]);
 
   // Compute stats on the fly based on FILTERED results for dynamic interaction
@@ -485,7 +485,9 @@ export default function OperationsView({
           return (
             <div 
               key={lan.id} 
-              className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-150 flex flex-col justify-between border-t-4 border-t-emerald-500"
+              className={`bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-150 flex flex-col justify-between border-t-4 border-t-emerald-500 ${
+                lan.source === 'mobile' ? 'ring-2 ring-orange-400 shadow-[0_0_15px_rgba(251,146,60,0.3)]' : ''
+              }`}
             >
               <div className="space-y-4">
                 

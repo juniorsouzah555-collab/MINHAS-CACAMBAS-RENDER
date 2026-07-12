@@ -49,6 +49,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           status: 'CONCLUIDO',
           observacao: observacao || `Descarga rápida via WhatsApp`,
           created_at: new Date().toISOString(),
+          source: 'mobile',
         }),
       });
       if (!res.ok) throw new Error('Erro ao enviar');

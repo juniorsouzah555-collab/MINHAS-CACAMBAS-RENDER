@@ -201,7 +201,8 @@ export default function App() {
                 observacao: l.observacao || l.observation,
                 pago: l.pago === true,
                 valorPago: l.valor_pago !== undefined ? l.valor_pago : undefined,
-                dataPagamento: l.data_pagamento || undefined
+                dataPagamento: l.data_pagamento || undefined,
+                source: l.source || undefined
               })));
             }
 
@@ -441,7 +442,8 @@ export default function App() {
       observacao: l.observacao,
       pago: l.pago === true,
       valorPago: l.valor_pago !== undefined ? l.valor_pago : undefined,
-      dataPagamento: l.data_pagamento || undefined
+      dataPagamento: l.data_pagamento || undefined,
+      source: l.source || undefined
     });
     const mapFuelLog = (f: any) => ({
       id: f.id,

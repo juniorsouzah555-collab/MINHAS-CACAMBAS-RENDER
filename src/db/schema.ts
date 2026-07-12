@@ -27,6 +27,7 @@ export const lancamentos = sqliteTable('lancamentos', {
   pago: integer('pago', { mode: 'boolean' }).default(false),
   valorPago: real('valor_pago'),
   dataPagamento: text('data_pagamento'),
+  source: text('source'),
 });
 
 export const vehicles = sqliteTable('vehicles', {
