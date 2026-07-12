@@ -62,10 +62,36 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           <h2 className="text-xl font-black text-slate-900 mb-2">Descarga Registrada!</h2>
           <p className="text-sm text-slate-500 mb-1">{quantidade} caçamba{quantidade > 1 ? 's' : ''}</p>
           <p className="text-sm text-slate-500 mb-4">{botaForas.find(b => b.id === selectedBotaFora)?.nome}</p>
-          <p className="text-xs text-slate-400">{motorista} • {selectedVehicleId}</p>
+          <p className="text-xs text-slate-400 mb-4">{motorista} • {selectedVehicleId}</p>
+
+          {/* Botão WhatsApp */}
+          {(() => {
+            const local = botaForas.find(b => b.id === selectedBotaFora)?.nome || '';
+            const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
+            const msg = encodeURIComponent(
+              `✅ *Descarga registrada*\n` +
+              `📍 Local: ${local}\n` +
+              `📦 Quantidade: ${quantidade} caçamba${quantidade > 1 ? 's' : ''}\n` +
+              `🚛 Veículo: ${selectedVehicleId}\n` +
+              `👷 Motorista: ${motorista}\n` +
+              `📅 Data: ${dataFmt}` +
+              (observacao ? `\n📝 Obs: ${observacao}` : '')
+            );
+            return (
+              <a
+                href={`https://wa.me/?text=${msg}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full bg-[#25D366] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#20b858] transition-all cursor-pointer text-center no-underline"
+              >
+                📲 Enviar pro WhatsApp
+              </a>
+            );
+          })()}
+
           <button
-            onClick={() => { setSent(false); setSelectedBotaFora(''); setQuantidade(1); setObservacao(''); }}
-            className="mt-6 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 cursor-pointer"
+            onClick={() => { setSent(false); setSelectedBotaFora(''); setSelectedVehicleId(''); setQuantidade(1); setObservacao(''); }}
+            className="mt-3 w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 cursor-pointer"
           >
             Nova Descarga
           </button>
