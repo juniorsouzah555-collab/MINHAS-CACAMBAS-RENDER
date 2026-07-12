@@ -5,9 +5,9 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  FileText, Download, Plus, Trash2, Calculator, Users,
+  FileText, Plus, Trash2, Calculator, Users,
   ChevronDown, ChevronUp, Printer, DollarSign, Percent,
-  Briefcase, Shield, AlertCircle, CheckCircle2, Settings2, Calendar
+  Settings2, Calendar, Bus, UtensilsCrossed
 } from 'lucide-react';
 
 // --- Tabelas de cálculo 2025/2026 ---
@@ -50,10 +50,14 @@ interface Funcionario {
   nome: string;
   cargo: string;
   salarioBase: number;
-  horasExtrasMinutos: number;
-  adicionalNoturnoMinutos: number;
+  horasExtras: number;
+  adicionalNoturno: number;
   diasTrabalhados: number;
   diasUteis: number;
+  vtValorDiario: number;
+  vtDias: number;
+  vaValorDiario: number;
+  vaDias: number;
   proventos: Provento[];
   descontos: Desconto[];
   calcularFGTS: boolean;
@@ -76,8 +80,6 @@ const defaultProventos = (): Provento[] => [
 ];
 
 const defaultDescontos = (): Desconto[] => [
-  { id: 'VT', nome: 'Vale Transporte', valor: 0, tipo: 'percentual', percentualBase: 6, habilitado: false },
-  { id: 'VR', nome: 'Vale Refeição/Alimentação', valor: 0, tipo: 'fixo', habilitado: false },
   { id: 'PLANO_SAUDE', nome: 'Plano de Saúde', valor: 0, tipo: 'fixo', habilitado: false },
   { id: 'ODONTO', nome: 'Plano Odontológico', valor: 0, tipo: 'fixo', habilitado: false },
   { id: 'SEGURO_VIDA', nome: 'Seguro de Vida', valor: 0, tipo: 'fixo', habilitado: false },
@@ -86,16 +88,31 @@ const defaultDescontos = (): Desconto[] => [
   { id: 'OUTROS_DESC', nome: 'Outros Descontos', valor: 0, tipo: 'fixo', habilitado: false },
 ];
 
-function createFuncionario(): Funcionario {
+function calcDiasMes(competencia: string): { totalDias: number; diasUteis: number } {
+  const [ano, mes] = competencia.split('-').map(Number);
+  const totalDias = new Date(ano, mes, 0).getDate();
+  let diasUteis = 0;
+  for (let d = 1; d <= totalDias; d++) {
+    const dow = new Date(ano, mes - 1, d).getDay();
+    if (dow !== 0) diasUteis++; // dom = 0
+  }
+  return { totalDias, diasUteis };
+}
+
+function createFuncionario(totalDias: number, diasUteis: number): Funcionario {
   return {
     id: `FUNC-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     nome: '',
     cargo: '',
     salarioBase: 0,
-    horasExtrasMinutos: 0,
-    adicionalNoturnoMinutos: 0,
-    diasTrabalhados: 30,
-    diasUteis: 22,
+    horasExtras: 0,
+    adicionalNoturno: 0,
+    diasTrabalhados: totalDias,
+    diasUteis: diasUteis,
+    vtValorDiario: 0,
+    vtDias: diasUteis,
+    vaValorDiario: 0,
+    vaDias: diasUteis,
     proventos: defaultProventos(),
     descontos: defaultDescontos(),
     calcularFGTS: true,
@@ -131,7 +148,6 @@ function calcSalarioHora(salarioBase: number, diasUteis: number): number {
 
 function calcHolerite(f: Funcionario) {
   const salarioHora = calcSalarioHora(f.salarioBase, f.diasUteis);
-  const diasProporcional = f.diasTrabalhados / f.diasUteis;
 
   // --- PROVENTOS ---
   let totalProventos = f.salarioBase;
@@ -139,17 +155,30 @@ function calcHolerite(f: Funcionario) {
     { nome: 'Salário Base', valor: f.salarioBase }
   ];
 
-  // Horas extras
+  // Vale Transporte
+  const vtTotal = f.vtValorDiario * f.vtDias;
+  if (vtTotal > 0) {
+    totalProventos += vtTotal;
+    detalhesProventos.push({ nome: `VT (${f.vtDias}d x R$${f.vtValorDiario.toFixed(2)})`, valor: vtTotal });
+  }
+
+  // Vale Alimentação
+  const vaTotal = f.vaValorDiario * f.vaDias;
+  if (vaTotal > 0) {
+    totalProventos += vaTotal;
+    detalhesProventos.push({ nome: `VA (${f.vaDias}d x R$${f.vaValorDiario.toFixed(2)})`, valor: vaTotal });
+  }
+
+  // Horas extras + Adicional Noturno
   const proventosCalculados = f.proventos.filter(p => p.habilitado);
   for (const p of proventosCalculados) {
     let valor = 0;
     if (p.id === 'HE50') {
-      valor = salarioHora * 1.5 * (f.horasExtrasMinutos / 60);
+      valor = salarioHora * 1.5 * f.horasExtras;
     } else if (p.id === 'HE100') {
-      valor = salarioHora * 2.0 * (f.horasExtrasMinutos / 60);
+      valor = salarioHora * 2.0 * f.horasExtras;
     } else if (p.id === 'ADN') {
-      const horasNoturnas = f.adicionalNoturnoMinutos / 60;
-      valor = salarioHora * 1.3333 * horasNoturnas * 0.2;
+      valor = salarioHora * 1.3333 * f.adicionalNoturno * 0.2;
     } else if (p.tipo === 'percentual') {
       valor = f.salarioBase * ((p.percentualBase || 0) / 100);
     } else {
@@ -244,17 +273,32 @@ const formatBRL = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFracti
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function PayslipView() {
-  const [funcionarios, setFuncionarios] = useState<Funcionario[]>(() => [createFuncionario()]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [competencia, setCompetencia] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  const diasInfo = useMemo(() => calcDiasMes(competencia), [competencia]);
+
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>(() => [createFuncionario(diasInfo.totalDias, diasInfo.diasUteis)]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showEncargos, setShowEncargos] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
 
+  const handleCompetenciaChange = useCallback((newComp: string) => {
+    setCompetencia(newComp);
+    const novosDias = calcDiasMes(newComp);
+    setFuncionarios(prev => prev.map(f => ({
+      ...f,
+      diasTrabalhados: novosDias.totalDias,
+      diasUteis: novosDias.diasUteis,
+      vtDias: novosDias.diasUteis,
+      vaDias: novosDias.diasUteis,
+    })));
+  }, []);
+
   const addFuncionario = () => {
-    const f = createFuncionario();
+    const f = createFuncionario(diasInfo.totalDias, diasInfo.diasUteis);
     setFuncionarios(prev => [...prev, f]);
     setExpandedId(f.id);
   };
@@ -361,17 +405,23 @@ export default function PayslipView() {
         </div>
       </div>
 
-      {/* Competência + Config Panel */}
+      {/* Competência + dias info */}
       <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Calendar className="w-4 h-4 text-purple-600" />
-          <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Competência:</span>
-          <input
-            type="month"
-            value={competencia}
-            onChange={e => setCompetencia(e.target.value)}
-            className="bg-white border border-slate-250 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden focus:border-purple-500 cursor-pointer"
-          />
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-purple-600" />
+            <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Competência:</span>
+            <input
+              type="month"
+              value={competencia}
+              onChange={e => handleCompetenciaChange(e.target.value)}
+              className="bg-white border border-slate-250 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden focus:border-purple-500 cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-bold">{diasInfo.totalDias} dias no mês</span>
+            <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-bold">{diasInfo.diasUteis} dias úteis (seg-sáb)</span>
+          </div>
         </div>
         <button
           onClick={addFuncionario}
@@ -505,54 +555,92 @@ export default function PayslipView() {
               <div className="border-t border-slate-100 p-5 space-y-5">
 
                 {/* Dados base */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Salário Base (R$)</label>
-                    <input
-                      type="number"
-                      value={func.salarioBase || ''}
-                      onChange={e => updateField(func.id, 'salarioBase', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500"
-                      placeholder="0,00"
-                    />
+                    <input type="number" value={func.salarioBase || ''} onChange={e => updateField(func.id, 'salarioBase', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" placeholder="0,00" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Horas Extras (min)</label>
-                    <input
-                      type="number"
-                      value={func.horasExtrasMinutos || ''}
-                      onChange={e => updateField(func.id, 'horasExtrasMinutos', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500"
-                      placeholder="0"
-                    />
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Horas Extras (qtd horas)</label>
+                    <input type="number" value={func.horasExtras || ''} onChange={e => updateField(func.id, 'horasExtras', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" placeholder="Ex: 8" />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Salário/hora: {formatBRL(calcSalarioHora(func.salarioBase, func.diasUteis))}</span>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Adic. Noturno (min)</label>
-                    <input
-                      type="number"
-                      value={func.adicionalNoturnoMinutos || ''}
-                      onChange={e => updateField(func.id, 'adicionalNoturnoMinutos', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500"
-                      placeholder="0"
-                    />
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Adic. Noturno (horas)</label>
+                    <input type="number" value={func.adicionalNoturno || ''} onChange={e => updateField(func.id, 'adicionalNoturno', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" placeholder="Ex: 2" />
                   </div>
+                </div>
+
+                {/* Dias trabalhados */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Dias Trabalhados</label>
-                    <input
-                      type="number"
-                      value={func.diasTrabalhados}
-                      onChange={e => updateField(func.id, 'diasTrabalhados', parseInt(e.target.value) || 0)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500"
-                    />
+                    <input type="number" value={func.diasTrabalhados} onChange={e => updateField(func.id, 'diasTrabalhados', parseInt(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" />
+                    <span className="text-[10px] text-slate-400">Total do mês: {diasInfo.totalDias}</span>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Dias Úteis Mês</label>
-                    <input
-                      type="number"
-                      value={func.diasUteis}
-                      onChange={e => updateField(func.id, 'diasUteis', parseInt(e.target.value) || 1)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500"
-                    />
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Dias Úteis (cálculo salário/hora)</label>
+                    <input type="number" value={func.diasUteis} onChange={e => updateField(func.id, 'diasUteis', parseInt(e.target.value) || 1)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-indigo-500" />
+                    <span className="text-[10px] text-slate-400">Seg-Sáb: {diasInfo.diasUteis} dias</span>
+                  </div>
+                </div>
+
+                {/* VALES */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                  <h5 className="text-xs font-black text-amber-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <Bus className="w-3.5 h-3.5" />
+                    Vales (Benefícios do Empregador)
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bus className="w-4 h-4 text-blue-600" />
+                        <span className="text-xs font-bold text-slate-800">Vale Transporte</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 mb-0.5 block">Valor diário (R$)</label>
+                          <input type="number" value={func.vtValorDiario || ''} onChange={e => updateField(func.id, 'vtValorDiario', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-blue-500" placeholder="0,00" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 mb-0.5 block">Dias que usa</label>
+                          <input type="number" value={func.vtDias} onChange={e => updateField(func.id, 'vtDias', parseInt(e.target.value) || 0)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-blue-500" />
+                        </div>
+                      </div>
+                      <div className="mt-2 bg-blue-50 rounded px-2 py-1 flex justify-between text-[11px]">
+                        <span className="text-blue-700 font-medium">Total VT mês:</span>
+                        <span className="font-black text-blue-800">{formatBRL(func.vtValorDiario * func.vtDias)}</span>
+                      </div>
+                    </div>
+                    <div className="bg-white border border-emerald-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <UtensilsCrossed className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-slate-800">Vale Alimentação</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 mb-0.5 block">Valor diário (R$)</label>
+                          <input type="number" value={func.vaValorDiario || ''} onChange={e => updateField(func.id, 'vaValorDiario', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500" placeholder="0,00" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 mb-0.5 block">Dias que usa</label>
+                          <input type="number" value={func.vaDias} onChange={e => updateField(func.id, 'vaDias', parseInt(e.target.value) || 0)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500" />
+                        </div>
+                      </div>
+                      <div className="mt-2 bg-emerald-50 rounded px-2 py-1 flex justify-between text-[11px]">
+                        <span className="text-emerald-700 font-medium">Total VA mês:</span>
+                        <span className="font-black text-emerald-800">{formatBRL(func.vaValorDiario * func.vaDias)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
