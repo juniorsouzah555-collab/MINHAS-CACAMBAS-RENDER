@@ -29,6 +29,7 @@ export default function DriverLiveMap({
   const markersRef = useRef<any[]>([]);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const initialFitDone = useRef(false);
 
   useEffect(() => {
     if ((window as any).L) {
@@ -108,9 +109,10 @@ export default function DriverLiveMap({
       }
     });
 
-    if (markersRef.current.length > 0) {
+    if (markersRef.current.length > 0 && !initialFitDone.current) {
       const group = L.featureGroup(markersRef.current);
       mapRef.current.fitBounds(group.getBounds().pad(0.15));
+      initialFitDone.current = true;
     }
   }, [isLeafletLoaded, coords, vehicles, onlineUsers, isDriverUser]);
 
