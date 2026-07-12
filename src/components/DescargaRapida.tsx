@@ -194,23 +194,23 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-indigo-950 p-4">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-indigo-950 p-3">
+      <div className="max-w-md mx-auto">
         {/* Header */}
-        <div className="text-center mb-6 pt-4">
-          <Truck className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-          <h1 className="text-lg font-black text-white">Registrar Descarga</h1>
-          <div className="flex items-center justify-center gap-3 mt-2 text-xs text-slate-300">
+        <div className="text-center mb-4 pt-3">
+          <Truck className="w-8 h-8 text-emerald-400 mx-auto mb-1" />
+          <h1 className="text-xl font-black text-white">Registrar Descarga</h1>
+          <div className="flex items-center justify-center gap-3 mt-1 text-sm text-slate-300">
             <span className="flex items-center gap-1"><span className="text-emerald-400 font-bold">{motorista}</span></span>
           </div>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl p-5 shadow-2xl space-y-5">
+        <div className="bg-white rounded-2xl p-4 shadow-2xl space-y-4">
 
           {/* Veículo */}
           <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-wider">Qual veículo?</label>
+            <label className="text-xs font-black uppercase text-slate-400 mb-2 block tracking-wider">Qual veículo?</label>
             <div className="grid grid-cols-2 gap-2">
               {vehicles.filter(v => v.isActive).map(v => (
                 <button
@@ -223,10 +223,10 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
                   }`}
                 >
                   <Truck className={`w-4 h-4 mb-1 ${selectedVehicleId === v.id ? 'text-blue-600' : 'text-slate-400'}`} />
-                  <span className={`text-xs font-bold block ${selectedVehicleId === v.id ? 'text-blue-800' : 'text-slate-700'}`}>
+                  <span className={`text-sm font-bold block ${selectedVehicleId === v.id ? 'text-blue-800' : 'text-slate-700'}`}>
                     {v.id}
                   </span>
-                  <span className="text-[10px] text-slate-400">{v.driver || 'Sem motorista'}</span>
+                  <span className="text-xs text-slate-400">{v.driver || 'Sem motorista'}</span>
                 </button>
               ))}
             </div>
@@ -234,7 +234,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
 
           {/* Local */}
           <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-wider">Onde descarregou?</label>
+            <label className="text-xs font-black uppercase text-slate-400 mb-2 block tracking-wider">Onde descarregou?</label>
             <div className="grid grid-cols-2 gap-2">
               {botaForas.map(bf => (
                 <button
@@ -247,11 +247,11 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
                   }`}
                 >
                   <MapPin className={`w-4 h-4 mb-1 ${selectedBotaFora === bf.id ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span className={`text-xs font-bold block ${selectedBotaFora === bf.id ? 'text-emerald-800' : 'text-slate-700'}`}>
+                  <span className={`text-sm font-bold block ${selectedBotaFora === bf.id ? 'text-emerald-800' : 'text-slate-700'}`}>
                     {bf.nome}
                   </span>
                   {bf.valorPadraoDescarte ? (
-                    <span className="text-[10px] text-slate-400">R$ {bf.valorPadraoDescarte.toFixed(0)}/caçamba</span>
+                    <span className="text-xs text-slate-400">R$ {bf.valorPadraoDescarte.toFixed(0)}/caçamba</span>
                   ) : null}
                 </button>
               ))}
@@ -260,20 +260,20 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
 
           {/* Quantidade */}
           <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-wider">Quantidade de caçambas</label>
+            <label className="text-xs font-black uppercase text-slate-400 mb-2 block tracking-wider">Quantidade de caçambas</label>
             <div className="flex items-center justify-center gap-6">
               <button
                 onClick={() => setQuantidade(q => Math.max(1, q - 1))}
-                className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 active:scale-95 transition-all cursor-pointer"
+                className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 active:scale-95 transition-all cursor-pointer"
               >
-                <Minus className="w-6 h-6" />
+                <Minus className="w-8 h-8" />
               </button>
-              <span className="text-5xl font-black text-slate-900 w-20 text-center font-mono">{quantidade}</span>
+              <span className="text-6xl font-black text-slate-900 w-24 text-center font-mono">{quantidade}</span>
               <button
                 onClick={() => setQuantidade(q => q + 1)}
-                className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-200 active:scale-95 transition-all cursor-pointer"
+                className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-200 active:scale-95 transition-all cursor-pointer"
               >
-                <Plus className="w-6 h-6" />
+                <Plus className="w-8 h-8" />
               </button>
             </div>
           </div>
@@ -281,7 +281,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           {/* Valor do descarte — só PORTO DE AREIA */}
           {isPortoDeAreia && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <label className="text-[10px] font-black uppercase text-amber-700 mb-1 block tracking-wider">Valor total do descarte (R$)</label>
+              <label className="text-xs font-black uppercase text-amber-700 mb-1 block tracking-wider">Valor total do descarte (R$)</label>
               <input
                 type="number"
                 value={valorCustomizado}
@@ -294,24 +294,24 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
 
           {/* Data */}
           <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block tracking-wider">Data</label>
+            <label className="text-xs font-black uppercase text-slate-400 mb-1 block tracking-wider">Data</label>
             <input
               type="date"
               value={data}
               onChange={e => setData(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
           {/* Observação */}
           <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block tracking-wider">Observação (opcional)</label>
+            <label className="text-xs font-black uppercase text-slate-400 mb-1 block tracking-wider">Observação (opcional)</label>
             <input
               type="text"
               value={observacao}
               onChange={e => setObservacao(e.target.value)}
               placeholder="Ex: descarregou tudo, cliente satisfeito..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -326,7 +326,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           <button
             onClick={handleSubmit}
             disabled={sending || !selectedBotaFora}
-            className={`w-full py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`w-full py-5 rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all cursor-pointer ${
               sending || !selectedBotaFora
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-lg shadow-emerald-500/30'
@@ -336,7 +336,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               <span className="animate-pulse">Enviando...</span>
             ) : (
               <>
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
                 Registrar Descarga
               </>
             )}
@@ -345,7 +345,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           {/* Info */}
           <div className="text-center">
             <Clock className="w-3 h-3 text-slate-300 inline mr-1" />
-            <span className="text-[10px] text-slate-300">
+            <span className="text-xs text-slate-300">
               {new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
             </span>
           </div>
