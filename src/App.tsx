@@ -65,6 +65,7 @@ import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
 import DescargaRapida from './components/DescargaRapida';
 import PayslipView from './components/PayslipView';
+import NovoCliente from './components/NovoCliente';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -2065,6 +2066,10 @@ export default function App() {
 
           {currentTab === 'payslip' && (
             <PayslipView />
+          )}
+
+          {currentTab === 'novocliente' && (
+            <NovoCliente />
           )}
 
           {currentTab === 'settings' && (

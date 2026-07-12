@@ -20,7 +20,8 @@ import {
   MapPin,
   Receipt,
   Landmark,
-  Wrench
+  Wrench,
+  UserPlus
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -50,6 +51,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'manutencao', name: 'Manutenção', icon: Wrench },
     { id: 'payslip', name: 'Holerites', icon: FileText },
+    { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus },
     { id: 'settings', name: 'Configurações', icon: SettingsIcon }
   ].filter(item => {
     if (isDriver) {
