@@ -1762,6 +1762,20 @@ export default function App() {
     );
   }
 
+  // Rota pública: /?page=admin — tela de login
+  if (publicPage === 'admin') {
+    // Caí aqui, mas isAuthenticated é true → redireciona pro painel
+    if (isAuthenticated) {
+      setCurrentView('fleet');
+      return null;
+    }
+    return (
+      <div className="bg-slate-950 min-h-screen text-slate-100 font-sans antialiased">
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
+
   // Rota pública: /?page=descarga&motorista=TADEU&veiculo=FLT-8829
   if (publicPage === 'descarga') {
     const pubMotorista = urlParams.get('motorista') || 'Motorista';
@@ -1796,7 +1810,7 @@ export default function App() {
             ))}
           </div>
           <button
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => { window.location.href = '/?page=admin'; }}
             className="mt-8 text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
           >
             Acessar como administrador
