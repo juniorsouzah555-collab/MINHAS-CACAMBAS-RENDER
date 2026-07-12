@@ -26,20 +26,21 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const vehicleRef = useRef(selectedVehicleId);
   vehicleRef.current = selectedVehicleId;
 
+  const sendLocation = async (lat: number, lng: number) => {
+    const vid = vehicleRef.current;
+    if (!vid) return;
+    try {
+      await fetch('/api/vehicle-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicle_id: vid, driver_name: motorista, lat, lng }),
+      });
+      lastSentRef.current = { lat, lng, time: Date.now() };
+    } catch {}
+  };
+
   useEffect(() => {
     if (!navigator.geolocation) return;
-    const sendLocation = async (lat: number, lng: number) => {
-      const vid = vehicleRef.current;
-      if (!vid) return;
-      try {
-        await fetch('/api/vehicle-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vehicle_id: vid, driver_name: motorista, lat, lng }),
-        });
-        lastSentRef.current = { lat, lng, time: Date.now() };
-      } catch {}
-    };
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
@@ -58,6 +59,16 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, [motorista]);
+
+  // Envia localização imediatamente quando motorista seleciona veículo
+  useEffect(() => {
+    if (!selectedVehicleId || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [selectedVehicleId]);
 
   const selectedBf = botaForas.find(b => b.id === selectedBotaFora);
   const isPortoDeAreia = selectedBf?.nome?.toUpperCase().includes('PORTO DE AREIA') || false;
