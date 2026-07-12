@@ -156,7 +156,6 @@
     padding: 0 !important;
     width: 100% !important;
     max-width: none !important;
-    page-break-inside: avoid;
   }
 
   /* Table styling for print */
@@ -215,6 +214,13 @@
     font-weight: 700 !important;
     padding: 8px !important;
     page-break-inside: avoid !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #fff !important;
+    z-index: 9999 !important;
+    border-top: 2px solid #1e293b !important;
   }
 }
 
