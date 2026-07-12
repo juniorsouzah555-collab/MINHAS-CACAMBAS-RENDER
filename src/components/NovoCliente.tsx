@@ -50,12 +50,8 @@ export default function NovoCliente() {
     setTimeout(() => setCopyOk(null), 2000);
   };
 
-  const handleSend = () => {
-    const msg = gerarMensagem();
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-    setTimeout(() => {
-      window.open(`https://wa.me/?text=${encodeURIComponent('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}`, '_blank');
-    }, 1500);
+  const handleSend = (text: string) => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
@@ -141,38 +137,33 @@ export default function NovoCliente() {
             <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
               {gerarMensagem()}
             </pre>
-            <div className="flex gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleCopy('16.403.233.0001-75', 'pix')}
-                className={`py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                  copyOk === 'pix'
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                    : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
-                }`}
+                onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}
+                className="py-3 rounded-xl font-bold text-sm bg-amber-500 text-white hover:bg-amber-600 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                {copyOk === 'pix' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copyOk === 'pix' ? '✓ Chave Copiada!' : '💰 Copiar Chave PIX'}
+                💰 Enviar PIX
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSend(gerarMensagem())}
+                className="py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Enviar Mensagem
               </button>
               <button
                 type="button"
                 onClick={() => handleCopy(gerarMensagem(), 'msg')}
-                className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                className={`py-3 rounded-xl font-bold text-sm border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   copyOk === 'msg'
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {copyOk === 'msg' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copyOk === 'msg' ? '✓ Copiado!' : '📋 Copiar Mensagem'}
-              </button>
-              <button
-                type="button"
-                onClick={handleSend}
-                className="py-3 px-5 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Enviar
+                {copyOk === 'msg' ? '✓ Copiado!' : '📋 Copiar'}
               </button>
             </div>
           </div>
