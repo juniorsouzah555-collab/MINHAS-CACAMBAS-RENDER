@@ -39,6 +39,21 @@ const MIGRATIONS = [
   `ALTER TABLE manutencoes ADD COLUMN valor_peca REAL DEFAULT 0`,
 ];
 
+async function deduplicateFolhaPagamento() {
+  try {
+    const all = await libsqlClient.execute('SELECT id, competencia, funcionario_data, created_at FROM folha_pagamento ORDER BY competencia, created_at DESC');
+    const seen = new Map<string, boolean>();
+    for (const row of all.rows) {
+      const key = `${row.competencia}|${row.funcionario_data}`;
+      if (seen.has(key)) {
+        await libsqlClient.execute({ sql: 'DELETE FROM folha_pagamento WHERE id = ?', args: [row.id as string] });
+      } else {
+        seen.set(key, true);
+      }
+    }
+  } catch {}
+}
+
 export async function initDatabase() {
   for (const sql of CREATE_TABLES) {
     await libsqlClient.execute(sql);
@@ -50,4 +65,5 @@ export async function initDatabase() {
       // Column already exists — safe to ignore
     }
   }
+  await deduplicateFolhaPagamento();
 }
