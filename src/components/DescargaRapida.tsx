@@ -19,7 +19,6 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
   const [valorCustomizado, setValorCustomizado] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [copiedMsg, setCopiedMsg] = useState(false);
   const [error, setError] = useState('');
 
   const selectedBf = botaForas.find(b => b.id === selectedBotaFora);
@@ -72,7 +71,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
           <p className="text-sm text-slate-500 mb-4">{botaForas.find(b => b.id === selectedBotaFora)?.nome}</p>
           <p className="text-xs text-slate-400 mb-4">{motorista} • {selectedVehicleId}</p>
 
-          {/* Botão copiar mensagem */}
+          {/* Botão enviar no WhatsApp */}
           {(() => {
             const local = botaForas.find(b => b.id === selectedBotaFora)?.nome || '';
             const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
@@ -89,30 +88,17 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               `👷 Motorista: ${motorista}\n` +
               `📅 Data: ${dataFmt}` +
               (observacao ? `\n📝 Obs: ${observacao}` : '');
+            const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
             return (
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(msg);
-                    setCopiedMsg(true);
-                  } catch {
-                    const ta = document.createElement('textarea');
-                    ta.value = msg;
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(ta);
-                    setCopiedMsg(true);
-                  }
-                }}
-                className={`w-full py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
-                  copiedMsg
-                    ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300'
-                    : 'bg-[#25D366] text-white hover:bg-[#20b858]'
-                }`}
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2 no-underline"
               >
-                {copiedMsg ? '✅ Mensagem copiada! Cole no grupo do WhatsApp' : '📋 Copiar mensagem pro WhatsApp'}
-              </button>
+                <Send className="w-4 h-4" />
+                Enviar no WhatsApp
+              </a>
             );
           })()}
 
