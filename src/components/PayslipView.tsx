@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   FileText, Plus, Trash2, Calculator, Users,
   ChevronDown, ChevronUp, Printer, DollarSign, Percent,
@@ -321,12 +321,14 @@ export default function PayslipView() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/folha_pagamento');
+        const res = await fetch('/api/folha_pagamento', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('relampago_token') || ''}` }
+        });
         if (!res.ok) return;
-        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
         const match = rows.filter(r => r.competencia === competencia);
         if (match.length > 0) {
-          const parsed = match.map(r => JSON.parse(r.funcionario_data) as Funcionario);
+          const parsed = match.map(r => JSON.parse(r.funcionarioData) as Funcionario);
           setFuncionarios(parsed);
           setLoadedFromApi(true);
         }
@@ -340,25 +342,32 @@ export default function PayslipView() {
     localStorage.setItem('payslip_funcionarios', JSON.stringify(funcionarios));
     localStorage.setItem('payslip_competencia', competencia);
 
+    const token = localStorage.getItem('relampago_token') || '';
+
     // Salvar no servidor (debounce 500ms)
     const timer = setTimeout(async () => {
       try {
         // Buscar registros existentes desta competência
-        const res = await fetch('/api/folha_pagamento');
+        const res = await fetch('/api/folha_pagamento', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!res.ok) return;
-        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
         const existentes = rows.filter(r => r.competencia === competencia);
 
         // Deletar os antigos
         for (const row of existentes) {
-          await fetch(`/api/folha_pagamento/${row.id}`, { method: 'DELETE' });
+          await fetch(`/api/folha_pagamento/${row.id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
         }
 
         // Inserir os novos
         for (const func of funcionarios) {
           await fetch('/api/folha_pagamento', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
               id: crypto.randomUUID(),
               competencia,
@@ -376,15 +385,18 @@ export default function PayslipView() {
   const handleCompetenciaChange = useCallback(async (newComp: string) => {
     setCompetencia(newComp);
     const novosDias = calcDiasMes(newComp);
+    const token = localStorage.getItem('relampago_token') || '';
 
     // Tentar carregar do servidor
     try {
-      const res = await fetch('/api/folha_pagamento');
+      const res = await fetch('/api/folha_pagamento', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) {
-        const rows = await res.json() as { id: string; competencia: string; funcionario_data: string }[];
+        const rows = await res.json() as { id: string; competencia: string; funcionarioData: string }[];
         const match = rows.filter(r => r.competencia === newComp);
         if (match.length > 0) {
-          const parsed = match.map(r => JSON.parse(r.funcionario_data) as Funcionario);
+          const parsed = match.map(r => JSON.parse(r.funcionarioData) as Funcionario);
           setFuncionarios(parsed);
           return;
         }
