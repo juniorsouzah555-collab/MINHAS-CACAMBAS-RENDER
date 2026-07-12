@@ -688,7 +688,11 @@ function ExtratoImportView() {
       const subNomes = subcategorias.map(s => s.nome);
       const ccNomes = centrosCusto.map(c => c.nome);
 
-      const prompt = `Categorize cada transacao bancaria. Responda SOMENTE JSON array [{id,c,s,cc}].
+      let resultados: { id: string; c: string; s: string | null; cc: string | null }[] = [];
+
+      if (aiKey) {
+        // OpenRouter (chave do usuário)
+        const prompt = `Categorize cada transacao bancaria. Responda SOMENTE JSON array [{id,c,s,cc}].
 Categorias: ${catNomes.join(' | ')}
 Subcategorias: ${subNomes.join(' | ')}
 CentrosCusto: ${ccNomes.join(' | ')}
@@ -696,32 +700,47 @@ Se nenhuma categoria encaixar, use c = "PENDENTE".
 
 ${pendentes.map(t => `{id:"${t.id}", desc:"${t.descricao}", valor:${t.valor}, tipo:"${t.tipo}"}`).join('\n')}`;
 
-      const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${aiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Relampago Cacambas',
-        },
-        body: JSON.stringify({
-          model: aiModel,
-          messages: [{ role: 'system', content: 'Voce é um categorizador financeiro brasileiro. Responda APENAS JSON.' }, { role: 'user', content: prompt }],
-          temperature: 0.1, max_tokens: 4096,
-        }),
-      });
+        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${aiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'Relampago Cacambas',
+          },
+          body: JSON.stringify({
+            model: aiModel,
+            messages: [{ role: 'system', content: 'Voce é um categorizador financeiro brasileiro. Responda APENAS JSON.' }, { role: 'user', content: prompt }],
+            temperature: 0.1, max_tokens: 4096,
+          }),
+        });
 
-      if (!r.ok) { console.error('[IA] OpenRouter erro HTTP', r.status, await r.text().catch(() => '')); return; }
+        if (!r.ok) { console.error('[IA] OpenRouter erro HTTP', r.status, await r.text().catch(() => '')); return; }
+        const d = await r.json();
+        const rawText = d.choices?.[0]?.message?.content || '';
+        if (!rawText) { console.error('[IA] Resposta vazia da API'); return; }
+        const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) resultados = parsed;
+      } else {
+        // Groq do servidor (grátis, sem chave do usuário)
+        console.log('[IA] Sem chave OpenRouter, usando Groq do servidor...');
+        const batch = pendentes.map(t => ({ id: t.id, descricao: t.descricao, valor: t.valor, tipo: t.tipo }));
+        const r = await fetch(`${API_BASE}/api/bancario/categorize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('relampago_token') || ''}` },
+          body: JSON.stringify({ transacoes: batch, categorias: catNomes, subcategorias: subNomes, centrosCusto: ccNomes }),
+        });
+        if (!r.ok) { console.error('[IA] Groq erro HTTP', r.status); return; }
+        const d = await r.json();
+        if (Array.isArray(d.results)) {
+          resultados = d.results.map((item: any) => ({ id: item.id, c: item.categoria, s: item.subcategoria || null, cc: item.centroCusto || null }));
+        }
+      }
 
-      const d = await r.json();
-      const rawText = d.choices?.[0]?.message?.content || '';
-      if (!rawText) { console.error('[IA] Resposta vazia da API'); return; }
+      if (resultados.length === 0) return;
 
-      const cleaned = rawText.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-      if (!Array.isArray(parsed)) return;
-
-      const map = new Map(parsed.map((item: any) => [item.id, item]));
+      const map = new Map(resultados.map(item => [item.id, item]));
       let mudou = false;
       const updated = pendentes.map(t => {
         const r = map.get(t.id);
