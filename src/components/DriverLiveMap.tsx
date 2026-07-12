@@ -12,7 +12,7 @@ interface DriverLiveMapProps {
   vehicles: Vehicle[];
   error: string | null;
   onRetry: () => void;
-  onlineUsers?: { name: string; lat: number; lng: number }[];
+  onlineUsers?: { name: string; lat: number; lng: number; vehicleId?: string }[];
   isDriverUser?: boolean;
 }
 
@@ -100,11 +100,15 @@ export default function DriverLiveMap({
 
     onlineUsers.forEach(u => {
       if (u.lat && u.lng) {
-        const iconHtml = `<div class="relative flex items-center justify-center"><div class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 border-2 border-white shadow-lg animate-pulse"><div class="h-2 w-2 bg-white rounded-full"></div></div></div>`;
+        const isOwnTracks = u.vehicleId?.startsWith('OT-');
+        const bgColor = isOwnTracks ? 'bg-emerald-500' : 'bg-blue-500';
+        const pulseClass = isOwnTracks ? 'animate-pulse' : '';
+        const iconHtml = `<div class="relative flex items-center justify-center"><div class="flex h-6 w-6 items-center justify-center rounded-full ${bgColor} border-2 border-white shadow-lg ${pulseClass}"><div class="h-2 w-2 bg-white rounded-full"></div></div></div>`;
         const icon = L.divIcon({ html: iconHtml, className: 'custom-online-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
+        const source = isOwnTracks ? '📡' : '📱';
         const marker = L.marker([u.lat, u.lng], { icon })
           .addTo(mapRef.current)
-          .bindTooltip(`🟢 ${u.name}`, { permanent: true, direction: 'top', className: 'driver-label driver-label--online', offset: L.point(0, -14) });
+          .bindTooltip(`${source} ${u.name}`, { permanent: true, direction: 'top', className: 'driver-label driver-label--online', offset: L.point(0, -14) });
         markersRef.current.push(marker);
       }
     });
@@ -145,7 +149,7 @@ export default function DriverLiveMap({
   const hasAnyCoords = coords !== null || vehicles.length > 0 || onlineUsers.length > 0;
 
   return (
-    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '16rem' }}>
+    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '70vh' }}>
       {error ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50 z-10">
           <p className="text-xs font-semibold text-slate-500 mb-3 leading-relaxed">⚠️ {error}</p>

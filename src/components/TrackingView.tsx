@@ -46,6 +46,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     lat: l.lat,
     lng: l.lng,
     address: '',
+    vehicleId: l.vehicleId,
   }));
 
   return (
