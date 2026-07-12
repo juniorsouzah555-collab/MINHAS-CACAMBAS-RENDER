@@ -210,30 +210,45 @@ app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
 });
 
 const KEYWORD_RULES: { words: string[]; categoria: string; subcategoria?: string; centroCusto?: string }[] = [
-  { words: ['combustivel', 'diesel', 'gasolina', 'etanol', 'abastec', 'posto', 'shell', 'ipiranga', 'br'], categoria: 'Combustível', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
-  { words: ['manutencao', 'oficina', 'mecanico', 'peca', 'pneu', 'oleo', 'troca oleo', 'filtro', 'suspensao', 'freio'], categoria: 'Manutenção de Frota', centroCusto: 'Frota' },
-  { words: ['seguro', 'seguradora'], categoria: 'Seguro', centroCusto: 'Frota' },
-  { words: ['ipva', 'licenciamento', 'detran', 'emplacamento'], categoria: 'IPVA / Licenciamento', centroCusto: 'Frota' },
-  { words: ['pedagio', 'sem parar', 'conectcar', 'tag'], categoria: 'Pedágios', centroCusto: 'Operacional' },
-  { words: ['salario', 'salário', 'folha', 'proventos', 'holerite'], categoria: 'Salários', centroCusto: 'Administrativo' },
-  { words: ['pro labore', 'prolabore'], categoria: 'Pró-Labore', centroCusto: 'Administrativo' },
+  { words: ['pix recebido', 'recebimento pix', 'pix-recebido'], categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' },
+  { words: ['transferencia recebida', 'ted recebido', 'doc recebido', 'credito em conta', 'deposito recebido', 'deposito'], categoria: 'Transferencias Recebidas', centroCusto: 'Operacional' },
+  { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba', 'loca cacamba'], categoria: 'Servicos de Cacambas', centroCusto: 'Operacional' },
+  { words: ['diesel', 'combustivel diesel', 'oleo diesel'], categoria: 'Combustivel', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
+  { words: ['gasolina', 'etanol', 'alcool', 'aditivado'], categoria: 'Combustivel', subcategoria: 'Gasolina', centroCusto: 'Frota' },
+  { words: ['abastec', 'posto shell', 'posto ipiranga', 'posto br', 'combustivel'], categoria: 'Combustivel', centroCusto: 'Frota' },
+  { words: ['troca oleo', 'troca de oleo'], categoria: 'Manutencao de Frota', subcategoria: 'Troca de Oleo', centroCusto: 'Frota' },
+  { words: ['pneu', 'pneus', 'borracharia'], categoria: 'Manutencao de Frota', subcategoria: 'Pneus', centroCusto: 'Frota' },
+  { words: ['alinhamento', 'balanceamento', 'suspensao'], categoria: 'Manutencao de Frota', subcategoria: 'Suspensao', centroCusto: 'Frota' },
+  { words: ['manutencao', 'oficina', 'mecanico', 'peca', 'reparo', 'revisao', 'guincho'], categoria: 'Manutencao de Frota', centroCusto: 'Frota' },
+  { words: ['seguro', 'seguradora', 'sulfran'], categoria: 'Seguro Veicular', centroCusto: 'Frota' },
+  { words: ['ipva', 'licenciamento', 'detran', 'emplacamento', 'renavam'], categoria: 'IPVA e Licenciamento', centroCusto: 'Frota' },
+  { words: ['pedagio', 'sem parar', 'conectcar', 'tag'], categoria: 'Pedagios', centroCusto: 'Frota' },
+  { words: ['salario', 'salario base', 'folha', 'proventos', 'holerite'], categoria: 'Salarios e Encargos', subcategoria: 'Salario Base', centroCusto: 'Administrativo' },
+  { words: ['pro labore', 'prolabore'], categoria: 'Salarios e Encargos', centroCusto: 'Administrativo' },
+  { words: ['fgts'], categoria: 'FGTS', centroCusto: 'Administrativo' },
+  { words: ['inss'], categoria: 'Salarios e Encargos', subcategoria: 'INSS', centroCusto: 'Administrativo' },
   { words: ['aluguel', 'locacao imovel'], categoria: 'Aluguel', centroCusto: 'Administrativo' },
-  { words: ['agua', 'luz', 'energia', 'telefone', 'celular', 'concessionaria'], categoria: 'Água, Luz, Telefone', centroCusto: 'Administrativo' },
-  { words: ['internet', 'ti', 'sistema', 'software', 'hospedagem', 'dominio', 'saas'], categoria: 'Internet / TI', centroCusto: 'Administrativo' },
-  { words: ['escritorio', 'material', 'papelaria', 'impressao'], categoria: 'Material de Escritório', centroCusto: 'Administrativo' },
+  { words: ['conta luz', 'energia', 'copel', 'conta agua', 'sanepar', 'concessionaria'], categoria: 'Agua, Luz e Telefone', centroCusto: 'Administrativo' },
+  { words: ['telefone', 'celular', 'oi fibra', 'vivo', 'claro'], categoria: 'Agua, Luz e Telefone', centroCusto: 'Administrativo' },
+  { words: ['internet', 'sistema', 'software', 'hospedagem', 'dominio', 'saas'], categoria: 'Internet e TI', centroCusto: 'Administrativo' },
+  { words: ['escritorio', 'material', 'papelaria', 'impressao'], categoria: 'Material de Escritorio', centroCusto: 'Administrativo' },
   { words: ['marketing', 'publicidade', 'anuncio', 'google ads', 'facebook', 'instagram', 'divulgacao'], categoria: 'Marketing', centroCusto: 'Vendas' },
-  { words: ['comissao', 'comissão'], categoria: 'Comissões', centroCusto: 'Vendas' },
-  { words: ['tarifa', 'taxa bancaria', 'taxa de manutencao', 'cesta servicos', 'cora', 'custo cartao', 'maquininha', 'anel'], categoria: 'Tarifas Bancárias', centroCusto: 'Administrativo' },
-  { words: ['pix recebido', 'recebimento pix', 'transferencia recebida', 'deposito', 'credito em conta', 'ted recebido', 'doc recebido'], categoria: 'Receita de Serviços', subcategoria: 'Transferências Recebidas', centroCusto: 'Operacional' },
-  { words: ['pix transferido', 'pix enviado', 'transferencia enviada', 'ted enviado', 'doc enviado'], categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' },
-  { words: ['pix', 'ted', 'doc', 'transferencia'], categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' },
-  { words: ['juros', 'multa atraso', 'encargos'], categoria: 'Juros', centroCusto: 'Administrativo' },
-  { words: ['simples nacional', 'das', 'fgts', 'inss', 'irpj', 'csll', 'pis', 'cofins'], categoria: 'Simples Nacional', centroCusto: 'Administrativo' },
+  { words: ['simples nacional', 'das'], categoria: 'Simples Nacional', centroCusto: 'Administrativo' },
   { words: ['iss', 'issqn'], categoria: 'ISS', centroCusto: 'Administrativo' },
-  { words: ['recebimento', 'pagamento cliente', 'transferencia recebida', 'servico prestado'], categoria: 'Receita de Serviços', centroCusto: 'Operacional' },
-  { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba'], categoria: 'Locação de Caçambas', centroCusto: 'Operacional' },
-  { words: ['transporte', 'descarte', 'aterra', 'residuo', 'entulho'], categoria: 'Transporte e Descarte', centroCusto: 'Operacional' },
-  { words: ['multa', 'infracao', 'transito'], categoria: 'Outras Receitas', centroCusto: 'Administrativo' },
+  { words: ['recebimento', 'pagamento cliente', 'servico prestado'], categoria: 'Servicos de Cacambas', centroCusto: 'Operacional' },
+  { words: ['descarte', 'aterra', 'residuo', 'entulho'], categoria: 'Descarte e Aterro', centroCusto: 'Operacional' },
+  { words: ['tarifa', 'cesta servicos', 'taxa bancaria', 'taxa de manutencao', 'manutencao da conta'], categoria: 'Tarifas Bancarias', subcategoria: 'Taxa de Manutencao', centroCusto: 'Administrativo' },
+  { words: ['pix transferido', 'pix enviado', 'transferencia enviada', 'ted enviado', 'doc enviado'], categoria: 'Transferencias Enviadas', subcategoria: 'TED/DOC', centroCusto: 'Administrativo' },
+  { words: ['pix', 'ted', 'doc', 'transferencia', 'saque'], categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' },
+  { words: ['boleto', 'pagamento de boleto'], categoria: 'Tarifas Bancarias', subcategoria: 'Boleto', centroCusto: 'Administrativo' },
+  { words: ['maquininha', 'cielo', 'rede', 'getnet', 'ton'], categoria: 'Tarifas Bancarias', centroCusto: 'Administrativo' },
+  { words: ['juros', 'multa atraso', 'encargos'], categoria: 'Juros e Multas', centroCusto: 'Administrativo' },
+  { words: ['cartao credito', 'fatura cartao', 'nubank', 'elo'], categoria: 'Cartao de Credito', subcategoria: 'Compra', centroCusto: 'Administrativo' },
+  { words: ['restaurante', 'lanchonete', 'padaria'], categoria: 'Alimentacao', subcategoria: 'Restaurante', centroCusto: 'Administrativo' },
+  { words: ['mercado', 'supermercado', 'acougue'], categoria: 'Alimentacao', subcategoria: 'Supermercado', centroCusto: 'Administrativo' },
+  { words: ['ifood', 'delivery', 'rappi'], categoria: 'Alimentacao', subcategoria: 'Delivery', centroCusto: 'Administrativo' },
+  { words: ['farmacia', 'remedio', 'medicamento', 'consulta medica', 'dentista'], categoria: 'Saude', centroCusto: 'Administrativo' },
+  { words: ['contabilidade', 'contador', 'nota fiscal'], categoria: 'Comissoes', centroCusto: 'Administrativo' },
 ];
 
 function localCategorize(descricao: string): { categoria: string; subcategoria: string | null; centroCusto: string | null } {
@@ -284,20 +299,31 @@ REGRAS:
 1. Responda SOMENTE um JSON array. Nenhum texto antes ou depois.
 2. Cada objeto: {"id":"...","c":"categoria","s":"subcategoria ou null","cc":"centro de custo ou null"}
 3. Regras de classificacao:
-   - PIX/TED/DOC RECEBIDO, transferencia recebida, deposito, credito em conta = Receita de Servicos (Recebimentos)
-   - PIX/TED/DOC ENVIADO, transferencia enviada, pagamento = Transferencias Enviadas (PIX/TED)
-   - Boleto pago = Pagamento de Boletos
-   - Diesel, gasolina, posto, abastecimento = Combustivel
+   - PIX/TED/DOC RECEBIDO, transferencia recebida, deposito, credito em conta = Recebimentos PIX (PIX Recebido) ou Transferencias Recebidas
+   - PIX/TED/DOC ENVIADO, transferencia enviada, pagamento = Transferencias Enviadas (TED/DOC ou Pix)
+   - Boleto pago = Tarifas Bancarias (Boleto)
+   - Diesel, gasolina, posto, abastecimento = Combustivel (Diesel S10 ou Gasolina)
    - Oficina, mecanico, pneu, oleo, pecas = Manutencao de Frota
-   - Salario, prolabore, folha pagamento = Salarios
+   - Salario, prolabore, folha pagamento = Salarios e Encargos (Salario Base)
    - Aluguel, locacao imovel = Aluguel
-   - Conta de luz, agua, telefone = Agua, Luz, Telefone
-   - Tarifa bancaria, cesta servicos, manutencao de conta = Tarifas Bancarias
-   - Simples, DAS, FGTS, INSS = Simples Nacional
-   - Cacamba, aluguel cacamba, locacao cacamba = Locacao de Cacambas
-   - Transporte, entulho, descarte, aterro = Transporte e Descarte
-   - Saque eletronico = Transferencias Enviadas
-4. Se nao tiver certeza, use c = "PENDENTE"`;
+   - Conta de luz, agua, telefone = Agua, Luz e Telefone
+   - Tarifa bancaria, cesta servicos, manutencao de conta = Tarifas Bancarias (Taxa de Manutencao)
+   - Simples, DAS = Simples Nacional
+   - FGTS = FGTS
+   - INSS = Salarios e Encargos (INSS)
+   - Cacamba, aluguel cacamba, locacao cacamba = Servicos de Cacambas
+   - Transporte, entulho, descarte, aterro = Descarte e Aterro
+   - Saque eletronico = Transferencias Enviadas (Pix)
+   - Seguro = Seguro Veicular
+   - IPVA, licenciamento = IPVA e Licenciamento
+   - Pedagio, sem parar = Pedagios
+   - Marketing, publicidade = Marketing
+   - Farmacia, remedio = Saude
+   - Cartao de credito, fatura = Cartao de Credito (Compra)
+   - Contabilidade, contador = Comissoes
+   - ISS = ISS
+4. Os nomes das categorias e subcategorias devem ser EXATAMENTE como listados acima (sem acentos).
+5. Se nao tiver certeza, use c = "PENDENTE"`;
       const response = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [

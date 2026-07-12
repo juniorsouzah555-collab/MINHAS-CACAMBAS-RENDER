@@ -83,60 +83,74 @@ const formatMoney = (v: number) => `R$ ${Math.abs(v).toLocaleString('pt-BR', { m
 
 // ─── SEED DATA ───
 const SEED_GRUPOS: GrupoConta[] = [
-  { id: 'GRP-REC', nome: 'Receita Operacional', tipo: 'RECEITA' },
-  { id: 'GRP-REC-NAO', nome: 'Receita Não Operacional', tipo: 'RECEITA' },
-  { id: 'GRP-DES-OPE', nome: 'Custos Operacionais', tipo: 'DESPESA' },
-  { id: 'GRP-DES-ADM', nome: 'Despesas Administrativas', tipo: 'DESPESA' },
-  { id: 'GRP-DES-VEN', nome: 'Despesas com Vendas', tipo: 'DESPESA' },
-  { id: 'GRP-DES-FIN', nome: 'Despesas Financeiras', tipo: 'DESPESA' },
-  { id: 'GRP-DES-IMP', nome: 'Impostos', tipo: 'DESPESA' },
+  { id: 'GR-001', nome: 'Receitas', tipo: 'RECEITA' },
+  { id: 'GR-002', nome: 'Despesas Operacionais', tipo: 'DESPESA' },
+  { id: 'GR-003', nome: 'Despesas Administrativas', tipo: 'DESPESA' },
+  { id: 'GR-004', nome: 'Despesas Financeiras', tipo: 'DESPESA' },
+  { id: 'GR-005', nome: 'Impostos e Tributos', tipo: 'DESPESA' },
 ];
 const SEED_CATEGORIAS: CategoriaConta[] = [
-  { id: 'CAT-LOC', grupoId: 'GRP-REC', nome: 'Locação de Caçambas' },
-  { id: 'CAT-TRA', grupoId: 'GRP-REC', nome: 'Transporte e Descarte' },
-  { id: 'CAT-SRV', grupoId: 'GRP-REC', nome: 'Receita de Serviços' },
-  { id: 'CAT-JUR', grupoId: 'GRP-REC-NAO', nome: 'Juros e Multas' },
-  { id: 'CAT-OUT', grupoId: 'GRP-REC-NAO', nome: 'Outras Receitas' },
-  { id: 'CAT-COM', grupoId: 'GRP-DES-OPE', nome: 'Combustível' },
-  { id: 'CAT-MAN', grupoId: 'GRP-DES-OPE', nome: 'Manutenção de Frota' },
-  { id: 'CAT-PNE', grupoId: 'GRP-DES-OPE', nome: 'Pneus' },
-  { id: 'CAT-SEG', grupoId: 'GRP-DES-OPE', nome: 'Seguro' },
-  { id: 'CAT-IPV', grupoId: 'GRP-DES-OPE', nome: 'IPVA / Licenciamento' },
-  { id: 'CAT-PED', grupoId: 'GRP-DES-OPE', nome: 'Pedágios' },
-  { id: 'CAT-SAL', grupoId: 'GRP-DES-ADM', nome: 'Salários' },
-  { id: 'CAT-PRO', grupoId: 'GRP-DES-ADM', nome: 'Pró-Labore' },
-  { id: 'CAT-ALU', grupoId: 'GRP-DES-ADM', nome: 'Aluguel' },
-  { id: 'CAT-UTI', grupoId: 'GRP-DES-ADM', nome: 'Água, Luz, Telefone' },
-  { id: 'CAT-ESC', grupoId: 'GRP-DES-ADM', nome: 'Material de Escritório' },
-  { id: 'CAT-TI', grupoId: 'GRP-DES-ADM', nome: 'Internet / TI' },
-  { id: 'CAT-MKT', grupoId: 'GRP-DES-VEN', nome: 'Marketing' },
-  { id: 'CAT-COMV', grupoId: 'GRP-DES-VEN', nome: 'Comissões' },
-  { id: 'CAT-TAR', grupoId: 'GRP-DES-FIN', nome: 'Tarifas Bancárias' },
-  { id: 'CAT-JURF', grupoId: 'GRP-DES-FIN', nome: 'Juros' },
-  { id: 'CAT-SN', grupoId: 'GRP-DES-IMP', nome: 'Simples Nacional' },
-  { id: 'CAT-ISS', grupoId: 'GRP-DES-IMP', nome: 'ISS' },
-  { id: 'CAT-DAS', grupoId: 'GRP-DES-IMP', nome: 'DAS' },
-  { id: 'CAT-SAL-NEW', grupoId: 'GRP-DES-ADM', nome: 'Salários Motoristas' },
-  { id: 'CAT-BEN', grupoId: 'GRP-DES-ADM', nome: 'Benefícios' },
-  { id: 'CAT-DEP', grupoId: 'GRP-DES-ADM', nome: 'Depreciação' },
+  { id: 'CAT-001', grupoId: 'GR-001', nome: 'Servicos de Cacambas' },
+  { id: 'CAT-002', grupoId: 'GR-001', nome: 'Recebimentos PIX' },
+  { id: 'CAT-003', grupoId: 'GR-001', nome: 'Transferencias Recebidas' },
+  { id: 'CAT-004', grupoId: 'GR-002', nome: 'Combustivel' },
+  { id: 'CAT-005', grupoId: 'GR-002', nome: 'Manutencao de Frota' },
+  { id: 'CAT-006', grupoId: 'GR-002', nome: 'Descarte e Aterro' },
+  { id: 'CAT-007', grupoId: 'GR-002', nome: 'Pedagios' },
+  { id: 'CAT-008', grupoId: 'GR-002', nome: 'Seguro Veicular' },
+  { id: 'CAT-009', grupoId: 'GR-002', nome: 'IPVA e Licenciamento' },
+  { id: 'CAT-010', grupoId: 'GR-003', nome: 'Salarios e Encargos' },
+  { id: 'CAT-011', grupoId: 'GR-003', nome: 'Aluguel' },
+  { id: 'CAT-012', grupoId: 'GR-003', nome: 'Agua, Luz e Telefone' },
+  { id: 'CAT-013', grupoId: 'GR-003', nome: 'Internet e TI' },
+  { id: 'CAT-014', grupoId: 'GR-003', nome: 'Material de Escritorio' },
+  { id: 'CAT-015', grupoId: 'GR-003', nome: 'Marketing' },
+  { id: 'CAT-016', grupoId: 'GR-003', nome: 'Alimentacao' },
+  { id: 'CAT-017', grupoId: 'GR-003', nome: 'Saude' },
+  { id: 'CAT-018', grupoId: 'GR-003', nome: 'Comissoes' },
+  { id: 'CAT-019', grupoId: 'GR-004', nome: 'Tarifas Bancarias' },
+  { id: 'CAT-020', grupoId: 'GR-004', nome: 'Juros e Multas' },
+  { id: 'CAT-021', grupoId: 'GR-004', nome: 'Emprestimos' },
+  { id: 'CAT-022', grupoId: 'GR-004', nome: 'Cartao de Credito' },
+  { id: 'CAT-023', grupoId: 'GR-004', nome: 'Transferencias Enviadas' },
+  { id: 'CAT-024', grupoId: 'GR-005', nome: 'Simples Nacional' },
+  { id: 'CAT-025', grupoId: 'GR-005', nome: 'ISS' },
+  { id: 'CAT-026', grupoId: 'GR-005', nome: 'FGTS' },
 ];
 const SEED_SUBCATEGORIAS: SubcategoriaConta[] = [
-  { id: 'SUB-LOC-1', categoriaId: 'CAT-LOC', nome: 'Caçamba 4m³' },
-  { id: 'SUB-LOC-2', categoriaId: 'CAT-LOC', nome: 'Caçamba 6m³' },
-  { id: 'SUB-LOC-3', categoriaId: 'CAT-LOC', nome: 'Caçamba 8m³' },
-  { id: 'SUB-TRA-1', categoriaId: 'CAT-TRA', nome: 'Descarte em Aterro' },
-  { id: 'SUB-TRA-2', categoriaId: 'CAT-TRA', nome: 'Transporte de Resíduos' },
-  { id: 'SUB-COM-1', categoriaId: 'CAT-COM', nome: 'Diesel S10' },
-  { id: 'SUB-COM-2', categoriaId: 'CAT-COM', nome: 'Diesel Comum' },
-  { id: 'SUB-MAN-1', categoriaId: 'CAT-MAN', nome: 'Troca de Óleo' },
-  { id: 'SUB-MAN-2', categoriaId: 'CAT-MAN', nome: 'Peças' },
-  { id: 'SUB-MAN-3', categoriaId: 'CAT-MAN', nome: 'Mão de Obra' },
-  { id: 'SUB-SAL-1', categoriaId: 'CAT-SAL', nome: 'Salários Motoristas' },
-  { id: 'SUB-SAL-2', categoriaId: 'CAT-SAL', nome: 'Salários Administrativo' },
-  { id: 'SUB-SAL-3', categoriaId: 'CAT-SAL', nome: 'Benefícios' },
-  { id: 'SUB-DEP-1', categoriaId: 'CAT-DEP', nome: 'Depreciação Veículos' },
-  { id: 'SUB-DEP-2', categoriaId: 'CAT-DEP', nome: 'Depreciação Equipamentos' },
-  { id: 'SUB-DEP-3', categoriaId: 'CAT-DEP', nome: 'Depreciação Imóveis' },
+  { id: 'SUB-001', categoriaId: 'CAT-004', nome: 'Diesel S10' },
+  { id: 'SUB-002', categoriaId: 'CAT-004', nome: 'Gasolina' },
+  { id: 'SUB-003', categoriaId: 'CAT-004', nome: 'Etanol' },
+  { id: 'SUB-004', categoriaId: 'CAT-004', nome: 'Aditivado' },
+  { id: 'SUB-005', categoriaId: 'CAT-005', nome: 'Troca de Oleo' },
+  { id: 'SUB-006', categoriaId: 'CAT-005', nome: 'Pneus' },
+  { id: 'SUB-007', categoriaId: 'CAT-005', nome: 'Freios' },
+  { id: 'SUB-008', categoriaId: 'CAT-005', nome: 'Motor e Cambio' },
+  { id: 'SUB-009', categoriaId: 'CAT-005', nome: 'Suspensao' },
+  { id: 'SUB-010', categoriaId: 'CAT-005', nome: 'Eletrica' },
+  { id: 'SUB-011', categoriaId: 'CAT-006', nome: 'Aterro' },
+  { id: 'SUB-012', categoriaId: 'CAT-006', nome: 'Reciclagem' },
+  { id: 'SUB-013', categoriaId: 'CAT-006', nome: 'Taxa de Descarte' },
+  { id: 'SUB-014', categoriaId: 'CAT-010', nome: 'Salario Base' },
+  { id: 'SUB-015', categoriaId: 'CAT-010', nome: 'Horas Extras' },
+  { id: 'SUB-016', categoriaId: 'CAT-010', nome: '13o Salario' },
+  { id: 'SUB-017', categoriaId: 'CAT-010', nome: 'FGTS' },
+  { id: 'SUB-018', categoriaId: 'CAT-010', nome: 'INSS' },
+  { id: 'SUB-019', categoriaId: 'CAT-019', nome: 'Taxa de Manutencao' },
+  { id: 'SUB-020', categoriaId: 'CAT-019', nome: 'TED/DOC' },
+  { id: 'SUB-021', categoriaId: 'CAT-019', nome: 'Pix' },
+  { id: 'SUB-022', categoriaId: 'CAT-019', nome: 'Boleto' },
+  { id: 'SUB-023', categoriaId: 'CAT-002', nome: 'PIX Recebido' },
+  { id: 'SUB-024', categoriaId: 'CAT-002', nome: 'PIX Transferencia' },
+  { id: 'SUB-025', categoriaId: 'CAT-022', nome: 'Compra' },
+  { id: 'SUB-026', categoriaId: 'CAT-022', nome: 'Parcela' },
+  { id: 'SUB-027', categoriaId: 'CAT-022', nome: 'Anuidade' },
+  { id: 'SUB-028', categoriaId: 'CAT-016', nome: 'Restaurante' },
+  { id: 'SUB-029', categoriaId: 'CAT-016', nome: 'Supermercado' },
+  { id: 'SUB-030', categoriaId: 'CAT-016', nome: 'Delivery' },
+  { id: 'SUB-031', categoriaId: 'CAT-015', nome: 'Google Ads' },
+  { id: 'SUB-032', categoriaId: 'CAT-015', nome: 'Redes Sociais' },
+  { id: 'SUB-033', categoriaId: 'CAT-015', nome: 'Impressos' },
 ];
 const SEED_CENTROS: CentroCusto[] = [
   { id: 'CC-ADM', nome: 'Administrativo', codigo: 'ADM', ativo: true, createdAt: new Date().toISOString() },
@@ -146,7 +160,18 @@ const SEED_CENTROS: CentroCusto[] = [
 ];
 
 // ─── SHARED HOOK ───
+const SEED_VERSION = 'v2';
 function useBancarioData() {
+  // Auto-reset localStorage when seed version changes (nomes das categorias mudaram)
+  if (loadLocal('bancario_seed_version', '') !== SEED_VERSION) {
+    saveLocal('bancario_grupos', SEED_GRUPOS);
+    saveLocal('bancario_categorias', SEED_CATEGORIAS);
+    saveLocal('bancario_subcategorias', SEED_SUBCATEGORIAS);
+    saveLocal('bancario_centros', SEED_CENTROS);
+    saveLocal('bancario_transacoes', []);
+    saveLocal('bancario_importacoes', []);
+    saveLocal('bancario_seed_version', SEED_VERSION);
+  }
   const [grupos] = useState<GrupoConta[]>(() => loadLocal('bancario_grupos', SEED_GRUPOS));
   const [categorias] = useState<CategoriaConta[]>(() => loadLocal('bancario_categorias', SEED_CATEGORIAS));
   const [subcategorias] = useState<SubcategoriaConta[]>(() => loadLocal('bancario_subcategorias', SEED_SUBCATEGORIAS));
@@ -526,85 +551,94 @@ function ExtratoImportView() {
   const centrosCusto = useState<CentroCusto[]>(() => loadLocal('bancario_centros', SEED_CENTROS))[0];
 
   // Regras locais expandidas para categorização automática
-  // Ordem: mais específicas primeiro, genéricas depois
+  // IMPORTANTE: nomes devem bater EXATAMENTE com o Plano de Contas do banco (sem acentos)
   const CATEGORY_RULES: { words: string[]; categoria: string; subcategoria?: string; centroCusto?: string }[] = [
-    // ── RECEITAS ──
-    { words: ['pix recebido', 'pix-recebido', 'transferencia recebida', 'deposito recebido', 'dep dinheiro', 'recebimento pix', 'recebimento ted', 'recebimento doc', 'recebimento boleto', 'credito em conta', 'doc recebido', 'ted recebida'], categoria: 'Receita de Serviços', subcategoria: 'Transferências Recebidas', centroCusto: 'Operacional' },
-    { words: ['pagamento cliente', 'pagamento de cliente', 'servico prestado', 'recebimento servico', 'recebimento de servico'], categoria: 'Receita de Serviços', subcategoria: 'Pagamento de Clientes', centroCusto: 'Operacional' },
-    { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba'], categoria: 'Locação de Caçambas', subcategoria: 'Aluguel de Caçambas', centroCusto: 'Operacional' },
-    { words: ['transporte residuo', 'descarte entulho', 'aterra sanitario', 'coleta entulho', 'transporte entulho'], categoria: 'Transporte e Descarte', subcategoria: 'Coleta e Destinação', centroCusto: 'Operacional' },
-    { words: ['venda sucata', 'venda de sucata', 'reciclagem', 'sucata'], categoria: 'Venda de Sucata', subcategoria: 'Reciclagem', centroCusto: 'Operacional' },
+    // ── RECEITAS (GRP-001) ──
+    { words: ['pix recebido', 'recebimento pix', 'pix-recebido'], categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' },
+    { words: ['transferencia recebida', 'ted recebido', 'doc recebido', 'recebimento ted', 'recebimento doc', 'recebimento boleto', 'credito em conta', 'deposito recebido', 'dep dinheiro'], categoria: 'Transferencias Recebidas', subcategoria: null, centroCusto: 'Operacional' },
+    { words: ['locacao cacamba', 'aluguel cacamba', 'cacamba', 'loca cacamba', 'loca cacambas'], categoria: 'Servicos de Cacambas', subcategoria: null, centroCusto: 'Operacional' },
+    { words: ['pagamento cliente', 'pagamento de cliente', 'servico prestado', 'recebimento servico', 'recebimento de servico'], categoria: 'Servicos de Cacambas', subcategoria: null, centroCusto: 'Operacional' },
+    { words: ['venda sucata', 'venda de sucata', 'reciclagem', 'sucata'], categoria: 'Descarte e Aterro', subcategoria: 'Reciclagem', centroCusto: 'Operacional' },
 
-    // ── DESPESAS OPERACIONAIS ──
-    { words: ['abastecimento diesel', 'diesel s10', 'diesel s500', 'combustivel diesel', 'oleo diesel'], categoria: 'Combustível', subcategoria: 'Diesel', centroCusto: 'Frota' },
-    { words: ['gasolina', 'etanol', 'alcool', 'abastecimento gasolina'], categoria: 'Combustível', subcategoria: 'Gasolina/Etanol', centroCusto: 'Frota' },
-    { words: ['posto shell', 'posto ipiranga', 'posto br', 'abastecimento posto'], categoria: 'Combustível', subcategoria: 'Abastecimento', centroCusto: 'Frota' },
+    // ── DESPESAS OPERACIONAIS (GRP-002) ──
+    { words: ['diesel s10', 'diesel s500', 'combustivel diesel', 'oleo diesel', 'diesel'], categoria: 'Combustivel', subcategoria: 'Diesel S10', centroCusto: 'Frota' },
+    { words: ['gasolina', 'etanol', 'alcool', 'aditivado'], categoria: 'Combustivel', subcategoria: 'Gasolina', centroCusto: 'Frota' },
+    { words: ['abastecimento', 'posto shell', 'posto ipiranga', 'posto br', 'combustivel'], categoria: 'Combustivel', subcategoria: 'Gasolina', centroCusto: 'Frota' },
 
-    { words: ['troca oleo', 'trocadeoleo', 'troca de oleo'], categoria: 'Manutenção de Frota', subcategoria: 'Troca de Óleo', centroCusto: 'Frota' },
-    { words: ['pneu', 'pneus', 'recauchutagem', 'borracharia'], categoria: 'Manutenção de Frota', subcategoria: 'Pneus', centroCusto: 'Frota' },
-    { words: ['alinhamento', 'balanceamento', 'suspensao', 'geometria'], categoria: 'Manutenção de Frota', subcategoria: 'Suspensão', centroCusto: 'Frota' },
-    { words: ['freio', 'embreagem', 'embreagem'], categoria: 'Manutenção de Frota', subcategoria: 'Freios/Embreagem', centroCusto: 'Frota' },
-    { words: ['manutencao caminhao', 'oficina mecanica', 'conserto caminhao', 'reparo caminhao'], categoria: 'Manutenção de Frota', subcategoria: 'Oficina Mecânica', centroCusto: 'Frota' },
-    { words: ['peca caminhao', 'peca para caminhao', 'peca automotiva', 'pecas'], categoria: 'Manutenção de Frota', subcategoria: 'Peças', centroCusto: 'Frota' },
-    { words: ['manutencao preventiva', 'revisao', 'manutencao programada'], categoria: 'Manutenção de Frota', subcategoria: 'Revisão Preventiva', centroCusto: 'Frota' },
-    { words: ['funilaria', 'pintura caminhao', 'lataria', 'martelinho'], categoria: 'Manutenção de Frota', subcategoria: 'Funilaria/Pintura', centroCusto: 'Frota' },
-    { words: ['guincho', 'reboque', 'socorro mecanico'], categoria: 'Manutenção de Frota', subcategoria: 'Guincho', centroCusto: 'Frota' },
+    { words: ['troca oleo', 'trocadeoleo', 'troca de oleo'], categoria: 'Manutencao de Frota', subcategoria: 'Troca de Oleo', centroCusto: 'Frota' },
+    { words: ['pneu', 'pneus', 'recauchutagem', 'borracharia'], categoria: 'Manutencao de Frota', subcategoria: 'Pneus', centroCusto: 'Frota' },
+    { words: ['alinhamento', 'balanceamento', 'suspensao', 'geometria'], categoria: 'Manutencao de Frota', subcategoria: 'Suspensao', centroCusto: 'Frota' },
+    { words: ['freio', 'embreagem'], categoria: 'Manutencao de Frota', subcategoria: 'Freios', centroCusto: 'Frota' },
+    { words: ['manutencao caminhao', 'oficina mecanica', 'conserto caminhao', 'reparo caminhao', 'mecanico'], categoria: 'Manutencao de Frota', subcategoria: 'Motor e Cambio', centroCusto: 'Frota' },
+    { words: ['peca caminhao', 'peca para caminhao', 'peca automotiva', 'pecas'], categoria: 'Manutencao de Frota', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['manutencao preventiva', 'revisao', 'manutencao programada'], categoria: 'Manutencao de Frota', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['funilaria', 'pintura caminhao', 'lataria', 'martelinho'], categoria: 'Manutencao de Frota', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['guincho', 'reboque', 'socorro mecanico'], categoria: 'Manutencao de Frota', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['eletrica', 'bateria', 'alternador', 'motor de partida'], categoria: 'Manutencao de Frota', subcategoria: 'Eletrica', centroCusto: 'Frota' },
 
-    { words: ['seguro caminhao', 'seguro frota', 'sulfran', 'porto seguro caminhao'], categoria: 'Seguro', subcategoria: 'Seguro Frota', centroCusto: 'Frota' },
-    { words: ['seguro vida', 'seguro saude'], categoria: 'Seguro', subcategoria: 'Seguro Pessoal', centroCusto: 'Administrativo' },
+    { words: ['transporte residuo', 'descarte entulho', 'aterra sanitario', 'coleta entulho', 'transporte entulho', 'descarte', 'aterro'], categoria: 'Descarte e Aterro', subcategoria: 'Aterro', centroCusto: 'Operacional' },
+    { words: ['taxa descarte', 'taxa de descarte'], categoria: 'Descarte e Aterro', subcategoria: 'Taxa de Descarte', centroCusto: 'Operacional' },
 
-    { words: ['ipva caminhao', 'ipva'], categoria: 'IPVA / Licenciamento', subcategoria: 'IPVA', centroCusto: 'Frota' },
-    { words: ['licenciamento', 'emplacamento', 'detran', 'renavam', 'crlv'], categoria: 'IPVA / Licenciamento', subcategoria: 'Licenciamento', centroCusto: 'Frota' },
-    { words: ['multa transito', 'multa de transito', 'infracao transito'], categoria: 'IPVA / Licenciamento', subcategoria: 'Multas', centroCusto: 'Frota' },
+    { words: ['seguro caminhao', 'seguro frota', 'sulfran', 'porto seguro caminhao', 'seguro veicular'], categoria: 'Seguro Veicular', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['seguro vida', 'seguro saude'], categoria: 'Saude', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['pedagio', 'sem parar', 'conectcar', 'tag passagem', 'passagem pedagio'], categoria: 'Pedágios', subcategoria: 'Pedágios', centroCusto: 'Frota' },
+    { words: ['ipva caminhao', 'ipva'], categoria: 'IPVA e Licenciamento', subcategoria: 'IPVA', centroCusto: 'Frota' },
+    { words: ['licenciamento', 'emplacamento', 'detran', 'renavam', 'crlv'], categoria: 'IPVA e Licenciamento', subcategoria: null, centroCusto: 'Frota' },
+    { words: ['multa transito', 'multa de transito', 'infracao transito'], categoria: 'IPVA e Licenciamento', subcategoria: null, centroCusto: 'Frota' },
 
-    // ── DESPESAS ADMINISTRATIVAS ──
-    { words: ['salario motorista', 'salario funcionario', 'salario', 'salário', 'folha pagamento', 'pagamento folha'], categoria: 'Salários', subcategoria: 'Salários', centroCusto: 'Administrativo' },
-    { words: ['pro labore', 'prolabore', 'pro-labore', 'retirada lucro', 'distribuicao lucro'], categoria: 'Pró-Labore', subcategoria: 'Pró-Labore', centroCusto: 'Administrativo' },
-    { words: ['rescisao', 'aviso previo', 'ferias', 'decimo terceiro', '13o salario', 'fgts recisao'], categoria: 'Salários', subcategoria: 'Rescisão', centroCusto: 'Administrativo' },
-    { words: ['vale transporte', 'vale alimentacao', 'vale refeicao', 'vt', 'vr'], categoria: 'Salários', subcategoria: 'Benefícios', centroCusto: 'Administrativo' },
-    { words: ['inss patronal', 'fgts', 'fgts mensal'], categoria: 'Simples Nacional', subcategoria: 'FGTS', centroCusto: 'Administrativo' },
+    { words: ['pedagio', 'sem parar', 'conectcar', 'tag passagem', 'passagem pedagio'], categoria: 'Pedagios', subcategoria: null, centroCusto: 'Frota' },
 
-    { words: ['aluguel imovel', 'aluguel sede', 'aluguel galpao', 'locacao imovel'], categoria: 'Aluguel', subcategoria: 'Imóvel Sede', centroCusto: 'Administrativo' },
-    { words: ['aluguel cacamba terceiro', 'aluguel de cacamba', 'locacao cacamba pago'], categoria: 'Aluguel', subcategoria: 'Caçambas de Terceiros', centroCusto: 'Operacional' },
+    // ── DESPESAS ADMINISTRATIVAS (GRP-003) ──
+    { words: ['salario motorista', 'salario funcionario', 'salario', 'salario base', 'folha pagamento', 'pagamento folha', 'proventos', 'holerite'], categoria: 'Salarios e Encargos', subcategoria: 'Salario Base', centroCusto: 'Administrativo' },
+    { words: ['pro labore', 'prolabore', 'pro-labore', 'retirada lucro', 'distribuicao lucro'], categoria: 'Salarios e Encargos', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['rescisao', 'aviso previo', 'ferias', 'decimo terceiro', '13o salario', 'fgts rescisao'], categoria: 'Salarios e Encargos', subcategoria: '13o Salario', centroCusto: 'Administrativo' },
+    { words: ['vale transporte', 'vale alimentacao', 'vale refeicao', 'vt', 'vr'], categoria: 'Salarios e Encargos', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['fgts mensal', 'fgts'], categoria: 'FGTS', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['inss patronal', 'inss'], categoria: 'Salarios e Encargos', subcategoria: 'INSS', centroCusto: 'Administrativo' },
+    { words: ['horas extras', 'hora extra'], categoria: 'Salarios e Encargos', subcategoria: 'Horas Extras', centroCusto: 'Administrativo' },
 
-    { words: ['conta luz', 'energia eletrica', 'copel', 'conta energia'], categoria: 'Água, Luz, Telefone', subcategoria: 'Energia Elétrica', centroCusto: 'Administrativo' },
-    { words: ['conta agua', 'agua', 'sanepar', 'concessionaria agua'], categoria: 'Água, Luz, Telefone', subcategoria: 'Água', centroCusto: 'Administrativo' },
-    { words: ['telefone', 'oi fibra', 'vivo fibra', 'claro', 'tim', 'conta telefone', 'celular corporativo'], categoria: 'Água, Luz, Telefone', subcategoria: 'Telefone/Internet', centroCusto: 'Administrativo' },
+    { words: ['aluguel imovel', 'aluguel sede', 'aluguel galpao', 'locacao imovel', 'aluguel'], categoria: 'Aluguel', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['aluguel cacamba terceiro', 'aluguel de cacamba', 'locacao cacamba pago'], categoria: 'Aluguel', subcategoria: null, centroCusto: 'Operacional' },
 
-    { words: ['internet fibra', 'internet corporativa', 'banda larga'], categoria: 'Internet / TI', subcategoria: 'Internet', centroCusto: 'Administrativo' },
-    { words: ['sistema gestao', 'software gestao', 'assinatura sistema', 'saas', 'hospedagem site', 'dominio', 'servidor cloud'], categoria: 'Internet / TI', subcategoria: 'Sistemas', centroCusto: 'Administrativo' },
-    { words: ['manutencao computador', 'conserto computador', 'informatica', 'notebook', 'impressora', 'cartucho', 'toner'], categoria: 'Internet / TI', subcategoria: 'Equipamentos TI', centroCusto: 'Administrativo' },
+    { words: ['conta luz', 'energia eletrica', 'copel', 'conta energia'], categoria: 'Agua, Luz e Telefone', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['conta agua', 'agua', 'sanepar', 'concessionaria agua'], categoria: 'Agua, Luz e Telefone', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['telefone', 'oi fibra', 'vivo fibra', 'claro', 'tim', 'conta telefone', 'celular corporativo'], categoria: 'Agua, Luz e Telefone', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['material escritorio', 'papelaria', 'caneta', 'papel sulfite', 'pastas', 'arquivo'], categoria: 'Material de Escritório', subcategoria: 'Papelaria', centroCusto: 'Administrativo' },
-    { words: ['impressao', 'xerox', 'encadernacao', 'plotagem'], categoria: 'Material de Escritório', subcategoria: 'Impressões', centroCusto: 'Administrativo' },
-    { words: ['agua mineral', 'cafe', 'copo descartavel', 'limpeza escritorio'], categoria: 'Material de Escritório', subcategoria: 'Copa/Limpeza', centroCusto: 'Administrativo' },
+    { words: ['internet fibra', 'internet corporativa', 'banda larga', 'internet'], categoria: 'Internet e TI', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['sistema gestao', 'software gestao', 'assinatura sistema', 'saas', 'hospedagem site', 'dominio', 'servidor cloud'], categoria: 'Internet e TI', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['manutencao computador', 'conserto computador', 'informatica', 'notebook', 'impressora', 'cartucho', 'toner'], categoria: 'Internet e TI', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['simples nacional', 'das mensal', 'das', 'pagamento das'], categoria: 'Simples Nacional', subcategoria: 'DAS', centroCusto: 'Administrativo' },
-    { words: ['irpj', 'csll', 'pis', 'cofins', 'issqn', 'iss', 'icms'], categoria: 'Simples Nacional', subcategoria: 'Tributos Federais', centroCusto: 'Administrativo' },
-    { words: ['contador', 'contabilidade', 'escritorio contabil', 'servicos contabeis', 'nota fiscal', 'nf-e', 'nfs-e'], categoria: 'Serviços Contábeis', subcategoria: 'Contabilidade', centroCusto: 'Administrativo' },
+    { words: ['material escritorio', 'papelaria', 'caneta', 'papel sulfite', 'pastas', 'arquivo'], categoria: 'Material de Escritorio', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['impressao', 'xerox', 'encadernacao', 'plotagem', 'impressos'], categoria: 'Material de Escritorio', subcategoria: 'Impressos', centroCusto: 'Administrativo' },
+    { words: ['agua mineral', 'cafe', 'copo descartavel', 'limpeza escritorio'], categoria: 'Material de Escritorio', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['tarifa manutencao conta', 'cesta servicos', 'tarifa pacote', 'tarifa bancaria', 'taxa transferencia', 'cobranca tarifa', 'tarifa cobranca'], categoria: 'Tarifas Bancárias', subcategoria: 'Tarifas de Conta', centroCusto: 'Administrativo' },
-    { words: ['maquininha', 'maquina cartao', 'taxa maquininha', 'ton', 'cielo', 'rede', 'getnet'], categoria: 'Tarifas Bancárias', subcategoria: 'Taxas Maquininha', centroCusto: 'Administrativo' },
-    { words: ['juros mora', 'multa atraso', 'encargos bancarios', 'iof'], categoria: 'Tarifas Bancárias', subcategoria: 'Juros/Encargos', centroCusto: 'Administrativo' },
+    { words: ['simples nacional', 'das mensal', 'das', 'pagamento das'], categoria: 'Simples Nacional', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['irpj', 'csll', 'pis', 'cofins'], categoria: 'Simples Nacional', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['iss', 'issqn'], categoria: 'ISS', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['boleto', 'pagamento de boleto', 'boleto gerado'], categoria: 'Pagamento de Boletos', subcategoria: 'Boletos', centroCusto: 'Administrativo' },
+    { words: ['contador', 'contabilidade', 'escritorio contabil', 'servicos contabeis'], categoria: 'Comissoes', subcategoria: null, centroCusto: 'Administrativo' },
 
-    { words: ['pix transferido', 'pix enviado', 'pix-enviado', 'transferencia enviada', 'pagamento ted', 'pagamento doc', 'doc enviado', 'ted enviada'], categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' },
+    { words: ['tarifa manutencao conta', 'cesta servicos', 'tarifa pacote', 'tarifa bancaria', 'taxa transferencia', 'cobranca tarifa', 'tarifa cobranca', 'taxa de manutencao'], categoria: 'Tarifas Bancarias', subcategoria: 'Taxa de Manutencao', centroCusto: 'Administrativo' },
+    { words: ['maquininha', 'maquina cartao', 'taxa maquininha', 'ton', 'cielo', 'rede', 'getnet'], categoria: 'Tarifas Bancarias', subcategoria: null, centroCusto: 'Administrativo' },
+    { words: ['juros mora', 'multa atraso', 'encargos bancarios', 'iof'], categoria: 'Juros e Multas', subcategoria: null, centroCusto: 'Administrativo' },
 
-    // ── DESPESAS PESSOAIS / DIVERSOS ──
-    { words: ['restaurante', 'lanchonete', 'padaria', 'mercado', 'supermercado', 'acougue', 'hortifruti', 'delivery'], categoria: 'Alimentação', subcategoria: 'Refeições', centroCusto: 'Administrativo' },
-    { words: ['farmacia', 'remedio', 'medicamento', 'consulta medica', 'exame laboratorio', 'plano saude', 'dentista', 'clinica medica'], categoria: 'Saúde', subcategoria: 'Saúde', centroCusto: 'Administrativo' },
-    { words: ['curso', 'faculdade', 'escola', 'universidade', 'material escolar', 'mensalidade escolar'], categoria: 'Educação', subcategoria: 'Educação', centroCusto: 'Administrativo' },
-    { words: ['roupa', 'calcado', 'tenis', 'uniforme'], categoria: 'Vestuário', subcategoria: 'Vestuário', centroCusto: 'Administrativo' },
-    { words: ['cartao credito', 'fatura cartao', 'cartao visa', 'cartao mastercard', 'elo', 'nubank'], categoria: 'Cartão de Crédito', subcategoria: 'Fatura Cartão', centroCusto: 'Administrativo' },
-    { words: ['emprestimo', 'financiamento', 'credito consignado', 'refinanciamento'], categoria: 'Financiamentos', subcategoria: 'Empréstimos', centroCusto: 'Administrativo' },
-    { words: ['advogado', 'honorario advogado', 'custas judiciais', 'justica', 'tribunal'], categoria: 'Honorários Advocatícios', subcategoria: 'Jurídico', centroCusto: 'Administrativo' },
-    { words: ['marketing', 'publicidade', 'anuncio', 'google ads', 'facebook ads', 'instagram', 'divulgacao', 'propaganda'], categoria: 'Marketing', subcategoria: 'Anúncios', centroCusto: 'Vendas' },
-    { words: ['combustivel', 'abastec'], categoria: 'Combustível', subcategoria: 'Combustível', centroCusto: 'Frota' },
-    { words: ['manutencao', 'oficina', 'mecanico', 'reparo'], categoria: 'Manutenção de Frota', subcategoria: 'Manutenção Geral', centroCusto: 'Frota' },
-    { words: ['seguro'], categoria: 'Seguro', subcategoria: 'Seguros', centroCusto: 'Administrativo' },
+    { words: ['boleto', 'pagamento de boleto', 'boleto gerado'], categoria: 'Tarifas Bancarias', subcategoria: 'Boleto', centroCusto: 'Administrativo' },
+
+    { words: ['pix transferido', 'pix enviado', 'pix-enviado', 'transferencia enviada', 'pagamento ted', 'pagamento doc', 'doc enviado', 'ted enviada', 'ted enviado'], categoria: 'Transferencias Enviadas', subcategoria: 'TED/DOC', centroCusto: 'Administrativo' },
+    { words: ['pix', 'ted', 'doc', 'transferencia'], categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' },
+
+    { words: ['cartao credito', 'fatura cartao', 'cartao visa', 'cartao mastercard', 'elo', 'nubank'], categoria: 'Cartao de Credito', subcategoria: 'Compra', centroCusto: 'Administrativo' },
+    { words: ['emprestimo', 'financiamento', 'credito consignado', 'refinanciamento'], categoria: 'Emprestimos', subcategoria: null, centroCusto: 'Administrativo' },
+
+    { words: ['marketing', 'publicidade', 'anuncio', 'google ads', 'facebook ads', 'instagram', 'divulgacao', 'propaganda'], categoria: 'Marketing', subcategoria: 'Google Ads', centroCusto: 'Vendas' },
+
+    { words: ['restaurante', 'lanchonete', 'padaria'], categoria: 'Alimentacao', subcategoria: 'Restaurante', centroCusto: 'Administrativo' },
+    { words: ['mercado', 'supermercado', 'acougue', 'hortifruti'], categoria: 'Alimentacao', subcategoria: 'Supermercado', centroCusto: 'Administrativo' },
+    { words: ['ifood', 'delivery', 'rappi', 'uber eats'], categoria: 'Alimentacao', subcategoria: 'Delivery', centroCusto: 'Administrativo' },
+
+    { words: ['farmacia', 'remedio', 'medicamento', 'consulta medica', 'exame laboratorio', 'plano saude', 'dentista', 'clinica medica'], categoria: 'Saude', subcategoria: null, centroCusto: 'Administrativo' },
+
+    { words: ['comissao', 'comissao vendedor'], categoria: 'Comissoes', subcategoria: null, centroCusto: 'Vendas' },
   ];
 
   // Categorização local — COMPLETA, ordem: específicas primeiro
@@ -625,44 +659,61 @@ function ExtratoImportView() {
       }
     }
 
-    // ── FALLBACK POR TIPO ──
-    // Se mesmo assim não categorizou, usa o tipo (CREDITO/DEBITO) + palavras-chave genéricas
+    // ── FALLBACK POR TIPO (nomes batem com DB) ──
     if (tipo === 'CREDITO') {
       if (/(pix|ted|doc|transferencia|deposito|credito|recebimento|boleto|pagamento)/i.test(lower))
-        return { categoria: 'Receita de Serviços', subcategoria: 'Transferências Recebidas', centroCusto: 'Operacional' };
+        return { categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' };
+      if (/(cacamba|loca|aluguel cacamba)/i.test(lower))
+        return { categoria: 'Servicos de Cacambas', subcategoria: null, centroCusto: 'Operacional' };
     } else if (tipo === 'DEBITO') {
       if (/(tarifa|cesta|iof|juros|encargos bancarios)/i.test(lower))
-        return { categoria: 'Tarifas Bancárias', subcategoria: 'Tarifas de Conta', centroCusto: 'Administrativo' };
+        return { categoria: 'Tarifas Bancarias', subcategoria: 'Taxa de Manutencao', centroCusto: 'Administrativo' };
       if (/(pix|ted|doc|transferencia|pagamento|boleto)/i.test(lower))
-        return { categoria: 'Transferências Enviadas', subcategoria: 'PIX/TED', centroCusto: 'Administrativo' };
+        return { categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' };
       if (/(combustivel|diesel|gasolina|abastec|posto)/i.test(lower))
-        return { categoria: 'Combustível', subcategoria: 'Combustível', centroCusto: 'Frota' };
+        return { categoria: 'Combustivel', subcategoria: 'Diesel S10', centroCusto: 'Frota' };
       if (/(oleo|pneu|manutencao|oficina|mecanico|reparo|peca|revisao|guincho)/i.test(lower))
-        return { categoria: 'Manutenção de Frota', subcategoria: 'Manutenção Geral', centroCusto: 'Frota' };
+        return { categoria: 'Manutencao de Frota', subcategoria: null, centroCusto: 'Frota' };
       if (/(seguro|sulfran)/i.test(lower))
-        return { categoria: 'Seguro', subcategoria: 'Seguros', centroCusto: 'Administrativo' };
+        return { categoria: 'Seguro Veicular', subcategoria: null, centroCusto: 'Frota' };
       if (/(ipva|licenciamento|detran|multa|emplacamento)/i.test(lower))
-        return { categoria: 'IPVA / Licenciamento', subcategoria: 'IPVA', centroCusto: 'Frota' };
+        return { categoria: 'IPVA e Licenciamento', subcategoria: null, centroCusto: 'Frota' };
       if (/(pedagio|sem parar|conectcar|tag)/i.test(lower))
-        return { categoria: 'Pedágios', subcategoria: 'Pedágios', centroCusto: 'Frota' };
+        return { categoria: 'Pedagios', subcategoria: null, centroCusto: 'Frota' };
       if (/(salario|salário|prolabore|pro-labore|folha|ferias|decimo|rescisao)/i.test(lower))
-        return { categoria: 'Salários', subcategoria: 'Salários', centroCusto: 'Administrativo' };
+        return { categoria: 'Salarios e Encargos', subcategoria: 'Salario Base', centroCusto: 'Administrativo' };
       if (/(aluguel|locacao)/i.test(lower))
-        return { categoria: 'Aluguel', subcategoria: 'Imóvel Sede', centroCusto: 'Administrativo' };
+        return { categoria: 'Aluguel', subcategoria: null, centroCusto: 'Administrativo' };
       if (/(luz|energia|copel|agua|sanepar|telefone|oi fibra|vivo|claro)/i.test(lower))
-        return { categoria: 'Água, Luz, Telefone', subcategoria: 'Telefone/Internet', centroCusto: 'Administrativo' };
+        return { categoria: 'Agua, Luz e Telefone', subcategoria: null, centroCusto: 'Administrativo' };
       if (/(material escritorio|papelaria|impressao)/i.test(lower))
-        return { categoria: 'Material de Escritório', subcategoria: 'Papelaria', centroCusto: 'Administrativo' };
-      if (/(simples|das|fgts|inss)/i.test(lower))
-        return { categoria: 'Simples Nacional', subcategoria: 'DAS', centroCusto: 'Administrativo' };
+        return { categoria: 'Material de Escritorio', subcategoria: null, centroCusto: 'Administrativo' };
+      if (/(simples|das|inss)/i.test(lower))
+        return { categoria: 'Simples Nacional', subcategoria: null, centroCusto: 'Administrativo' };
+      if (/(fgts)/i.test(lower))
+        return { categoria: 'FGTS', subcategoria: null, centroCusto: 'Administrativo' };
       if (/(contador|contabilidade|nota fiscal)/i.test(lower))
-        return { categoria: 'Serviços Contábeis', subcategoria: 'Contabilidade', centroCusto: 'Administrativo' };
+        return { categoria: 'Comissoes', subcategoria: null, centroCusto: 'Administrativo' };
       if (/(maquininha|ton|cielo|rede|getnet)/i.test(lower))
-        return { categoria: 'Tarifas Bancárias', subcategoria: 'Taxas Maquininha', centroCusto: 'Administrativo' };
-      if (/(restaurante|lanchonete|padaria|mercado|supermercado|farmacia|remedio)/i.test(lower))
-        return { categoria: 'Alimentação', subcategoria: 'Refeições', centroCusto: 'Administrativo' };
+        return { categoria: 'Tarifas Bancarias', subcategoria: null, centroCusto: 'Administrativo' };
+      if (/(restaurante|lanchonete|padaria|mercado|supermercado)/i.test(lower))
+        return { categoria: 'Alimentacao', subcategoria: 'Restaurante', centroCusto: 'Administrativo' };
+      if (/(ifood|delivery|rappi)/i.test(lower))
+        return { categoria: 'Alimentacao', subcategoria: 'Delivery', centroCusto: 'Administrativo' };
+      if (/(farmacia|remedio)/i.test(lower))
+        return { categoria: 'Saude', subcategoria: null, centroCusto: 'Administrativo' };
       if (/(cartao credito|fatura cartao|nubank|elo)/i.test(lower))
-        return { categoria: 'Cartão de Crédito', subcategoria: 'Fatura Cartão', centroCusto: 'Administrativo' };
+        return { categoria: 'Cartao de Credito', subcategoria: 'Compra', centroCusto: 'Administrativo' };
+      if (/(saque|saque eletronico)/i.test(lower))
+        return { categoria: 'Transferencias Enviadas', subcategoria: 'Pix', centroCusto: 'Administrativo' };
+    }
+
+    // Último recurso: qualquer transação DEBITO vai como despesa administrativa genérica
+    if (tipo === 'DEBITO') {
+      return { categoria: 'Tarifas Bancarias', subcategoria: null, centroCusto: 'Administrativo' };
+    }
+    if (tipo === 'CREDITO') {
+      return { categoria: 'Recebimentos PIX', subcategoria: 'PIX Recebido', centroCusto: 'Operacional' };
     }
 
     return { categoria: null, subcategoria: null, centroCusto: null };
