@@ -30,8 +30,6 @@ export default function NovoCliente() {
       `📄 *TERMOS DE CONTRATAÇÃO (PDF):*\n` +
       `${baseUrl}/termos.pdf\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `💰 *CHAVE PIX (CNPJ):*\n` +
-      `16.403.233.0001-75\n\n` +
       ` RELÂMPAGO ATT\n\n` +
       `✅ *Cliente declara estar ciente e de acordo com os termos.*`
     );
@@ -55,6 +53,9 @@ export default function NovoCliente() {
   const handleSend = () => {
     const msg = gerarMensagem();
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    setTimeout(() => {
+      window.open(`https://wa.me/?text=${encodeURIComponent('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}`, '_blank');
+    }, 1500);
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
