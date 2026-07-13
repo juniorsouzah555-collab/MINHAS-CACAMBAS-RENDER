@@ -58,6 +58,16 @@ const translateInvoiceStatus = (status: string) => {
   }
 };
 
+const formatDateTime = (isoStr: string) => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return isoStr;
+  }
+};
+
 export default function FinanceView({
   invoices,
   fuelTrend,
@@ -691,6 +701,7 @@ export default function FinanceView({
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <span className="font-mono text-[10px] font-bold text-slate-500">{lan.id}</span>
                                 <span className="text-[10px] text-slate-400">{lan.data}</span>
+                                {lan.createdAt && <span className="text-[10px] text-indigo-500 font-medium">{formatDateTime(lan.createdAt)}</span>}
                                 {lan.driverName && <span className="text-[10px] text-slate-400">Motorista: {lan.driverName}</span>}
                                 {lan.vehicleId && <span className="text-[10px] text-slate-400">Veículo: {lan.vehicleId}</span>}
                               </div>

@@ -251,6 +251,16 @@ export default function OperationsView({
     return `${day}/${month}/${year}`;
   };
 
+  const formatDateTime = (isoStr: string) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return isoStr;
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
@@ -572,11 +582,17 @@ export default function OperationsView({
                   </div>
 
                   {/* Date Badge */}
-                  <div className="flex flex-col items-end">
+                  <div className="flex flex-col items-end gap-1">
                     <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
                       <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{formatDate(lan.data)}</span>
                     </span>
+                    {lan.createdAt && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
+                        <span>{formatDateTime(lan.createdAt)}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
