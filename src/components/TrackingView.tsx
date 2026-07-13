@@ -36,16 +36,20 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     return () => clearInterval(id);
   }, [poll]);
 
-  // Filtra só motoristas com localização recente (últimos 30 min)
+  // Filtra só motoristas com localização recente (últimos 60 min)
   const now = Date.now();
   const online = locations.filter(l => {
     const diff = now - new Date(l.updatedAt).getTime();
-    if (diff >= 30 * 60 * 1000) return false;
-    const name = (l.driverName || '').toLowerCase();
-    const vid = (l.vehicleId || '').toLowerCase();
+    if (diff >= 60 * 60 * 1000) return false; // 60 min ao invés de 30
+    const name = (l.driverName || '').toLowerCase().trim();
+    const vid = (l.vehicleId || '').toLowerCase().trim();
     return motoristas.some(m => {
-      const ml = m.toLowerCase();
-      return ml === name || ml.startsWith(name) || vid.includes(ml) || vid.startsWith('ot-' + ml);
+      const ml = m.toLowerCase().trim();
+      // Match por nome do motorista (exato, parcial, ou invertido)
+      if (name === ml || name.includes(ml) || ml.includes(name)) return true;
+      // Match por vehicle ID (OT-nome, FLT-nome, etc)
+      if (vid.includes(ml) || ml.includes(vid.replace('ot-', ''))) return true;
+      return false;
     });
   });
 
@@ -68,7 +72,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Rastreamento de Motoristas
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            GPS a cada 5min ou 100m · ETag cache (egress mínimo)
+            GPS a cada 5min ou 100m · Últimos 60 min de atividade
           </p>
         </div>
         <div className="flex items-center gap-3">

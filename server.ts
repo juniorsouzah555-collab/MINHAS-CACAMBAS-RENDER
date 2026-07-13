@@ -140,16 +140,21 @@ app.post("/api/owntracks", async (req, res) => {
     if (!body || body._type !== 'location') {
       return res.json({ _type: 'response', result: true });
     }
-    const vehicleId = body.tid || body.id || 'UNKNOWN';
+    // Usar name (User ID do OwnTracks) como driver_name
+    // tid é o tracker ID (2 chars), id é o device ID
+    const driverName = body.name || body.tid || 'Motorista';
+    const trackerId = body.tid || body.id || driverName;
     const lat = body.lat;
     const lng = body.lon;
     if (lat == null || lng == null) {
       return res.json({ _type: 'response', result: true });
     }
     const now = new Date().toISOString();
+    // Salvar com vehicle_id = OT-{trackerId} e driver_name = nome do motorista
+    // O trigger do OwnTracks deve ter o "User ID" configurado com o nome do motorista
     await db.insert(schema.vehicleLocations).values({
-      vehicleId: `OT-${vehicleId}`,
-      driverName: body.name || vehicleId,
+      vehicleId: `OT-${trackerId}`,
+      driverName: driverName,
       lat,
       lng,
       speed: body.vel != null ? Number(body.vel) : null,
@@ -157,7 +162,7 @@ app.post("/api/owntracks", async (req, res) => {
       updatedAt: now,
     }).onConflictDoUpdate({
       target: schema.vehicleLocations.vehicleId,
-      set: { lat, lng, driverName: body.name || vehicleId, speed: body.vel != null ? Number(body.vel) : null, accuracy: body.acc != null ? Number(body.acc) : null, updatedAt: now },
+      set: { lat, lng, driverName: driverName, speed: body.vel != null ? Number(body.vel) : null, accuracy: body.acc != null ? Number(body.acc) : null, updatedAt: now },
     });
     locationsEtag = `loc-${Date.now()}`;
     res.json({ _type: 'response', result: true });
