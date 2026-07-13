@@ -1364,6 +1364,22 @@ export default function App() {
     }
   };
 
+  // Action: Editar Lançamento
+  const handleEditLancamento = async (id: string, updates: Partial<Lancamento>) => {
+    const previous = lancamentos;
+    setLancamentos(prev => prev.map(lan => lan.id === id ? { ...lan, ...updates } : lan));
+    try {
+      if (isSupabaseConfigured()) {
+        const ok = await proxyUpdate('lancamentos', updates, `id=eq.${id}`);
+        if (!ok) throw new Error('Falha ao atualizar no servidor');
+      }
+      handleShowToast("Lançamento Atualizado", `O registro foi atualizado com sucesso.`, "success");
+    } catch (e) {
+      setLancamentos(previous);
+      handleShowToast("Erro ao Atualizar", "Não foi possível sincronizar a atualização com o servidor. Tente novamente.", "info");
+    }
+  };
+
   // Action: Dar baixa em lote (todos os pendentes de um Bota Fora) — abate ganancioso
   const handleBaixaTotal = (lancamentoIds: string[], totalDebito: number, valorPagoTotal: number) => {
     let saldoRestante = Math.min(valorPagoTotal, totalDebito);
@@ -1909,6 +1925,9 @@ export default function App() {
             <OperationsView 
               lancamentos={lancamentos}
               onDeleteLancamento={handleDeleteLancamento}
+              onEditLancamento={handleEditLancamento}
+              botaForas={botaForas}
+              vehicles={vehicles}
               searchTerm={searchTerm}
               onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
             />

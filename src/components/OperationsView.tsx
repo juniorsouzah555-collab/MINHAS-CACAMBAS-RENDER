@@ -24,11 +24,14 @@ import {
   MapPin,
   FileText
 } from 'lucide-react';
-import { Lancamento } from '../types';
+import { Lancamento, BotaFora, Vehicle } from '../types';
 
 interface OperationsViewProps {
   lancamentos: Lancamento[];
   onDeleteLancamento: (id: string) => void;
+  onEditLancamento: (id: string, updates: Partial<Lancamento>) => void;
+  botaForas: BotaFora[];
+  vehicles: Vehicle[];
   searchTerm: string;
   onOpenNewDispatch: () => void; // mapped to launching the New Lançamento Modal!
 }
@@ -36,18 +39,81 @@ interface OperationsViewProps {
 export default function OperationsView({
   lancamentos,
   onDeleteLancamento,
+  onEditLancamento,
+  botaForas,
+  vehicles,
   searchTerm,
   onOpenNewDispatch
 }: OperationsViewProps) {
   const [botaForaFilter, setBotaForaFilter] = useState('ALL');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
+  const [editForm, setEditForm] = useState({
+    botaForaId: '',
+    botaForaNome: '',
+    quantidadeCacambas: 1,
+    valor: 0,
+    data: '',
+    driverName: '',
+    vehicleId: '',
+    observacao: ''
+  });
 
   // Handle resetting of filters
   const handleResetFilters = () => {
     setBotaForaFilter('ALL');
     setFilterStartDate('');
     setFilterEndDate('');
+  };
+
+  // Open edit modal
+  const openEditModal = (lan: Lancamento) => {
+    setEditingLancamento(lan);
+    setEditForm({
+      botaForaId: lan.botaForaId,
+      botaForaNome: lan.botaForaNome,
+      quantidadeCacambas: lan.quantidadeCacambas,
+      valor: lan.valor,
+      data: lan.data,
+      driverName: lan.driverName || '',
+      vehicleId: lan.vehicleId || '',
+      observacao: lan.observacao || ''
+    });
+  };
+
+  // Save edit
+  const saveEdit = () => {
+    if (!editingLancamento) return;
+    onEditLancamento(editingLancamento.id, {
+      botaForaId: editForm.botaForaId,
+      botaForaNome: editForm.botaForaNome,
+      quantidadeCacambas: editForm.quantidadeCacambas,
+      valor: editForm.valor,
+      data: editForm.data,
+      driverName: editForm.driverName || undefined,
+      vehicleId: editForm.vehicleId || undefined,
+      observacao: editForm.observacao || undefined
+    });
+    setEditingLancamento(null);
+  };
+
+  // Send via WhatsApp
+  const sendWhatsApp = (lan: Lancamento) => {
+    const local = lan.botaForaNome || '';
+    const dataFmt = lan.data ? new Date(lan.data + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+    const valorLinha = lan.valor > 0 ? `\n💰 Valor: R$ ${lan.valor.toFixed(2).replace('.', ',')}` : '';
+    const msg =
+      `✅ *Lançamento registrado*\n` +
+      `📍 Local: ${local}\n` +
+      `📦 Quantidade: ${lan.quantidadeCacambas} caçamba${lan.quantidadeCacambas > 1 ? 's' : ''}` +
+      valorLinha +
+      (lan.vehicleId ? `\n🚛 Veículo: ${lan.vehicleId}` : '') +
+      (lan.driverName ? `\n👷 Motorista: ${lan.driverName}` : '') +
+      `\n📅 Data: ${dataFmt}` +
+      (lan.observacao ? `\n📝 Obs: ${lan.observacao}` : '');
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
   };
 
   // Filter lancamentos based on search input, dropdown bota fora name, and period start/end dates
@@ -572,16 +638,46 @@ export default function OperationsView({
                   <div className="text-[10px] italic text-slate-400 font-medium">Lançamento direto de balança</div>
                 )}
 
-                {/* Delete trigger */}
-                <button
-                  type="button"
-                  onClick={() => onDeleteLancamento(lan.id)}
-                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-transparent hover:border-rose-100 transition-colors cursor-pointer flex items-center gap-1 bg-transparent"
-                  title="Excluir Lançamento"
-                >
-                  <Trash2 className="w-4 h-4 text-slate-450 hover:text-rose-605" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Excluir</span>
-                </button>
+                {/* Action buttons */}
+                <div className="flex items-center gap-1">
+                  {/* WhatsApp button */}
+                  <button
+                    type="button"
+                    onClick={() => sendWhatsApp(lan)}
+                    className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-lg border border-transparent hover:border-emerald-100 transition-colors cursor-pointer flex items-center gap-1 bg-transparent"
+                    title="Enviar via WhatsApp"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">WhatsApp</span>
+                  </button>
+
+                  {/* Edit button */}
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(lan)}
+                    className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-colors cursor-pointer flex items-center gap-1 bg-transparent"
+                    title="Editar Lançamento"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Editar</span>
+                  </button>
+
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteLancamento(lan.id)}
+                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-transparent hover:border-rose-100 transition-colors cursor-pointer flex items-center gap-1 bg-transparent"
+                    title="Excluir Lançamento"
+                  >
+                    <Trash2 className="w-4 h-4 text-slate-450 hover:text-rose-605" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Excluir</span>
+                  </button>
+                </div>
 
               </div>
 
@@ -604,6 +700,127 @@ export default function OperationsView({
           Para gerar relatórios completos contendo somas e listagens impressas por períodos de balança customizados, utilize a aba **Relatórios** na barra lateral.
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingLancamento && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-900">Editar Lançamento</h3>
+              <button
+                onClick={() => setEditingLancamento(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Bota Fora */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Local de Descarga</label>
+                <select
+                  value={editForm.botaForaId}
+                  onChange={(e) => {
+                    const bf = botaForas.find(b => b.id === e.target.value);
+                    setEditForm(prev => ({
+                      ...prev,
+                      botaForaId: e.target.value,
+                      botaForaNome: bf?.nome || ''
+                    }));
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                >
+                  {botaForas.map(bf => (
+                    <option key={bf.id} value={bf.id}>{bf.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantidade */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Quantidade de Caçambas</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editForm.quantidadeCacambas}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, quantidadeCacambas: parseInt(e.target.value) || 1 }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Valor */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editForm.valor}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, valor: parseFloat(e.target.value) || 0 }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Data */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Data</label>
+                <input
+                  type="date"
+                  value={editForm.data}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, data: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Veículo */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Veículo</label>
+                <select
+                  value={editForm.vehicleId}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, vehicleId: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Selecionar veículo</option>
+                  {vehicles.filter(v => v.isActive).map(v => (
+                    <option key={v.id} value={v.id}>{v.id} - {v.driver || 'Sem motorista'}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Observação */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Observação</label>
+                <input
+                  type="text"
+                  value={editForm.observacao}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, observacao: e.target.value }))}
+                  placeholder="Observação opcional"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingLancamento(null)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEdit}
+                className="flex-1 py-3 rounded-xl font-bold text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                Salvar Alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
