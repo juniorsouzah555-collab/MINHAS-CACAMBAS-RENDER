@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Minus, Plus, CheckCircle2, Truck, Clock, Send } from 'lucide-react';
+import { MapPin, Minus, Plus, CheckCircle2, Truck, Clock, Send, FileText } from 'lucide-react';
 import { BotaFora, Vehicle } from '../types';
 
 interface DescargaRapidaProps {
@@ -204,6 +204,16 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
             <span className="flex items-center gap-1"><span className="text-emerald-400 font-bold">{motorista}</span></span>
           </div>
         </div>
+
+        {/* Botão CTR */}
+        <button
+          type="button"
+          onClick={() => window.open('https://ctr-automacao-relampago.onrender.com', '_blank')}
+          className="w-full py-3 rounded-xl bg-orange-600 text-white font-black text-sm hover:bg-orange-700 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/30 cursor-pointer flex items-center justify-center gap-2 mb-4"
+        >
+          <FileText className="w-4 h-4" />
+          CTR
+        </button>
 
         {/* Form */}
         <div className="bg-white rounded-2xl p-4 shadow-2xl space-y-4">
