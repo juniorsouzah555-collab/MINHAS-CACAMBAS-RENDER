@@ -167,6 +167,8 @@ export default function DriverPortal({
   // Form states and active forms
   const [activeForm, setActiveForm] = useState<'discharges' | 'refueling'>('discharges');
 
+  const CTR_URL = import.meta.env.VITE_CTR_URL || 'https://ctr-automacao-relampago.onrender.com';
+
   // Today's date string "YYYY-MM-DD"
   const getTodayDateStr = () => {
     return new Date().toISOString().split('T')[0];
@@ -924,7 +926,7 @@ export default function DriverPortal({
           </p>
 
           {/* Quick Select Buttons between actions forms */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
+          <div className="grid grid-cols-3 gap-2 mb-6">
             <button
               type="button"
               onClick={() => setActiveForm('discharges')}
@@ -951,6 +953,15 @@ export default function DriverPortal({
               {activeForm === 'refueling' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
               <Fuel className={`w-5 h-5 ${activeForm === 'refueling' ? 'text-emerald-200' : ''}`} />
               <span>Abastecimento</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.open(CTR_URL, '_blank')}
+              className="relative py-3 px-2 sm:px-4 rounded-2xl border-2 text-[11px] sm:text-xs font-black tracking-wide flex flex-col items-center gap-2 transition-all text-center cursor-pointer overflow-hidden bg-white border-blue-200/60 text-slate-600 hover:border-orange-300 hover:bg-orange-50/50 hover:text-orange-700"
+            >
+              <FileText className="w-5 h-5" />
+              <span>CTR</span>
             </button>
           </div>
 
