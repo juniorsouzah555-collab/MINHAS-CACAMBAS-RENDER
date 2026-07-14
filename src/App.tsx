@@ -1822,6 +1822,12 @@ export default function App() {
             ))}
           </div>
           <button
+            onClick={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+            className="mt-6 w-full py-4 rounded-xl bg-orange-600 text-white font-black text-lg hover:bg-orange-700 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/30 cursor-pointer"
+          >
+            CTR
+          </button>
+          <button
             onClick={() => { window.location.href = '/?page=admin'; }}
             className="mt-8 text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
           >
