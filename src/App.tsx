@@ -1606,11 +1606,27 @@ export default function App() {
 
     // If type is GARAGEM, subtract quantity to update stocks (can go negative)
     if (newLog.tipo === 'GARAGEM') {
-      setGarageDieselQty(prev => {
-        const newQty = parseFloat(((prev - newLog.quantidadeLitros) || 0).toFixed(2));
-        localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
-        return newQty;
-      });
+      const newQty = parseFloat(((garageDieselQty - newLog.quantidadeLitros) || 0).toFixed(2));
+      setGarageDieselQty(newQty);
+      localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+      if (isSupabaseConfigured()) {
+        supabase.from('vehicles').upsert({
+          id: 'GARAGE-CONFIG',
+          type: 'garage_config',
+          status: 'garage_config',
+          cost_per_km: garageDieselPrice,
+          efficiency: newQty,
+          fuel_used: 0,
+          driver: '',
+          trend: '',
+          speed: 0,
+          lat: 0,
+          lng: 0,
+          is_active: false
+        }).then(({ error }) => {
+          if (error) console.error('Supabase error saving garage config after GARAGEM fueling:', error);
+        });
+      }
     }
 
     // Update corresponding vehicle's stats: efficiency, fuelUsed

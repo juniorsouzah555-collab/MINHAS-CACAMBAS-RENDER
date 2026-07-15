@@ -901,44 +901,6 @@ export default function FleetView({
               </div>
             </div>
 
-            {/* Inputs de Preenchimento da Bomba Garagem */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full md:w-auto shrink-0 bg-slate-950/50 p-4 rounded-xl border border-white/5 shadow-inner">
-              <div className="space-y-1">
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Quantidade de Diesel (L)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={garageDieselQty}
-                    onChange={(e) => onUpdateGarageDiesel(parseFloat(e.target.value) || 0, garageDieselPrice)}
-                    className="w-full sm:w-36 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 font-bold font-mono focus:outline-none focus:border-purple-500 text-right"
-                    placeholder="Abastecer Tanque"
-                  />
-                  <span className="absolute left-2 text-[8px] font-extrabold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1 py-0.5 rounded top-1/2 -translate-y-1/2 select-none uppercase">Tanque</span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Valor do Litro Diesel (R$/L)</label>
-                <div className="relative text-emerald-400">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold font-mono">R$</span>
-                  <input
-                    type="text"
-                    value={garageDieselPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, '');
-                      if (!digits) {
-                        onUpdateGarageDiesel(garageDieselQty, 0);
-                        return;
-                      }
-                      const val = parseInt(digits, 10) / 100;
-                      onUpdateGarageDiesel(garageDieselQty, val);
-                    }}
-                    className="w-full sm:w-38 bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2.5 py-1.5 text-xs text-slate-100 font-bold font-mono focus:outline-none focus:border-purple-500 text-right"
-                    placeholder="Ex: 5,68"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* HISTORICO DE ABASTECIMENTO DO TANQUE GARAGEM */}
