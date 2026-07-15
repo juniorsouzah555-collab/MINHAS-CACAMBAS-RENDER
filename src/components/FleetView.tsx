@@ -1211,7 +1211,10 @@ export default function FleetView({
                     <span className="absolute left-3 top-2.5 text-purple-600 text-xs font-bold font-mono">R$</span>
                     <input
                       type="text"
-                      value={fuelPricePerLitreUnitString}
+                      value={(!isRetiradaDiversa && fuelSource === 'GARAGEM')
+                        ? garageDieselPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : fuelPricePerLitreUnitString
+                      }
                       onChange={(e) => {
                         if (!isRetiradaDiversa && fuelSource === 'GARAGEM') return;
                         const input = e.target.value;
@@ -1267,20 +1270,20 @@ export default function FleetView({
                       </>
                     )}
                     
-                    {fuelPricePerLitreUnitString !== '' && (
+                    {((!isRetiradaDiversa && fuelSource === 'GARAGEM' && garageDieselPrice > 0) || fuelPricePerLitreUnitString !== '') && (
                       <div className="flex justify-between text-xs text-slate-600 font-medium">
                         <span>{isRetiradaDiversa ? "Valor Total:" : "Preço do Litro:"}</span>
                         <strong className="text-slate-950 font-bold font-mono">
-                          R$ {(parseFloat(fuelPricePerLitreUnitString.replace(/\./g, '').replace(',', '.')) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {!isRetiradaDiversa && "/ Litro"}
+                          R$ {((!isRetiradaDiversa && fuelSource === 'GARAGEM' ? garageDieselPrice : (parseFloat(fuelPricePerLitreUnitString.replace(/\./g, '').replace(',', '.')) || 0))).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {!isRetiradaDiversa && "/ Litro"}
                         </strong>
                       </div>
                     )}
 
-                    {!isRetiradaDiversa && fuelLitres !== '' && Number(fuelLitres) > 0 && fuelPricePerLitreUnitString !== '' && (
+                    {!isRetiradaDiversa && fuelLitres !== '' && Number(fuelLitres) > 0 && ((!isRetiradaDiversa && fuelSource === 'GARAGEM' && garageDieselPrice > 0) || fuelPricePerLitreUnitString !== '') && (
                       <div className="flex justify-between text-xs text-slate-800 font-black border-t border-purple-150 pt-1.5 mt-1.5">
                         <span>CUSTO ESTIMADO:</span>
                         <strong className="text-purple-750 font-black font-mono text-base">
-                          R$ {((parseFloat(fuelPricePerLitreUnitString.replace(/\./g, '').replace(',', '.')) || 0) * Number(fuelLitres)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          R$ {((!isRetiradaDiversa && fuelSource === 'GARAGEM' ? garageDieselPrice : (parseFloat(fuelPricePerLitreUnitString.replace(/\./g, '').replace(',', '.')) || 0)) * Number(fuelLitres)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </strong>
                       </div>
                     )}
