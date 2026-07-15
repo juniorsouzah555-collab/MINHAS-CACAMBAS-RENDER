@@ -597,6 +597,7 @@ export default function App() {
     // Increase garage stock
     const newQty = garageDieselQty + refill.quantidade_litros;
     setGarageDieselQty(newQty);
+    setGarageDieselPrice(refill.preco_por_litro);
     localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
     localStorage.setItem('relampago_garage_diesel_price', refill.preco_por_litro.toString());
     if (isSupabaseConfigured()) {
@@ -671,7 +672,9 @@ export default function App() {
       const diff = refill.quantidade_litros - oldRecord.quantidade_litros;
       const newQty = Math.max(0, garageDieselQty + diff);
       setGarageDieselQty(newQty);
+      setGarageDieselPrice(refill.preco_por_litro);
       localStorage.setItem('relampago_garage_diesel_qty', newQty.toString());
+      localStorage.setItem('relampago_garage_diesel_price', refill.preco_por_litro.toString());
       if (isSupabaseConfigured()) {
         supabase.from('vehicles').upsert({
           id: 'GARAGE-CONFIG',
