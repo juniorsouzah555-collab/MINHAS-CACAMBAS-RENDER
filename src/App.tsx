@@ -66,6 +66,7 @@ import ManutencaoView from './components/ManutencaoView';
 import DescargaRapida from './components/DescargaRapida';
 import PayslipView from './components/PayslipView';
 import NovoCliente from './components/NovoCliente';
+import CtrVencidosView from './components/CtrVencidosView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -2177,6 +2178,10 @@ export default function App() {
 
           {currentTab === 'novocliente' && (
             <NovoCliente />
+          )}
+
+          {currentTab === 'ctr-vencidos' && (
+            <CtrVencidosView />
           )}
 
           {currentTab === 'settings' && (

@@ -21,7 +21,8 @@ import {
   Receipt,
   Landmark,
   Wrench,
-  UserPlus
+  UserPlus,
+  Clock
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -49,6 +50,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'bancario', name: 'Bancários', icon: Landmark },
     { id: 'reports', name: 'Relatórios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
+    { id: 'ctr-vencidos', name: 'CTR Vencidos', icon: Clock },
     { id: 'manutencao', name: 'Manutenção', icon: Wrench },
     { id: 'payslip', name: 'Holerites', icon: FileText },
     { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus },
