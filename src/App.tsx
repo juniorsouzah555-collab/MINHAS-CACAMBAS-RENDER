@@ -1823,10 +1823,10 @@ export default function App() {
 
   // Rota pública sem parâmetros (PWA instalado): mostra seleção de motorista
   if (!isAuthenticated && !publicPage) {
-    const urlMotorista = urlParams.get('motorista') || '';
+    const urlMotorista = (urlParams.get('motorista') || urlParams.get('MOTORISTA') || '').toUpperCase();
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
     const motoristasVisiveis = urlMotorista
-      ? todosMotoristas.filter(n => n === urlMotorista.toUpperCase())
+      ? todosMotoristas.filter(n => n === urlMotorista)
       : todosMotoristas;
 
     return (
