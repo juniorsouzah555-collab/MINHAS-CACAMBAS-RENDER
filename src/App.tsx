@@ -1823,6 +1823,12 @@ export default function App() {
 
   // Rota pública sem parâmetros (PWA instalado): mostra seleção de motorista
   if (!isAuthenticated && !publicPage) {
+    const urlMotorista = urlParams.get('motorista') || '';
+    const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
+    const motoristasVisiveis = urlMotorista
+      ? todosMotoristas.filter(n => n === urlMotorista.toUpperCase())
+      : todosMotoristas;
+
     return (
       <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6">
         <div className="text-center max-w-sm w-full">
@@ -1830,7 +1836,7 @@ export default function App() {
           <h1 className="text-xl font-black text-white mb-1">Relâmpago Caçambas</h1>
           <p className="text-sm text-slate-400 mb-8">Selecione seu nome para registrar descarga</p>
           <div className="space-y-3">
-            {['TADEU', 'JUNIOR', 'RAMON'].map(nome => (
+            {motoristasVisiveis.map(nome => (
               <button
                 key={nome}
                 onClick={() => { window.location.href = `/?page=descarga&motorista=${nome}`; }}
