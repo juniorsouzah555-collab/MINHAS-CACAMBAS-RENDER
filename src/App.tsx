@@ -109,6 +109,31 @@ export default function App() {
   const [portaoLoading, setPortaoLoading] = useState(false);
   const [portaoMsg, setPortaoMsg] = useState('');
 
+  const handlePortao = async () => {
+    const senha = prompt('Senha:');
+    if (senha !== '52') {
+      setPortaoMsg('Senha incorreta');
+      setTimeout(() => setPortaoMsg(''), 2000);
+      return;
+    }
+    setPortaoLoading(true);
+    setPortaoMsg('');
+    try {
+      const res = await fetch('/api/portao', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setPortaoMsg(data.newState ? 'Portão ABERTO' : 'Portão FECHADO');
+      } else {
+        setPortaoMsg('Erro: ' + (data.error || 'desconhecido'));
+      }
+    } catch {
+      setPortaoMsg('Erro ao conectar');
+    } finally {
+      setPortaoLoading(false);
+      setTimeout(() => setPortaoMsg(''), 3000);
+    }
+  };
+
   // Registered Motoristas (Drivers) state
   const [motoristas, setMotoristas] = useState<string[]>([]);
 
@@ -1833,31 +1858,6 @@ export default function App() {
       ? todosMotoristas.filter(n => n === urlMotorista)
       : todosMotoristas;
 
-    const handlePortao = async () => {
-      const senha = prompt('Senha:');
-      if (senha !== '52') {
-        setPortaoMsg('Senha incorreta');
-        setTimeout(() => setPortaoMsg(''), 2000);
-        return;
-      }
-      setPortaoLoading(true);
-      setPortaoMsg('');
-      try {
-        const res = await fetch('/api/portao', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          setPortaoMsg(data.newState ? 'Portão ABERTO' : 'Portão FECHADO');
-        } else {
-          setPortaoMsg('Erro: ' + (data.error || 'desconhecido'));
-        }
-      } catch {
-        setPortaoMsg('Erro ao conectar');
-      } finally {
-        setPortaoLoading(false);
-        setTimeout(() => setPortaoMsg(''), 3000);
-      }
-    };
-
     return (
       <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6 relative">
         {/* Botão Portão */}
@@ -1945,6 +1945,20 @@ export default function App() {
   return (
     <div className="bg-slate-50 min-h-screen text-slate-800 font-sans flex antialiased selection:bg-purple-500/20">
       
+      {/* Botão Portão (ADM) */}
+      <button
+        onClick={handlePortao}
+        disabled={portaoLoading}
+        className="fixed top-3 right-3 z-[200] px-3 py-1.5 rounded-lg bg-amber-600/80 text-white text-xs font-bold hover:bg-amber-500 active:scale-95 transition-all cursor-pointer disabled:opacity-50 shadow-lg"
+      >
+        {portaoLoading ? '...' : 'PORTÃO'}
+      </button>
+      {portaoMsg && (
+        <div className="fixed top-12 right-3 z-[200] px-3 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-amber-400 shadow-lg">
+          {portaoMsg}
+        </div>
+      )}
+
       {/* Sidebar navigation drawer */}
         <Sidebar 
           currentTab={currentTab} 
