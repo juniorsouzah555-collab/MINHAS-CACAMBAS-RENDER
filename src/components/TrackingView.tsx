@@ -22,11 +22,38 @@ interface TrackingViewProps {
   motoristas: string[];
 }
 
+// Cache global de endereços (sobrevive re-renders)
+const addressCache = new Map<string, string>();
+let lastNominatimCall = 0;
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (addressCache.has(key)) return addressCache.get(key)!;
+  try {
+    const now = Date.now();
+    const wait = Math.max(0, 1100 - (now - lastNominatimCall));
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    lastNominatimCall = Date.now();
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`, {
+      headers: { 'User-Agent': 'RelampagoCacambas/1.0' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.display_name || '';
+      const short = addr.split(',').slice(0, 3).join(',').trim();
+      addressCache.set(key, short);
+      return short;
+    }
+  } catch {}
+  return '';
+}
+
 export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
   const prevRef = useRef<VehicleLocation[]>([]);
   const ftDataRef = useRef<VehicleLocation[]>([]);
   const pwaDataRef = useRef<VehicleLocation[]>([]);
+  const [addresses, setAddresses] = useState<Record<string, string>>({});
 
   // Merge FT + PWA → update state
   const mergeAndUpdate = useCallback(() => {
@@ -77,7 +104,6 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
       es.onerror = () => {
         es?.close();
         es = null;
-        // Fallback: poll a cada 10s se SSE falhar
         if (!fallbackTimer) {
           fallbackTimer = setInterval(async () => {
             try {
@@ -103,7 +129,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     };
   }, [mergeAndUpdate]);
 
-  // Poll PWA (Turso) a cada 10s — sem SSE pra Turso
+  // Poll PWA (Turso) a cada 10s
   useEffect(() => {
     const pollPwa = async () => {
       try {
@@ -143,6 +169,26 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   }) : recent;
 
   const displayList = motoristas.length > 0 && online.length > 0 ? online : recent;
+
+  // Reverse geocoding: busca endereços dos veículos visíveis
+  useEffect(() => {
+    const toFetch = displayList.filter(l => l.lat && l.lng && !addresses[`${l.lat.toFixed(4)},${l.lng.toFixed(4)}`]);
+    if (toFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const newAddresses: Record<string, string> = {};
+      for (const l of toFetch) {
+        const key = `${l.lat.toFixed(4)},${l.lng.toFixed(4)}`;
+        const addr = await reverseGeocode(l.lat, l.lng);
+        if (addr) newAddresses[key] = addr;
+      }
+      if (!cancelled && Object.keys(newAddresses).length > 0) {
+        setAddresses(prev => ({ ...prev, ...newAddresses }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [displayList]);
 
   const onlineUsers = displayList.map(l => ({
     name: l.driverName || 'Motorista',
@@ -218,33 +264,41 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
               <p className="text-[10px] text-slate-300 mt-1">Aguardando dados de GPS...</p>
             </div>
           ) : (
-            displayList.map((l, i) => (
-              <div key={l.vehicleId || i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${l.source === 'fulltrack' ? 'bg-blue-500' : 'bg-violet-500'} animate-pulse`} />
-                  <div className="min-w-0">
-                    <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
-                    <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
-                      {l.plate && <span className="text-slate-500 font-bold">{l.plate}</span>}
-                      {!l.plate && l.vehicleId}
-                      {l.ignition === false && <span className="ml-1 text-amber-500">ign off</span>}
-                      {l.speed != null && l.speed > 0 && <span className="ml-2 text-emerald-600 font-bold">{Math.round(l.speed)} km/h</span>}
-                      {l.accuracy != null && <span className="ml-2 text-slate-300">±{Math.round(l.accuracy)}m</span>}
-                    </span>
+            displayList.map((l, i) => {
+              const addrKey = l.lat && l.lng ? `${l.lat.toFixed(4)},${l.lng.toFixed(4)}` : '';
+              const addr = addrKey ? addresses[addrKey] : '';
+              return (
+                <div key={l.vehicleId || i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${l.source === 'fulltrack' ? 'bg-blue-500' : 'bg-violet-500'} animate-pulse`} />
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
+                      <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
+                        {l.plate && <span className="text-slate-500 font-bold">{l.plate}</span>}
+                        {!l.plate && l.vehicleId}
+                        {l.ignition === false && <span className="ml-1 text-amber-500">ign off</span>}
+                        {l.speed != null && l.speed > 0 && <span className="ml-2 text-emerald-600 font-bold">{Math.round(l.speed)} km/h</span>}
+                      </span>
+                      {addr && (
+                        <span className="text-[10px] text-slate-500 font-medium block truncate max-w-[300px] mt-0.5">
+                          <MapPin className="w-3 h-3 inline mr-0.5 -mt-0.5" />{addr}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {l.source === 'fulltrack' && (
+                      <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">FT</span>
+                    )}
+                    {l.lat && l.lng && !addr && (
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {l.source === 'fulltrack' && (
-                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">FT</span>
-                  )}
-                  {l.lat && l.lng && (
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

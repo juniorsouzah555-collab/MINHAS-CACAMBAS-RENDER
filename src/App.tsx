@@ -64,6 +64,7 @@ import BoletoView from './components/BoletoView';
 import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
 import DescargaRapida from './components/DescargaRapida';
+import DriverSelectScreen from './components/DriverSelectScreen';
 import PayslipView from './components/PayslipView';
 import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
@@ -1859,51 +1860,23 @@ export default function App() {
       ? todosMotoristas.filter(n => n === urlMotorista)
       : todosMotoristas;
 
-    return (
-      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6 relative">
-        {/* Botão Portão */}
-        <button
-          onClick={handlePortao}
-          disabled={portaoLoading}
-          className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-amber-600/80 text-white text-xs font-bold hover:bg-amber-500 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-        >
-          {portaoLoading ? '...' : 'PORTÃO'}
-        </button>
-        {portaoMsg && (
-          <div className="absolute top-12 right-4 px-3 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-amber-400 shadow-lg">
-            {portaoMsg}
-          </div>
-        )}
+    const savedVehicle = (() => { try { return localStorage.getItem('relampago_selected_vehicle') || ''; } catch { return ''; } })();
 
-        <div className="text-center max-w-sm w-full">
-          <Truck className="w-14 h-14 text-emerald-400 mx-auto mb-4" />
-          <h1 className="text-xl font-black text-white mb-1">Relâmpago Caçambas</h1>
-          <p className="text-sm text-slate-400 mb-8">Selecione seu nome para registrar descarga</p>
-          <div className="space-y-3">
-            {motoristasVisiveis.map(nome => (
-              <button
-                key={nome}
-                onClick={() => { window.location.href = `/?page=descarga&motorista=${nome}`; }}
-                className="w-full py-4 rounded-xl bg-emerald-600 text-white font-black text-lg hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
-              >
-                {nome}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
-            className="mt-6 w-full py-4 rounded-xl bg-orange-600 text-white font-black text-lg hover:bg-orange-700 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/30 cursor-pointer"
-          >
-            CTR
-          </button>
-          <button
-            onClick={() => { window.location.href = '/?page=admin'; }}
-            className="mt-8 text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
-          >
-            Acessar como administrador
-          </button>
-        </div>
-      </div>
+    return (
+      <DriverSelectScreen
+        motoristas={motoristasVisiveis}
+        vehicles={vehicles}
+        savedVehicle={savedVehicle}
+        onSelectMotorista={(nome, vehicleId) => {
+          if (vehicleId) localStorage.setItem('relampago_selected_vehicle', vehicleId);
+          window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
+        }}
+        onPortao={handlePortao}
+        portaoLoading={portaoLoading}
+        portaoMsg={portaoMsg}
+        onAdmin={() => { window.location.href = '/?page=admin'; }}
+        onCtr={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+      />
     );
   }
 

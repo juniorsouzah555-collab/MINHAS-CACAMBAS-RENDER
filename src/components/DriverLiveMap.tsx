@@ -161,7 +161,7 @@ export default function DriverLiveMap({
   }, []);
 
   return (
-    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '70vh' }}>
+    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '80vh' }}>
       {error ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50 z-10">
           <p className="text-xs font-semibold text-slate-500 mb-3 leading-relaxed">⚠️ {error}</p>
