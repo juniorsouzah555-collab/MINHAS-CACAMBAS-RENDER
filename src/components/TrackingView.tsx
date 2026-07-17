@@ -47,28 +47,38 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const pwaDataRef = useRef<VehicleLocation[]>([]);
   const [addresses, setAddresses] = useState<Record<string, string>>({});
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
-  // Merge FT + PWA → update state
+  // Normalize plate: remove non-alphanumeric, lowercase
+  const normPlate = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Merge FT + PWA → FullTrack always wins
   const mergeAndUpdate = useCallback(() => {
     const ft = ftDataRef.current;
     const pwa = pwaDataRef.current;
 
     if (ft.length === 0 && pwa.length === 0) return;
 
+    // 1) FullTrack entries keyed by vehicleId (FT-xxx)
     const merged = new Map<string, VehicleLocation>();
-
-    for (const prev of prevRef.current) merged.set(prev.vehicleId, prev);
     for (const v of ft) merged.set(v.vehicleId, v);
 
-    const ftVehicleIds = new Set(ft.map(f => f.vehicleId));
-    const ftPlates = new Set(ft.filter(f => f.plate).map(f => f.plate!.toLowerCase()));
-    const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase()));
+    // Build lookup sets for deduplication
+    const ftIds = new Set(ft.map(f => f.vehicleId));
+    const ftPlates = new Set(ft.filter(f => f.plate).map(f => normPlate(f.plate!)));
+    const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase().trim()));
+    const ftDriverNames = new Set(ft.map(f => (f.driverName || '').toLowerCase().trim()));
 
+    // 2) PWA entries — only add if NOT already covered by FullTrack
     for (const p of pwa) {
-      if (ftVehicleIds.has(p.vehicleId)) continue;
-      const pName = (p.driverName || '').toLowerCase();
-      const pVid = (p.vehicleId || '').toLowerCase();
+      const pVid = normPlate(p.vehicleId || '');
+      const pName = (p.driverName || '').toLowerCase().trim();
+      // Skip if FT has same vehicleId
+      if (ftIds.has(p.vehicleId)) continue;
+      // Skip if FT has matching plate (normalize both sides)
+      if (ftPlates.has(pVid)) continue;
+      // Skip if FT has matching driver name
+      if (ftDriverNames.has(pName)) continue;
+      // Skip if FT has matching vehicle name
       if (ftNames.has(pName)) continue;
-      if (ftPlates.has(pVid.replace('ot-', ''))) continue;
       merged.set(p.vehicleId, p);
     }
 
