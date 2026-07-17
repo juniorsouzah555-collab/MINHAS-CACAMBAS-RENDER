@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Users, RefreshCw, Navigation, Truck, Smartphone } from 'lucide-react';
 import { Vehicle } from '../types';
 import DriverLiveMap from './DriverLiveMap';
@@ -24,6 +24,7 @@ interface TrackingViewProps {
 
 export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
+  const prevRef = useRef<VehicleLocation[]>([]);
 
   const poll = useCallback(async () => {
     try {
@@ -40,23 +41,37 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
       const pwa: VehicleLocation[] = Array.isArray(pwaData) ? pwaData : [];
       const ft: VehicleLocation[] = Array.isArray(ftData) ? ftData : [];
 
-      // FullTrack já tem os dados mais atualizados dos rastreadores
-      // PWA preenche os que o FullTrack não cobre
+      // Se AMBOS falharam, não limpa — mantém dados anteriores
+      if (ft.length === 0 && pwa.length === 0) return;
+
+      // Merge: novos dados substituem, mas dados antigos ficam se não foram retornados
+      const merged = new Map<string, VehicleLocation>();
+
+      // Preserva dados anteriores que não vieram nesta resposta
+      for (const prev of prevRef.current) {
+        merged.set(prev.vehicleId, prev);
+      }
+
+      // FullTrack sobrescreve tudo (dados mais frescos)
+      for (const v of ft) merged.set(v.vehicleId, v);
+
+      // PWA só preenche quem não veio do FullTrack
       const ftVehicleIds = new Set(ft.map(f => f.vehicleId));
       const ftPlates = new Set(ft.filter(f => f.plate).map(f => f.plate!.toLowerCase()));
       const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase()));
 
-      const pwaOnly = pwa.filter(p => {
-        // Remove do PWA quem já está no FullTrack (por ID, placa ou nome)
-        if (ftVehicleIds.has(p.vehicleId)) return false;
+      for (const p of pwa) {
+        if (ftVehicleIds.has(p.vehicleId)) continue;
         const pName = (p.driverName || '').toLowerCase();
         const pVid = (p.vehicleId || '').toLowerCase();
-        if (ftNames.has(pName)) return false;
-        if (ftPlates.has(pVid.replace('ot-', ''))) return false;
-        return true;
-      });
+        if (ftNames.has(pName)) continue;
+        if (ftPlates.has(pVid.replace('ot-', ''))) continue;
+        merged.set(p.vehicleId, p);
+      }
 
-      setLocations([...ft, ...pwaOnly]);
+      const result = Array.from(merged.values());
+      prevRef.current = result;
+      setLocations(result);
     } catch {}
   }, []);
 
