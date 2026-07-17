@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Users, RefreshCw, Navigation, Loader } from 'lucide-react';
+import { MapPin, Users, RefreshCw, Navigation, Truck, Smartphone } from 'lucide-react';
 import { Vehicle } from '../types';
 import DriverLiveMap from './DriverLiveMap';
 
@@ -11,6 +11,10 @@ interface VehicleLocation {
   speed: number | null;
   accuracy: number | null;
   updatedAt: string;
+  source?: string;
+  plate?: string;
+  vehicleName?: string;
+  ignition?: boolean;
 }
 
 interface TrackingViewProps {
@@ -23,16 +27,42 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch('/api/vehicle-locations?_=' + Date.now());
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) setLocations(data);
+      const [pwaRes, ftRes] = await Promise.allSettled([
+        fetch('/api/vehicle-locations?_=' + Date.now()),
+        fetch('/api/fulltrack/positions?_=' + Date.now()),
+      ]);
+
+      const pwaData = pwaRes.status === 'fulfilled' && pwaRes.value.ok
+        ? await pwaRes.value.json().catch(() => []) : [];
+      const ftData = ftRes.status === 'fulfilled' && ftRes.value.ok
+        ? await ftRes.value.json().catch(() => []) : [];
+
+      const pwa: VehicleLocation[] = Array.isArray(pwaData) ? pwaData : [];
+      const ft: VehicleLocation[] = Array.isArray(ftData) ? ftData : [];
+
+      // FullTrack já tem os dados mais atualizados dos rastreadores
+      // PWA preenche os que o FullTrack não cobre
+      const ftVehicleIds = new Set(ft.map(f => f.vehicleId));
+      const ftPlates = new Set(ft.filter(f => f.plate).map(f => f.plate!.toLowerCase()));
+      const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase()));
+
+      const pwaOnly = pwa.filter(p => {
+        // Remove do PWA quem já está no FullTrack (por ID, placa ou nome)
+        if (ftVehicleIds.has(p.vehicleId)) return false;
+        const pName = (p.driverName || '').toLowerCase();
+        const pVid = (p.vehicleId || '').toLowerCase();
+        if (ftNames.has(pName)) return false;
+        if (ftPlates.has(pVid.replace('ot-', ''))) return false;
+        return true;
+      });
+
+      setLocations([...ft, ...pwaOnly]);
     } catch {}
   }, []);
 
   useEffect(() => {
     poll();
-    const id = setInterval(poll, 10000); // Poll a cada 10s pra tempo real
+    const id = setInterval(poll, 10000);
     return () => clearInterval(id);
   }, [poll]);
 
@@ -40,20 +70,26 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const now = Date.now();
   const online = locations.filter(l => {
     const diff = now - new Date(l.updatedAt).getTime();
-    if (diff >= 60 * 60 * 1000) return false; // 60 min ao invés de 30
+    if (diff >= 60 * 60 * 1000) return false;
     const name = (l.driverName || '').toLowerCase().trim();
     const vid = (l.vehicleId || '').toLowerCase().trim();
+    const plate = (l.plate || '').toLowerCase().trim();
     return motoristas.some(m => {
       const ml = m.toLowerCase().trim();
-      // Match por nome do motorista (exato, parcial, ou invertido)
       if (name === ml || name.includes(ml) || ml.includes(name)) return true;
-      // Match por vehicle ID (OT-nome, FLT-nome, etc)
-      if (vid.includes(ml) || ml.includes(vid.replace('ot-', ''))) return true;
+      if (vid.includes(ml) || ml.includes(vid.replace('ot-', '').replace('ft-', ''))) return true;
+      if (plate && (plate.includes(ml) || ml.includes(plate))) return true;
       return false;
     });
   });
 
-  const onlineUsers = online.map(l => ({
+  // Se não tem motoristas configurados, mostra todos os online
+  const displayList = motoristas.length > 0 ? online : locations.filter(l => {
+    const diff = now - new Date(l.updatedAt).getTime();
+    return diff < 60 * 60 * 1000;
+  });
+
+  const onlineUsers = displayList.map(l => ({
     name: l.driverName || 'Motorista',
     lat: l.lat,
     lng: l.lng,
@@ -61,6 +97,9 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     accuracy: l.accuracy,
     vehicleId: l.vehicleId,
   }));
+
+  const pwaCount = displayList.filter(l => l.source !== 'fulltrack').length;
+  const ftCount = displayList.filter(l => l.source === 'fulltrack').length;
 
   return (
     <div className="space-y-6">
@@ -72,14 +111,26 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Rastreamento de Motoristas
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            GPS a cada 5min ou 100m · Últimos 60 min de atividade
+            FullTrack + GPS PWA · Últimos 60 min de atividade
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-emerald-50 border border-emerald-200/60 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" />
-            {online.length} online
+            {displayList.length} online
           </div>
+          {ftCount > 0 && (
+            <div className="bg-blue-50 border border-blue-200/60 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 flex items-center gap-1">
+              <Truck className="w-3 h-3" />
+              {ftCount} rastreador
+            </div>
+          )}
+          {pwaCount > 0 && (
+            <div className="bg-violet-50 border border-violet-200/60 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-violet-600 flex items-center gap-1">
+              <Smartphone className="w-3 h-3" />
+              {pwaCount} PWA
+            </div>
+          )}
           <button
             type="button"
             onClick={poll}
@@ -109,35 +160,42 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Motoristas Online
           </h3>
           <span className="text-[10px] font-bold text-slate-400">
-            Últimos 30 minutos
+            Últimos 60 minutos
           </span>
         </div>
         <div className="divide-y divide-slate-100">
-          {online.length === 0 ? (
+          {displayList.length === 0 ? (
             <div className="px-5 py-8 text-center">
               <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-semibold text-slate-400">Nenhum motorista online no momento</p>
-              <p className="text-[10px] text-slate-300 mt-1">GPS atualizado a cada 5 minutos pelo PWA</p>
+              <p className="text-[10px] text-slate-300 mt-1">FullTrack + GPS PWA atualizado a cada 10s</p>
             </div>
           ) : (
-            online.map((l, i) => (
+            displayList.map((l, i) => (
               <div key={l.vehicleId || i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${l.source === 'fulltrack' ? 'bg-blue-500' : 'bg-violet-500'} animate-pulse`} />
                   <div className="min-w-0">
                     <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
                     <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
-                      {l.vehicleId}
+                      {l.plate && <span className="text-slate-500 font-bold">{l.plate}</span>}
+                      {!l.plate && l.vehicleId}
+                      {l.ignition === false && <span className="ml-1 text-amber-500">ign off</span>}
                       {l.speed != null && l.speed > 0 && <span className="ml-2 text-emerald-600 font-bold">{Math.round(l.speed)} km/h</span>}
                       {l.accuracy != null && <span className="ml-2 text-slate-300">±{Math.round(l.accuracy)}m</span>}
                     </span>
                   </div>
                 </div>
-                {l.lat && l.lng && (
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">
-                    {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {l.source === 'fulltrack' && (
+                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">FT</span>
+                  )}
+                  {l.lat && l.lng && (
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
+                    </span>
+                  )}
+                </div>
               </div>
             ))
           )}

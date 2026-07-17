@@ -1090,6 +1090,94 @@ async function startServer() {
     }
   });
 
+  // ── FullTrack GPS Integration ────────────────────────────────────
+  const FULLTRACK_LOGIN_URL = process.env.FULLTRACK_LOGIN_URL || 'https://fulltrackapp.com/emp/24488-movek-rastreamento-veicular';
+  const FULLTRACK_USER = process.env.FULLTRACK_USER || '';
+  const FULLTRACK_PASS = process.env.FULLTRACK_PASS || '';
+
+  let fulltrackToken: { access_token: string; refresh_token: string; expires_at: number } | null = null;
+  let fulltrackPositionsCache: { data: any; ts: number } | null = null;
+  const FULLTRACK_CACHE_MS = 30_000;
+  const FULLTRACK_TOKEN_MARGIN_MS = 300_000; // renova 5min antes de expirar
+
+  async function loginFullTrack(): Promise<string> {
+    const res = await fetch(FULLTRACK_LOGIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`,
+      redirect: 'manual',
+    });
+    const setCookie = res.headers.get('set-cookie') || '';
+    const match = setCookie.match(/gesession=([^;]+)/);
+    if (!match) throw new Error('FullTrack login failed: no session cookie');
+    return match[1];
+  }
+
+  async function getFullTrackToken(): Promise<string> {
+    if (fulltrackToken && Date.now() < fulltrackToken.expires_at - FULLTRACK_TOKEN_MARGIN_MS) {
+      return fulltrackToken.access_token;
+    }
+    const gesession = await loginFullTrack();
+    const res = await fetch('https://fulltrackapp.com/token/Api_ftk4_token_web', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `gesession=${gesession}; slug=24488-movek-rastreamento-veicular`,
+      },
+      body: '{}',
+    });
+    if (!res.ok) throw new Error(`FullTrack token failed: ${res.status}`);
+    const data = await res.json() as any;
+    fulltrackToken = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+    };
+    console.log('[FULLTRACK] Token obtido com sucesso');
+    return fulltrackToken.access_token;
+  }
+
+  async function getFullTrackPositions(): Promise<any> {
+    if (fulltrackPositionsCache && Date.now() - fulltrackPositionsCache.ts < FULLTRACK_CACHE_MS) {
+      return fulltrackPositionsCache.data;
+    }
+    const accessToken = await getFullTrackToken();
+    const res = await fetch('https://mapageral.ops.fulltrackapp.com/maps/v2/last-positions/card-views/?limit=100&offset=0', {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (!res.ok) throw new Error(`FullTrack positions failed: ${res.status}`);
+    const raw = await res.json() as any;
+    const positions = (raw.data || []).map((v: any) => ({
+      vehicleId: `FT-${v.ativo_id}`,
+      driverName: v.driver_name || v.ativo?.ativo_name || 'Motorista',
+      lat: v.lat_lng?.[0] || null,
+      lng: v.lat_lng?.[1] || null,
+      speed: v.speed?.val ?? null,
+      plate: v.ativo?.plate || '',
+      vehicleName: v.ativo?.ativo_name || v.ativo?.description || '',
+      ignition: v.ignition === 1,
+      dtGps: v.dt_gps || '',
+      battery: v.battery ?? null,
+      updatedAt: new Date().toISOString(),
+      source: 'fulltrack',
+    }));
+    fulltrackPositionsCache = { data: positions, ts: Date.now() };
+    return positions;
+  }
+
+  app.get('/api/fulltrack/positions', async (_req, res) => {
+    try {
+      if (!FULLTRACK_USER || !FULLTRACK_PASS) {
+        return res.json([]); // sem credenciais, retorna vazio
+      }
+      const positions = await getFullTrackPositions();
+      res.json(positions);
+    } catch (e: any) {
+      console.error('[FULLTRACK] Error:', e.message);
+      res.json([]); // fallback vazio em vez de erro
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
