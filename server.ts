@@ -1107,9 +1107,22 @@ async function startServer() {
       body: `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`,
       redirect: 'manual',
     });
-    const setCookie = res.headers.get('set-cookie') || '';
-    const match = setCookie.match(/gesession=([^;]+)/);
-    if (!match) throw new Error('FullTrack login failed: no session cookie');
+    // Node.js Headers: getSetCookie() retorna array, get('set-cookie') pode concatenar
+    let cookies: string[] = [];
+    if (typeof res.headers.getSetCookie === 'function') {
+      cookies = res.headers.getSetCookie();
+    } else {
+      const raw = res.headers.get('set-cookie') || '';
+      cookies = raw.split(/(?<=),\s*/);
+    }
+    const gesessionCookie = cookies.find(c => c.startsWith('gesession='));
+    if (!gesessionCookie) {
+      console.error('[FULLTRACK] Login cookies recebidos:', cookies);
+      throw new Error('FullTrack login failed: no session cookie');
+    }
+    const match = gesessionCookie.match(/gesession=([^;]+)/);
+    if (!match) throw new Error('FullTrack login failed: gesession parse error');
+    console.log('[FULLTRACK] Login OK, gesession obtido');
     return match[1];
   }
 
@@ -1168,13 +1181,18 @@ async function startServer() {
   app.get('/api/fulltrack/positions', async (_req, res) => {
     try {
       if (!FULLTRACK_USER || !FULLTRACK_PASS) {
-        return res.json([]); // sem credenciais, retorna vazio
+        return res.json([]);
       }
       const positions = await getFullTrackPositions();
       res.json(positions);
     } catch (e: any) {
       console.error('[FULLTRACK] Error:', e.message);
-      res.json([]); // fallback vazio em vez de erro
+      // Em dev retorna erro pra debugar, em prod retorna vazio
+      if (process.env.NODE_ENV !== 'production') {
+        res.status(500).json({ error: e.message });
+      } else {
+        res.json([]);
+      }
     }
   });
 
