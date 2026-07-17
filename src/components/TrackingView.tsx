@@ -83,9 +83,12 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
 
   // Filtra só motoristas com localização recente (últimos 60 min)
   const now = Date.now();
-  const online = locations.filter(l => {
+  const recent = locations.filter(l => {
     const diff = now - new Date(l.updatedAt).getTime();
-    if (diff >= 60 * 60 * 1000) return false;
+    return diff < 60 * 60 * 1000;
+  });
+
+  const online = motoristas.length > 0 ? recent.filter(l => {
     const name = (l.driverName || '').toLowerCase().trim();
     const vid = (l.vehicleId || '').toLowerCase().trim();
     const plate = (l.plate || '').toLowerCase().trim();
@@ -96,13 +99,10 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
       if (plate && (plate.includes(ml) || ml.includes(plate))) return true;
       return false;
     });
-  });
+  }) : recent;
 
-  // Se não tem motoristas configurados, mostra todos os online
-  const displayList = motoristas.length > 0 ? online : locations.filter(l => {
-    const diff = now - new Date(l.updatedAt).getTime();
-    return diff < 60 * 60 * 1000;
-  });
+  // Se motoristas configurados mas nenhum casou (ex: FullTrack retorna "PADRAO"), mostra todos os recentes
+  const displayList = motoristas.length > 0 && online.length > 0 ? online : recent;
 
   const onlineUsers = displayList.map(l => ({
     name: l.driverName || 'Motorista',
