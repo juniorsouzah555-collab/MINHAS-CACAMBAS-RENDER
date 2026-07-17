@@ -1101,23 +1101,48 @@ async function startServer() {
   const FULLTRACK_TOKEN_MARGIN_MS = 300_000; // renova 5min antes de expirar
 
   async function loginFullTrack(): Promise<string> {
+    // Passo 1: POST no login com redirect manual pra capturar cookies do 302
     const res = await fetch(FULLTRACK_LOGIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`,
       redirect: 'manual',
     });
-    // Node.js Headers: getSetCookie() retorna array, get('set-cookie') pode concatenar
+    console.log('[FULLTRACK] Login response:', res.status, res.headers.get('location'));
+
+    // Capturar cookies da resposta (pode ser 302 ou 200)
     let cookies: string[] = [];
     if (typeof res.headers.getSetCookie === 'function') {
       cookies = res.headers.getSetCookie();
-    } else {
-      const raw = res.headers.get('set-cookie') || '';
-      cookies = raw.split(/(?<=),\s*/);
     }
+    if (cookies.length === 0) {
+      const raw = res.headers.get('set-cookie') || '';
+      if (raw) cookies = raw.split(/(?<=),\s*/);
+    }
+
+    // Se não achou no redirect, tenta pegar o slug também
+    if (cookies.length === 0) {
+      console.error('[FULLTRACK] Nenhum cookie encontrado. Status:', res.status);
+      // Tenta seguir o redirect manualmente pra ver se设置 cookie lá
+      const location = res.headers.get('location');
+      if (location) {
+        const followUrl = location.startsWith('http') ? location : `https://fulltrackapp.com${location}`;
+        console.error('[FULLTRACK] Seguindo redirect:', followUrl);
+        const res2 = await fetch(followUrl, { redirect: 'manual' });
+        if (typeof res2.headers.getSetCookie === 'function') {
+          cookies = res2.headers.getSetCookie();
+        }
+        if (cookies.length === 0) {
+          const raw2 = res2.headers.get('set-cookie') || '';
+          if (raw2) cookies = raw2.split(/(?<=),\s*/);
+        }
+        console.log('[FULLTRACK] Cookies do redirect:', cookies.length);
+      }
+    }
+
     const gesessionCookie = cookies.find(c => c.startsWith('gesession='));
     if (!gesessionCookie) {
-      console.error('[FULLTRACK] Login cookies recebidos:', cookies);
+      console.error('[FULLTRACK] Todos os cookies:', cookies);
       throw new Error('FullTrack login failed: no session cookie');
     }
     const match = gesessionCookie.match(/gesession=([^;]+)/);
