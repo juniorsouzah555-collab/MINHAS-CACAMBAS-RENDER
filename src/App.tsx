@@ -1896,10 +1896,9 @@ export default function App() {
       } catch { return null; }
     })();
 
-    // Se já selecionou hoje, vai direto pra descarga
-    if (savedSelection && motoristasVisiveis.length === 1) {
-      const nome = motoristasVisiveis[0];
-      window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${savedSelection.vehicleId}`;
+    // Se já selecionou hoje, vai direto pra descarga com o motorista salvo
+    if (savedSelection && savedSelection.motorista) {
+      window.location.href = `/?page=descarga&motorista=${savedSelection.motorista}&veiculo=${savedSelection.vehicleId}`;
       return null;
     }
 
