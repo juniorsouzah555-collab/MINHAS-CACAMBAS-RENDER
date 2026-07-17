@@ -56,12 +56,7 @@ export default function DriverLiveMap({
     const L = (window as any).L;
     if (!L) return;
 
-    const hasFakeCoords = vehicles.length > 0;
-    const hasRealCoords = !!coords;
-    const hasOnlineUsers = onlineUsers.length > 0;
-
-    if (!hasFakeCoords && !hasRealCoords && !hasOnlineUsers) return;
-
+    // Sempre cria o mapa — dados chegam depois
     if (!mapRef.current) {
       const center = coords ? [coords.lat, coords.lng] : [-23.5505, -46.6333];
       mapRef.current = L.map(mapContainerRef.current, {
@@ -74,6 +69,7 @@ export default function DriverLiveMap({
       }).addTo(mapRef.current);
     }
 
+    // Limpa marcadores antigos
     markersRef.current.forEach(m => mapRef.current?.removeLayer(m));
     markersRef.current = [];
 
@@ -148,8 +144,6 @@ export default function DriverLiveMap({
     };
   }, []);
 
-  const hasAnyCoords = coords !== null || vehicles.length > 0 || onlineUsers.length > 0;
-
   return (
     <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '70vh' }}>
       {error ? (
@@ -159,14 +153,15 @@ export default function DriverLiveMap({
             Permitir Acesso à Localização
           </button>
         </div>
-      ) : !hasAnyCoords ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50 z-10">
-          <Navigation className="w-8 h-8 text-slate-300 mb-3" />
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Nenhum motorista conectado</p>
-        </div>
       ) : (
         <>
           <div ref={mapContainerRef} className="w-full h-full z-0" />
+          {onlineUsers.length === 0 && !error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-[999]">
+              <Navigation className="w-8 h-8 text-slate-300 mb-3" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Carregando rastreamento...</p>
+            </div>
+          )}
           <button type="button" onClick={toggleFullscreen} className="absolute top-3 right-3 z-[1000] bg-white/90 hover:bg-white border border-blue-200/60 rounded-lg p-2 shadow-md transition-all cursor-pointer" title={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700">
               {isFullscreen ? (
