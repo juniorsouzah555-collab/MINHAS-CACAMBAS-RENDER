@@ -1097,7 +1097,7 @@ async function startServer() {
 
   let fulltrackToken: { access_token: string; refresh_token: string; expires_at: number } | null = null;
   let fulltrackPositionsCache: { data: any; ts: number } | null = null;
-  const FULLTRACK_CACHE_MS = 30_000;
+  const FULLTRACK_CACHE_MS = 10_000;
   const FULLTRACK_TOKEN_MARGIN_MS = 300_000; // renova 5min antes de expirar
 
   async function loginFullTrack(): Promise<string> {
@@ -1265,6 +1265,48 @@ async function startServer() {
         res.json([]);
       }
     }
+  });
+
+  // ── SSE: FullTrack real-time stream ─────────────────────────────────
+  const sseClients = new Set<import('express').Response>();
+  let lastPositionsHash = '';
+  let ssePollTimer: ReturnType<typeof setInterval> | null = null;
+
+  function broadcastPositions(positions: any[]) {
+    const hash = JSON.stringify(positions.map((p: any) => [p.vehicleId, p.lat, p.lng, p.speed]));
+    if (hash === lastPositionsHash) return; // nada mudou — não envia
+    lastPositionsHash = hash;
+    const payload = `data: ${JSON.stringify(positions)}\n\n`;
+    for (const client of sseClients) {
+      try { client.write(payload); } catch { sseClients.delete(client); }
+    }
+  }
+
+  function startSsePoller() {
+    if (ssePollTimer) return;
+    ssePollTimer = setInterval(async () => {
+      if (sseClients.size === 0) return;
+      try {
+        if (!FULLTRACK_USER || !FULLTRACK_PASS) return;
+        const positions = await getFullTrackPositions();
+        broadcastPositions(positions);
+      } catch {}
+    }, FULLTRACK_CACHE_MS);
+  }
+
+  app.get('/api/fulltrack/stream', (req, res) => {
+    if (!FULLTRACK_USER || !FULLTRACK_PASS) {
+      return res.status(200).set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' }).write('data: []\n\n');
+    }
+    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders();
+    sseClients.add(res);
+    startSsePoller();
+    // Envia dados atuais imediatamente
+    getFullTrackPositions().then(pos => {
+      try { res.write(`data: ${JSON.stringify(pos)}\n\n`); } catch {}
+    }).catch(() => {});
+    req.on('close', () => sseClients.delete(res));
   });
 
   if (process.env.NODE_ENV !== "production") {

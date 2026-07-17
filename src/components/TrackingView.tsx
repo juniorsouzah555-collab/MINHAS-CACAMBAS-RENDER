@@ -25,61 +25,102 @@ interface TrackingViewProps {
 export default function TrackingView({ vehicles, motoristas }: TrackingViewProps) {
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
   const prevRef = useRef<VehicleLocation[]>([]);
+  const ftDataRef = useRef<VehicleLocation[]>([]);
+  const pwaDataRef = useRef<VehicleLocation[]>([]);
 
-  const poll = useCallback(async () => {
-    try {
-      const [pwaRes, ftRes] = await Promise.allSettled([
-        fetch('/api/vehicle-locations?_=' + Date.now()),
-        fetch('/api/fulltrack/positions?_=' + Date.now()),
-      ]);
+  // Merge FT + PWA → update state
+  const mergeAndUpdate = useCallback(() => {
+    const ft = ftDataRef.current;
+    const pwa = pwaDataRef.current;
 
-      const pwaData = pwaRes.status === 'fulfilled' && pwaRes.value.ok
-        ? await pwaRes.value.json().catch(() => []) : [];
-      const ftData = ftRes.status === 'fulfilled' && ftRes.value.ok
-        ? await ftRes.value.json().catch(() => []) : [];
+    if (ft.length === 0 && pwa.length === 0) return;
 
-      const pwa: VehicleLocation[] = Array.isArray(pwaData) ? pwaData : [];
-      const ft: VehicleLocation[] = Array.isArray(ftData) ? ftData : [];
+    const merged = new Map<string, VehicleLocation>();
 
-      // Se AMBOS falharam, não limpa — mantém dados anteriores
-      if (ft.length === 0 && pwa.length === 0) return;
+    for (const prev of prevRef.current) merged.set(prev.vehicleId, prev);
+    for (const v of ft) merged.set(v.vehicleId, v);
 
-      // Merge: novos dados substituem, mas dados antigos ficam se não foram retornados
-      const merged = new Map<string, VehicleLocation>();
+    const ftVehicleIds = new Set(ft.map(f => f.vehicleId));
+    const ftPlates = new Set(ft.filter(f => f.plate).map(f => f.plate!.toLowerCase()));
+    const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase()));
 
-      // Preserva dados anteriores que não vieram nesta resposta
-      for (const prev of prevRef.current) {
-        merged.set(prev.vehicleId, prev);
-      }
+    for (const p of pwa) {
+      if (ftVehicleIds.has(p.vehicleId)) continue;
+      const pName = (p.driverName || '').toLowerCase();
+      const pVid = (p.vehicleId || '').toLowerCase();
+      if (ftNames.has(pName)) continue;
+      if (ftPlates.has(pVid.replace('ot-', ''))) continue;
+      merged.set(p.vehicleId, p);
+    }
 
-      // FullTrack sobrescreve tudo (dados mais frescos)
-      for (const v of ft) merged.set(v.vehicleId, v);
-
-      // PWA só preenche quem não veio do FullTrack
-      const ftVehicleIds = new Set(ft.map(f => f.vehicleId));
-      const ftPlates = new Set(ft.filter(f => f.plate).map(f => f.plate!.toLowerCase()));
-      const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase()));
-
-      for (const p of pwa) {
-        if (ftVehicleIds.has(p.vehicleId)) continue;
-        const pName = (p.driverName || '').toLowerCase();
-        const pVid = (p.vehicleId || '').toLowerCase();
-        if (ftNames.has(pName)) continue;
-        if (ftPlates.has(pVid.replace('ot-', ''))) continue;
-        merged.set(p.vehicleId, p);
-      }
-
-      const result = Array.from(merged.values());
-      prevRef.current = result;
-      setLocations(result);
-    } catch {}
+    const result = Array.from(merged.values());
+    prevRef.current = result;
+    setLocations(result);
   }, []);
 
+  // SSE: FullTrack real-time stream
   useEffect(() => {
-    poll();
-    const id = setInterval(poll, 10000);
+    let es: EventSource | null = null;
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+
+    function connect() {
+      es = new EventSource('/api/fulltrack/stream');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (Array.isArray(data)) {
+            ftDataRef.current = data;
+            mergeAndUpdate();
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        // Fallback: poll a cada 10s se SSE falhar
+        if (!fallbackTimer) {
+          fallbackTimer = setInterval(async () => {
+            try {
+              const res = await fetch('/api/fulltrack/positions?_=' + Date.now());
+              if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                  ftDataRef.current = data;
+                  mergeAndUpdate();
+                }
+              }
+            } catch {}
+          }, 10000);
+        }
+      };
+    }
+
+    connect();
+
+    return () => {
+      es?.close();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [mergeAndUpdate]);
+
+  // Poll PWA (Turso) a cada 10s — sem SSE pra Turso
+  useEffect(() => {
+    const pollPwa = async () => {
+      try {
+        const res = await fetch('/api/vehicle-locations?_=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            pwaDataRef.current = data;
+            mergeAndUpdate();
+          }
+        }
+      } catch {}
+    };
+    pollPwa();
+    const id = setInterval(pollPwa, 10000);
     return () => clearInterval(id);
-  }, [poll]);
+  }, [mergeAndUpdate]);
 
   // Filtra só motoristas com localização recente (últimos 60 min)
   const now = Date.now();
@@ -101,7 +142,6 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     });
   }) : recent;
 
-  // Se motoristas configurados mas nenhum casou (ex: FullTrack retorna "PADRAO"), mostra todos os recentes
   const displayList = motoristas.length > 0 && online.length > 0 ? online : recent;
 
   const onlineUsers = displayList.map(l => ({
@@ -126,7 +166,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Rastreamento de Motoristas
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            FullTrack + GPS PWA · Últimos 60 min de atividade
+            FullTrack + GPS PWA · Tempo real
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -146,18 +186,10 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
               {pwaCount} PWA
             </div>
           )}
-          <button
-            type="button"
-            onClick={poll}
-            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Atualizar
-          </button>
         </div>
       </div>
 
-      {/* Live Map — só onlineUsers (FullTrack + PWA GPS real), sem vehicles fake */}
+      {/* Live Map */}
       <DriverLiveMap
         coords={null}
         vehicles={[]}
@@ -175,7 +207,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Motoristas Online
           </h3>
           <span className="text-[10px] font-bold text-slate-400">
-            Últimos 60 minutos
+            Tempo real via SSE
           </span>
         </div>
         <div className="divide-y divide-slate-100">
@@ -183,7 +215,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             <div className="px-5 py-8 text-center">
               <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-semibold text-slate-400">Nenhum motorista online no momento</p>
-              <p className="text-[10px] text-slate-300 mt-1">FullTrack + GPS PWA atualizado a cada 10s</p>
+              <p className="text-[10px] text-slate-300 mt-1">Aguardando dados de GPS...</p>
             </div>
           ) : (
             displayList.map((l, i) => (
