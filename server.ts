@@ -1101,54 +1101,86 @@ async function startServer() {
   const FULLTRACK_TOKEN_MARGIN_MS = 300_000; // renova 5min antes de expirar
 
   async function loginFullTrack(): Promise<string> {
-    // Passo 1: POST no login com redirect manual pra capturar cookies do 302
-    const res = await fetch(FULLTRACK_LOGIN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`,
-      redirect: 'manual',
+    // Usa módulo https nativo pra ter controle total dos cookies no redirect
+    const https = await import('https');
+    const { URL } = await import('url');
+
+    return new Promise<string>((resolve, reject) => {
+      const url = new URL(FULLTRACK_LOGIN_URL);
+      const postData = `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`;
+      const options = {
+        hostname: url.hostname,
+        port: 443,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postData),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        const setCookies = res.headers['set-cookie'];
+        console.log('[FULLTRACK] Login status:', res.statusCode);
+        console.log('[FULLTRACK] Set-Cookie headers:', setCookies?.length || 0);
+
+        if (!setCookies || setCookies.length === 0) {
+          // Pode ter redirecionado sem cookie — segue o redirect manualmente
+          const location = res.headers.location;
+          if (location && res.statusCode === 302) {
+            console.log('[FULLTRACK] Seguindo redirect:', location);
+            const redirectUrl = new URL(location, `https://${url.hostname}`);
+            const redirectOptions = {
+              hostname: redirectUrl.hostname,
+              port: 443,
+              path: redirectUrl.pathname + redirectUrl.search,
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            };
+            const req2 = https.request(redirectOptions, (res2) => {
+              const setCookies2 = res2.headers['set-cookie'];
+              console.log('[FULLTRACK] Redirect status:', res2.statusCode);
+              console.log('[FULLTRACK] Redirect cookies:', setCookies2?.length || 0);
+              if (setCookies2) {
+                const gesession = setCookies2.find(c => c.startsWith('gesession='));
+                if (gesession) {
+                  const match = gesession.match(/gesession=([^;]+)/);
+                  if (match) {
+                    console.log('[FULLTRACK] Login OK via redirect');
+                    return resolve(match[1]);
+                  }
+                }
+              }
+              reject(new Error('FullTrack login failed: no session cookie after redirect'));
+            });
+            req2.on('error', reject);
+            req2.end();
+            return;
+          }
+          return reject(new Error('FullTrack login failed: no set-cookie headers, status: ' + res.statusCode));
+        }
+
+        const gesessionCookie = setCookies.find(c => c.startsWith('gesession='));
+        if (!gesessionCookie) {
+          console.error('[FULLTRACK] Cookies recebidos:', setCookies);
+          return reject(new Error('FullTrack login failed: no gesession in cookies'));
+        }
+        const match = gesessionCookie.match(/gesession=([^;]+)/);
+        if (!match) return reject(new Error('FullTrack login failed: gesession parse error'));
+        console.log('[FULLTRACK] Login OK, gesession obtido');
+        resolve(match[1]);
+      });
+
+      req.on('error', (e) => {
+        console.error('[FULLTRACK] Request error:', e.message);
+        reject(e);
+      });
+      req.write(postData);
+      req.end();
     });
-    console.log('[FULLTRACK] Login response:', res.status, res.headers.get('location'));
-
-    // Capturar cookies da resposta (pode ser 302 ou 200)
-    let cookies: string[] = [];
-    if (typeof res.headers.getSetCookie === 'function') {
-      cookies = res.headers.getSetCookie();
-    }
-    if (cookies.length === 0) {
-      const raw = res.headers.get('set-cookie') || '';
-      if (raw) cookies = raw.split(/(?<=),\s*/);
-    }
-
-    // Se não achou no redirect, tenta pegar o slug também
-    if (cookies.length === 0) {
-      console.error('[FULLTRACK] Nenhum cookie encontrado. Status:', res.status);
-      // Tenta seguir o redirect manualmente pra ver se设置 cookie lá
-      const location = res.headers.get('location');
-      if (location) {
-        const followUrl = location.startsWith('http') ? location : `https://fulltrackapp.com${location}`;
-        console.error('[FULLTRACK] Seguindo redirect:', followUrl);
-        const res2 = await fetch(followUrl, { redirect: 'manual' });
-        if (typeof res2.headers.getSetCookie === 'function') {
-          cookies = res2.headers.getSetCookie();
-        }
-        if (cookies.length === 0) {
-          const raw2 = res2.headers.get('set-cookie') || '';
-          if (raw2) cookies = raw2.split(/(?<=),\s*/);
-        }
-        console.log('[FULLTRACK] Cookies do redirect:', cookies.length);
-      }
-    }
-
-    const gesessionCookie = cookies.find(c => c.startsWith('gesession='));
-    if (!gesessionCookie) {
-      console.error('[FULLTRACK] Todos os cookies:', cookies);
-      throw new Error('FullTrack login failed: no session cookie');
-    }
-    const match = gesessionCookie.match(/gesession=([^;]+)/);
-    if (!match) throw new Error('FullTrack login failed: gesession parse error');
-    console.log('[FULLTRACK] Login OK, gesession obtido');
-    return match[1];
   }
 
   async function getFullTrackToken(): Promise<string> {
