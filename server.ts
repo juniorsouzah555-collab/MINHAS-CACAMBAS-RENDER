@@ -993,52 +993,45 @@ async function startServer() {
   const TUYA_ACCESS_ID = process.env.TUYA_ACCESS_ID || '';
   const TUYA_ACCESS_SECRET = process.env.TUYA_ACCESS_SECRET || '';
   const TUYA_DEVICE_ID = process.env.TUYA_DEVICE_ID || '';
-  const TUYA_ENDPOINT = 'https://openapi.tuyaus.com';
+  const TUYA_ENDPOINT = 'https://openapi-ueaz.tuyaus.com';
+
+  function tuyaSign(method: string, url: string, secret: string, token?: string, body?: string): { sign: string; ts: number } {
+    const crypto = require('crypto');
+    const ts = Date.now();
+    const contentSha256 = crypto.createHash('sha256').update(body || '').digest('hex');
+    const stringToSign = [method, contentSha256, '', url].join('\n');
+    const str = token ? `${TUYA_ACCESS_ID}${token}${ts}${stringToSign}` : `${TUYA_ACCESS_ID}${ts}${stringToSign}`;
+    const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();
+    return { sign, ts };
+  }
 
   async function getTuyaToken(): Promise<string> {
-    const timestamp = Date.now();
-    const stringToSign = `${TUYA_ACCESS_ID}${timestamp}`;
-    const crypto = await import('crypto');
-    const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET)
-      .update(stringToSign)
-      .digest('hex')
-      .toUpperCase();
-    const res = await fetch(
-      `${TUYA_ENDPOINT}/v1.0/token?grant_type=1`,
-      {
-        headers: {
-          'client_id': TUYA_ACCESS_ID,
-          'sign': sign,
-          't': String(timestamp),
-          'sign_method': 'hmac-sha256',
-        },
-      }
-    );
+    const { sign, ts } = tuyaSign('GET', '/v1.0/token?grant_type=1');
+    const res = await fetch(`${TUYA_ENDPOINT}/v1.0/token?grant_type=1`, {
+      headers: {
+        'client_id': TUYA_ACCESS_ID,
+        'sign': sign,
+        't': String(ts),
+        'sign_method': 'HMAC-SHA256',
+      },
+    });
     const data = await res.json() as any;
     if (!data.success) throw new Error(data.msg || 'Failed to get Tuya token');
     return data.result.access_token;
   }
 
   async function getTuyaDeviceStatus(token: string): Promise<boolean> {
-    const timestamp = Date.now();
-    const stringToSign = `${TUYA_ACCESS_ID}${token}${timestamp}`;
-    const crypto = await import('crypto');
-    const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET)
-      .update(stringToSign)
-      .digest('hex')
-      .toUpperCase();
-    const res = await fetch(
-      `${TUYA_ENDPOINT}/v1.0/devices/${TUYA_DEVICE_ID}/status`,
-      {
-        headers: {
-          'access_token': token,
-          'client_id': TUYA_ACCESS_ID,
-          'sign': sign,
-          't': String(timestamp),
-          'sign_method': 'hmac-sha256',
-        },
-      }
-    );
+    const url = `/v1.0/devices/${TUYA_DEVICE_ID}/status`;
+    const { sign, ts } = tuyaSign('GET', url, undefined, token);
+    const res = await fetch(`${TUYA_ENDPOINT}${url}`, {
+      headers: {
+        'client_id': TUYA_ACCESS_ID,
+        'access_token': token,
+        'sign': sign,
+        't': String(ts),
+        'sign_method': 'HMAC-SHA256',
+      },
+    });
     const data = await res.json() as any;
     if (!data.success) throw new Error(data.msg || 'Failed to get device status');
     const switchStatus = data.result?.find((s: any) => s.code === 'switch_1');
@@ -1046,31 +1039,21 @@ async function startServer() {
   }
 
   async function toggleTuyaDevice(token: string, value: boolean): Promise<void> {
-    const timestamp = Date.now();
-    const body = JSON.stringify({
-      commands: [{ code: 'switch_1', value }],
+    const body = JSON.stringify({ commands: [{ code: 'switch_1', value }] });
+    const url = `/v1.0/devices/${TUYA_DEVICE_ID}/commands`;
+    const { sign, ts } = tuyaSign('POST', url, undefined, token, body);
+    const res = await fetch(`${TUYA_ENDPOINT}${url}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'client_id': TUYA_ACCESS_ID,
+        'access_token': token,
+        'sign': sign,
+        't': String(ts),
+        'sign_method': 'HMAC-SHA256',
+      },
+      body,
     });
-    const crypto = await import('crypto');
-    const stringToSign = `${TUYA_ACCESS_ID}${token}${timestamp}${body}`;
-    const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET)
-      .update(stringToSign)
-      .digest('hex')
-      .toUpperCase();
-    const res = await fetch(
-      `${TUYA_ENDPOINT}/v1.0/devices/${TUYA_DEVICE_ID}/commands`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'access_token': token,
-          'client_id': TUYA_ACCESS_ID,
-          'sign': sign,
-          't': String(timestamp),
-          'sign_method': 'hmac-sha256',
-        },
-        body,
-      }
-    );
     const data = await res.json() as any;
     if (!data.success) throw new Error(data.msg || 'Failed to toggle device');
   }
