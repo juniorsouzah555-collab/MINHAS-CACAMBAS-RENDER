@@ -361,6 +361,97 @@ crud('planos_pagamento', schema.planosPagamento);
 crud('clientes', schema.clientes);
 crud('user-approvals', schema.userApprovals);
 crud('folha_pagamento', schema.folhaPagamento);
+crud('pedagios', schema.pedagios);
+
+// ── Pedágios: resumo para badge/sidebar ──────────────────────────────
+app.get("/api/pedagios/summary", authMiddleware, async (_req, res) => {
+  try {
+    const all = await db.select().from(schema.pedagios);
+    const pendentes = all.filter((p: any) => !p.pago);
+    const valorPendente = pendentes.reduce((sum: number, p: any) => sum + (p.valorTotal || 0), 0);
+    const jaPago = all.filter((p: any) => p.pago).reduce((sum: number, p: any) => sum + (p.valorTotal || 0), 0);
+    res.json({ total: all.length, pendentes: pendentes.length, valorPendente, jaPago });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: marcar como pago ──────────────────────────────────────
+app.put("/api/pedagios/:id/pago", authMiddleware, async (req, res) => {
+  try {
+    await db.update(schema.pedagios).set({
+      pago: true,
+      dataPagamento: new Date().toISOString(),
+    }).where(eq(schema.pedagios.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: marcar como não pago ──────────────────────────────────
+app.put("/api/pedagios/:id/reabrir", authMiddleware, async (req, res) => {
+  try {
+    await db.update(schema.pedagios).set({
+      pago: false,
+      dataPagamento: null,
+    }).where(eq(schema.pedagios.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: scraper leve do Pedágio Digital ───────────────────────
+async function scrapePedagiodigital(placa: string): Promise<{ success: boolean; debits?: any[]; manual?: boolean; error?: string }> {
+  try {
+    const normalizedPlate = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const res = await fetch('https://www.pedagiodigital.com/api/v2/consultar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Origin': 'https://www.pedagiodigital.com',
+        'Referer': 'https://www.pedagiodigital.com/',
+        'Accept': 'application/json, text/plain, */*',
+      },
+      body: JSON.stringify({ placa: normalizedPlate }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      return { success: false, manual: true, error: `HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    if (data && data.passagens && Array.isArray(data.passagens)) {
+      return { success: true, debits: data.passagens };
+    }
+    if (data && data.debitos && Array.isArray(data.debitos)) {
+      return { success: true, debits: data.debitos };
+    }
+    return { success: false, manual: true, error: 'Formato inesperado' };
+  } catch (e: any) {
+    return { success: false, manual: true, error: e.message || 'Fetch failed' };
+  }
+}
+
+app.post("/api/pedagios/check", authMiddleware, async (req, res) => {
+  try {
+    const { placa } = req.body;
+    if (!placa) return res.status(400).json({ error: 'placa required' });
+    const result = await scrapePedagiodigital(placa);
+    if (result.success && result.debits && result.debits.length > 0) {
+      const now = new Date().toISOString();
+      const inserted = [];
+      for (const d of result.debits) {
+        const id = `PED-${randomUUID().substring(0, 8)}`;
+        const valor = d.valor_total || d.normalizado_valor_total || d.valor || 0;
+        const concessionaria = d.concessionaria || d.concessionaria_nome || '';
+        const dataPassagem = d.data_passagem || d.data || null;
+        await db.insert(schema.pedagios).values({
+          id, placa: placa.toUpperCase(), concessionaria, valorTotal: valor,
+          dataPassagem, dataConsulta: now, pago: false, createdAt: now,
+        });
+        inserted.push({ id, placa: placa.toUpperCase(), concessionaria, valorTotal: valor });
+      }
+      return res.json({ success: true, source: 'scraper', inserted, total: inserted.length });
+    }
+    return res.json({ success: false, manual: true, message: 'Scraper não retornou débitos. Registre manualmente.' });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
   try {

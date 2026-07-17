@@ -29,7 +29,8 @@ import {
   Lancamento,
   ComissaoMotorista,
   GarageRefill,
-  Manutencao
+  Manutencao,
+  PedagioDebito
 } from './types';
 import { 
   INITIAL_VEHICLES, 
@@ -68,6 +69,7 @@ import DriverSelectScreen from './components/DriverSelectScreen';
 import PayslipView from './components/PayslipView';
 import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
+import PedagiosView from './components/PedagiosView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -106,6 +108,10 @@ export default function App() {
 
   // Manutenções state
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
+
+  // Pedágios state
+  const [pedagios, setPedagios] = useState<PedagioDebito[]>([]);
+  const [pedagiosPendentes, setPedagiosPendentes] = useState(0);
 
   // Portão state
   const [portaoLoading, setPortaoLoading] = useState(false);
@@ -436,6 +442,25 @@ export default function App() {
           if (resDispatches.ok) {
             const data = await resDispatches.json();
             setDispatches(data);
+          }
+          const resPedagios = await fetch("/api/pedagios");
+          if (resPedagios.ok) {
+            const data = await resPedagios.json();
+            setPedagios(data.map((p: any) => ({
+              id: p.id,
+              placa: p.placa,
+              concessionaria: p.concessionaria || '',
+              valorTotal: p.valor_total ?? p.valorTotal ?? 0,
+              dataPassagem: p.data_passagem || p.dataPassagem || '',
+              dataConsulta: p.data_consulta || p.dataConsulta || '',
+              pago: p.pago === true || p.pago === 1,
+              dataPagamento: p.data_pagamento || p.dataPagamento || '',
+              pixCode: p.pix_code || p.pixCode || '',
+              observacao: p.observacao || '',
+              createdAt: p.created_at || p.createdAt || '',
+            })));
+            const pendentes = data.filter((p: any) => !p.pago);
+            setPedagiosPendentes(pendentes.length);
           }
         } catch (error) {
           console.error("Database connection error:", error);
@@ -1992,6 +2017,7 @@ export default function App() {
           onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
           transitCount={transitBadgeCount}
           unseenBoletos={boletosBadgeCount}
+          pedagiosPendentes={pedagiosPendentes}
           userRole={currentUserRole}
           userEmail={currentUserEmail}
         />
@@ -2204,6 +2230,14 @@ export default function App() {
 
           {currentTab === 'ctr-vencidos' && (
             <CtrVencidosView />
+          )}
+
+          {currentTab === 'pedagios' && (
+            <PedagiosView
+              pedagios={pedagios}
+              setPedagios={setPedagios}
+              onSummaryChange={(pendentes, valorTotal) => setPedagiosPendentes(pendentes)}
+            />
           )}
 
           {currentTab === 'settings' && (
