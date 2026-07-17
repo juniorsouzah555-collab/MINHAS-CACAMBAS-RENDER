@@ -14,6 +14,7 @@ interface DriverLiveMapProps {
   onRetry: () => void;
   onlineUsers?: { name: string; lat: number; lng: number; vehicleId?: string; speed?: number | null; accuracy?: number | null }[];
   isDriverUser?: boolean;
+  flyTo?: { lat: number; lng: number } | null;
 }
 
 export default function DriverLiveMap({
@@ -22,7 +23,8 @@ export default function DriverLiveMap({
   error,
   onRetry,
   onlineUsers = [],
-  isDriverUser = false
+  isDriverUser = false,
+  flyTo = null,
 }: DriverLiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -69,6 +71,12 @@ export default function DriverLiveMap({
       maxZoom: 19,
     }).addTo(mapRef.current);
   }, [isLeafletLoaded, coords]);
+
+  // 2b. Fly to vehicle when flyTo changes
+  useEffect(() => {
+    if (!mapRef.current || !flyTo) return;
+    mapRef.current.flyTo([flyTo.lat, flyTo.lng], 15, { duration: 1.5 });
+  }, [flyTo]);
 
   // 3. Atualizar markers (só quando dados mudam de verdade)
   useEffect(() => {

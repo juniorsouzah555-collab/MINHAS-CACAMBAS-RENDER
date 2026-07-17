@@ -46,7 +46,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const ftDataRef = useRef<VehicleLocation[]>([]);
   const pwaDataRef = useRef<VehicleLocation[]>([]);
   const [addresses, setAddresses] = useState<Record<string, string>>({});
-
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
   // Merge FT + PWA → update state
   const mergeAndUpdate = useCallback(() => {
     const ft = ftDataRef.current;
@@ -235,6 +235,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
         onRetry={() => {}}
         onlineUsers={onlineUsers}
         isDriverUser={false}
+        flyTo={flyTo}
       />
 
       {/* Online Drivers List */}
@@ -260,7 +261,11 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
               const addrKey = l.lat && l.lng ? `${l.lat.toFixed(4)},${l.lng.toFixed(4)}` : '';
               const addr = addrKey ? addresses[addrKey] : '';
               return (
-                <div key={l.vehicleId || i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div
+                  key={l.vehicleId || i}
+                  className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => { if (l.lat && l.lng) setFlyTo({ lat: l.lat, lng: l.lng }); }}
+                >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${l.source === 'fulltrack' ? 'bg-blue-500' : 'bg-violet-500'} animate-pulse`} />
                     <div className="min-w-0">

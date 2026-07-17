@@ -154,6 +154,30 @@ export default function App() {
   // NOTA: localStorage foi removido como fonte de dados.
   // Toda persistência é feita via servidor (Express + Turso).
 
+  // Carrega veículos públicos na tela raiz (antes da autenticação)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      fetch('/api/public/vehicles').then(r => r.ok ? r.json() : []).then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setVehicles(data.map((v: any) => ({
+            id: v.id,
+            status: v.status || 'Available',
+            efficiency: v.efficiency || 0,
+            fuelUsed: v.fuel_used || 0,
+            costPerKm: v.cost_per_km || 0,
+            driver: v.driver || '',
+            trend: [],
+            lat: v.lat || 0,
+            lng: v.lng || 0,
+            isActive: v.is_active !== false,
+            type: v.type || 'Caminhão',
+            initialKm: v.initial_km || 0,
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
+
   // Load data from Cloud SQL / Supabase when authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -1860,7 +1884,26 @@ export default function App() {
       ? todosMotoristas.filter(n => n === urlMotorista)
       : todosMotoristas;
 
-    const savedVehicle = (() => { try { return localStorage.getItem('relampago_selected_vehicle') || ''; } catch { return ''; } })();
+    // Checa se já selecionou veículo hoje (2x ao dia = 12h)
+    const savedSelection = (() => {
+      try {
+        const raw = localStorage.getItem('relampago_vehicle_selection');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const today = new Date().toISOString().split('T')[0];
+        if (parsed.date === today && parsed.vehicleId) return parsed;
+        return null;
+      } catch { return null; }
+    })();
+
+    // Se já selecionou hoje, vai direto pra descarga
+    if (savedSelection && motoristasVisiveis.length === 1) {
+      const nome = motoristasVisiveis[0];
+      window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${savedSelection.vehicleId}`;
+      return null;
+    }
+
+    const savedVehicle = savedSelection?.vehicleId || '';
 
     return (
       <DriverSelectScreen
@@ -1868,7 +1911,14 @@ export default function App() {
         vehicles={vehicles}
         savedVehicle={savedVehicle}
         onSelectMotorista={(nome, vehicleId) => {
-          if (vehicleId) localStorage.setItem('relampago_selected_vehicle', vehicleId);
+          // Salva seleção com data de hoje
+          try {
+            localStorage.setItem('relampago_vehicle_selection', JSON.stringify({
+              vehicleId,
+              motorista: nome,
+              date: new Date().toISOString().split('T')[0],
+            }));
+          } catch {}
           window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
         }}
         onPortao={handlePortao}
