@@ -1,5 +1,19 @@
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
+export const pedagios = sqliteTable('pedagios', {
+  id: text('id').primaryKey(),
+  placa: text('placa').notNull(),
+  concessionaria: text('concessionaria'),
+  valorTotal: real('valor_total').notNull(),
+  dataPassagem: text('data_passagem'),
+  dataConsulta: text('data_consulta'),
+  pago: integer('pago', { mode: 'boolean' }).default(false),
+  dataPagamento: text('data_pagamento'),
+  pixCode: text('pix_code'),
+  observacao: text('observacao'),
+  createdAt: text('created_at'),
+});
+
 export const botaForas = sqliteTable('bota_foras', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),

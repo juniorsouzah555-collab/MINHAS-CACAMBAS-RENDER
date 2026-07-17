@@ -32,6 +32,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS gmail_hidden (id TEXT PRIMARY KEY, message_id TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS folha_pagamento (id TEXT PRIMARY KEY, competencia TEXT NOT NULL, funcionario_data TEXT NOT NULL, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS vehicle_locations (vehicle_id TEXT PRIMARY KEY, driver_name TEXT, lat REAL NOT NULL, lng REAL NOT NULL, speed REAL, accuracy REAL, updated_at TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS pedagios (id TEXT PRIMARY KEY, placa TEXT NOT NULL, concessionaria TEXT, valor_total REAL NOT NULL, data_passagem TEXT, data_consulta TEXT, pago INTEGER DEFAULT 0, data_pagamento TEXT, pix_code TEXT, observacao TEXT, created_at TEXT)`,
 ];
 
 const MIGRATIONS = [

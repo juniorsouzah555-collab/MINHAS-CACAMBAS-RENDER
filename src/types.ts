@@ -267,3 +267,17 @@ export interface Cliente {
   createdAt: string;
 }
 
+export interface PedagioDebito {
+  id: string;
+  placa: string;
+  concessionaria?: string;
+  valorTotal: number;
+  dataPassagem?: string;
+  dataConsulta: string;
+  pago: boolean;
+  dataPagamento?: string;
+  pixCode?: string;
+  observacao?: string;
+  createdAt: string;
+}
+

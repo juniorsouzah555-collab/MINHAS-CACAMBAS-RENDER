@@ -14,6 +14,7 @@ interface DriverLiveMapProps {
   onRetry: () => void;
   onlineUsers?: { name: string; lat: number; lng: number; vehicleId?: string; speed?: number | null; accuracy?: number | null }[];
   isDriverUser?: boolean;
+  flyTo?: { lat: number; lng: number } | null;
 }
 
 export default function DriverLiveMap({
@@ -22,7 +23,8 @@ export default function DriverLiveMap({
   error,
   onRetry,
   onlineUsers = [],
-  isDriverUser = false
+  isDriverUser = false,
+  flyTo = null,
 }: DriverLiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -30,7 +32,9 @@ export default function DriverLiveMap({
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const initialFitDone = useRef(false);
+  const prevOnlineUsersRef = useRef<string>('');
 
+  // 1. Load Leaflet CSS + JS (uma vez)
   useEffect(() => {
     if ((window as any).L) {
       setIsLeafletLoaded(true);
@@ -51,32 +55,45 @@ export default function DriverLiveMap({
     document.body.appendChild(script);
   }, []);
 
+  // 2. Criar mapa (uma vez, assim que Leaflet carrega)
   useEffect(() => {
-    if (!isLeafletLoaded || !mapContainerRef.current) return;
+    if (!isLeafletLoaded || !mapContainerRef.current || mapRef.current) return;
     const L = (window as any).L;
     if (!L) return;
 
-    const hasFakeCoords = vehicles.length > 0;
-    const hasRealCoords = !!coords;
-    const hasOnlineUsers = onlineUsers.length > 0;
+    const center = coords ? [coords.lat, coords.lng] : [-23.5505, -46.6333];
+    mapRef.current = L.map(mapContainerRef.current, {
+      zoomControl: true,
+      attributionControl: false
+    }).setView(center as [number, number], 11);
 
-    if (!hasFakeCoords && !hasRealCoords && !hasOnlineUsers) return;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(mapRef.current);
+  }, [isLeafletLoaded, coords]);
 
-    if (!mapRef.current) {
-      const center = coords ? [coords.lat, coords.lng] : [-23.5505, -46.6333];
-      mapRef.current = L.map(mapContainerRef.current, {
-        zoomControl: true,
-        attributionControl: false
-      }).setView(center as [number, number], 11);
+  // 2b. Fly to vehicle when flyTo changes
+  useEffect(() => {
+    if (!mapRef.current || !flyTo) return;
+    mapRef.current.flyTo([flyTo.lat, flyTo.lng], 15, { duration: 1.5 });
+  }, [flyTo]);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(mapRef.current);
-    }
+  // 3. Atualizar markers (só quando dados mudam de verdade)
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
 
+    // Serializar pra comparar — evita redesenho desnecessário
+    const key = JSON.stringify(onlineUsers.map(u => [u.vehicleId, u.lat, u.lng, u.speed]));
+    if (key === prevOnlineUsersRef.current) return;
+    prevOnlineUsersRef.current = key;
+
+    // Limpa marcadores antigos
     markersRef.current.forEach(m => mapRef.current?.removeLayer(m));
     markersRef.current = [];
 
+    // Vehicles (fake GPS - cadastro)
     vehicles.forEach(v => {
       const gps = vehicleToGps(v.lat, v.lng);
       const isInTransit = v.status === 'In Transit';
@@ -89,6 +106,7 @@ export default function DriverLiveMap({
       markersRef.current.push(marker);
     });
 
+    // Coordenadas do usuário (driver view)
     if (coords && isDriverUser) {
       const userIconHtml = `<div class="relative flex items-center justify-center"><div class="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-emerald-400 opacity-75"></div><div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white shadow-lg"><div class="h-2 w-2 bg-white rounded-full"></div></div></div>`;
       const userIcon = L.divIcon({ html: userIconHtml, className: 'custom-user-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
@@ -98,6 +116,7 @@ export default function DriverLiveMap({
       markersRef.current.push(userMarker);
     }
 
+    // Online users (FullTrack + PWA — GPS real)
     onlineUsers.forEach(u => {
       if (u.lat && u.lng) {
         const isOwnTracks = u.vehicleId?.startsWith('OT-');
@@ -115,12 +134,13 @@ export default function DriverLiveMap({
       }
     });
 
+    // Fit bounds no primeiro render com dados
     if (markersRef.current.length > 0 && !initialFitDone.current) {
       const group = L.featureGroup(markersRef.current);
       mapRef.current.fitBounds(group.getBounds().pad(0.15));
       initialFitDone.current = true;
     }
-  }, [isLeafletLoaded, coords, vehicles, onlineUsers, isDriverUser]);
+  }, [vehicles, onlineUsers, coords, isDriverUser]);
 
   const toggleFullscreen = async () => {
     try {
@@ -148,10 +168,8 @@ export default function DriverLiveMap({
     };
   }, []);
 
-  const hasAnyCoords = coords !== null || vehicles.length > 0 || onlineUsers.length > 0;
-
   return (
-    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '70vh' }}>
+    <div className="bg-slate-50 border border-blue-200/60 rounded-2xl shadow-inner overflow-hidden relative" style={{ height: isFullscreen ? '100vh' : '80vh' }}>
       {error ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50 z-10">
           <p className="text-xs font-semibold text-slate-500 mb-3 leading-relaxed">⚠️ {error}</p>
@@ -159,15 +177,16 @@ export default function DriverLiveMap({
             Permitir Acesso à Localização
           </button>
         </div>
-      ) : !hasAnyCoords ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-50 z-10">
-          <Navigation className="w-8 h-8 text-slate-300 mb-3" />
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Nenhum motorista conectado</p>
-        </div>
       ) : (
         <>
           <div ref={mapContainerRef} className="w-full h-full z-0" />
-          <button type="button" onClick={toggleFullscreen} className="absolute top-3 right-3 z-[1000] bg-white/90 hover:bg-white border border-blue-200/60 rounded-lg p-2 shadow-md transition-all cursor-pointer" title={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}>
+          {onlineUsers.length === 0 && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{zIndex:999}}>
+              <Navigation className="w-8 h-8 text-slate-300 mb-3" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Carregando rastreamento...</p>
+            </div>
+          )}
+          <button type="button" onClick={toggleFullscreen} className="absolute top-3 right-3 bg-white/90 hover:bg-white border border-blue-200/60 rounded-lg p-2 shadow-md transition-all cursor-pointer" style={{zIndex:1000}} title={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700">
               {isFullscreen ? (
                 <><polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" /><line x1="14" y1="10" x2="21" y2="3" /><line x1="3" y1="21" x2="10" y2="14" /></>
@@ -176,11 +195,13 @@ export default function DriverLiveMap({
               )}
             </svg>
           </button>
-          <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
-            {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
+          <div className="absolute bottom-3 left-3 bg-white/90 border border-blue-200/60 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600" style={{zIndex:1000}}>
+            {onlineUsers.length > 0
+              ? `${onlineUsers.length} rastreado${onlineUsers.length !== 1 ? 's' : ''}`
+              : 'Nenhum rastreado'}
           </div>
           {onlineUsers.length > 0 && (
-            <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">
+            <div className="absolute bottom-3 right-3 bg-white/90 border border-blue-200/60 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600" style={{zIndex:1000}}>
               Online: {onlineUsers.map(u => u.name).join(', ')}
             </div>
           )}

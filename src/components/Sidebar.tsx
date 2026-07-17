@@ -22,7 +22,8 @@ import {
   Landmark,
   Wrench,
   UserPlus,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,30 +32,33 @@ interface SidebarProps {
   onOpenNewDispatch: () => void;
   transitCount: number;
   unseenBoletos?: number;
+  pedagiosPendentes?: number;
   userRole?: string;
   userEmail?: string;
 }
 
-export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, unseenBoletos, userRole, userEmail }: SidebarProps) {
+export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, unseenBoletos, pedagiosPendentes, userRole, userEmail }: SidebarProps) {
   const isDriver = (userRole?.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com');
+  const hasPedagiosPendentes = (pedagiosPendentes ?? 0) > 0;
 
   const navItems = [
     { id: 'dashboard', name: 'Painel', icon: LayoutDashboard },
     { id: 'driver-portal', name: 'Portal Motorista', icon: Smartphone },
     { id: 'tracking', name: 'Rastreamento', icon: MapPin },
-    { id: 'operations', name: 'Operações', icon: Activity },
+    { id: 'operations', name: 'Operacoes', icon: Activity },
     { id: 'disposal', name: 'Cadastro', icon: Trash2 },
     { id: 'finance', name: 'Financeiro', icon: DollarSign },
-    { id: 'commissions', name: 'Comissões', icon: Percent },
+    { id: 'commissions', name: 'Comissoes', icon: Percent },
     { id: 'boletos', name: 'Boletos', icon: Receipt, badge: unseenBoletos },
-    { id: 'bancario', name: 'Bancários', icon: Landmark },
-    { id: 'reports', name: 'Relatórios', icon: FileText },
+    { id: 'bancario', name: 'Bancarios', icon: Landmark },
+    { id: 'pedagios', name: 'Pedagios', icon: AlertTriangle, alert: hasPedagiosPendentes, badge: pedagiosPendentes },
+    { id: 'reports', name: 'Relatorios', icon: FileText },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'ctr-vencidos', name: 'CTR Vencidos', icon: Clock },
-    { id: 'manutencao', name: 'Manutenção', icon: Wrench },
+    { id: 'manutencao', name: 'Manutencao', icon: Wrench },
     { id: 'payslip', name: 'Holerites', icon: FileText },
     { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus },
-    { id: 'settings', name: 'Configurações', icon: SettingsIcon }
+    { id: 'settings', name: 'Configuracoes', icon: SettingsIcon }
   ].filter(item => {
     if (isDriver) {
       return item.id === 'driver-portal';
@@ -91,17 +95,29 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
                   id={`nav-item-${item.id}`}
                   onClick={() => setCurrentTab(item.id)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold transition-all duration-150 ease-in-out cursor-pointer group ${
-                    isActive 
-                      ? 'text-purple-400 bg-purple-950/40 border-r-4 border-purple-500' 
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                    item.alert
+                      ? 'text-white bg-gradient-to-r from-amber-600 to-red-600 border-r-4 border-red-400 shadow-lg shadow-red-900/30 animate-pulse'
+                      : isActive
+                        ? 'text-purple-400 bg-purple-950/40 border-r-4 border-purple-500'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 transition-transform duration-150 ${isActive ? 'text-purple-400' : 'text-slate-450 group-hover:scale-105'}`} />
+                    <Icon className={`w-5 h-5 transition-transform duration-150 ${
+                      item.alert
+                        ? 'text-white animate-bounce'
+                        : isActive
+                          ? 'text-purple-400'
+                          : 'text-slate-450 group-hover:scale-105'
+                    }`} />
                     <span>{item.name}</span>
                   </div>
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="bg-purple-600 text-xs font-black px-2 py-0.5 rounded-full text-white animate-pulse">
+                    <span className={`text-xs font-black px-2 py-0.5 rounded-full animate-pulse ${
+                      item.alert
+                        ? 'bg-white text-red-600'
+                        : 'bg-purple-600 text-white'
+                    }`}>
                       {item.badge}
                     </span>
                   )}

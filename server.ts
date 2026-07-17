@@ -361,6 +361,97 @@ crud('planos_pagamento', schema.planosPagamento);
 crud('clientes', schema.clientes);
 crud('user-approvals', schema.userApprovals);
 crud('folha_pagamento', schema.folhaPagamento);
+crud('pedagios', schema.pedagios);
+
+// ── Pedágios: resumo para badge/sidebar ──────────────────────────────
+app.get("/api/pedagios/summary", authMiddleware, async (_req, res) => {
+  try {
+    const all = await db.select().from(schema.pedagios);
+    const pendentes = all.filter((p: any) => !p.pago);
+    const valorPendente = pendentes.reduce((sum: number, p: any) => sum + (p.valorTotal || 0), 0);
+    const jaPago = all.filter((p: any) => p.pago).reduce((sum: number, p: any) => sum + (p.valorTotal || 0), 0);
+    res.json({ total: all.length, pendentes: pendentes.length, valorPendente, jaPago });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: marcar como pago ──────────────────────────────────────
+app.put("/api/pedagios/:id/pago", authMiddleware, async (req, res) => {
+  try {
+    await db.update(schema.pedagios).set({
+      pago: true,
+      dataPagamento: new Date().toISOString(),
+    }).where(eq(schema.pedagios.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: marcar como não pago ──────────────────────────────────
+app.put("/api/pedagios/:id/reabrir", authMiddleware, async (req, res) => {
+  try {
+    await db.update(schema.pedagios).set({
+      pago: false,
+      dataPagamento: null,
+    }).where(eq(schema.pedagios.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Pedágios: scraper leve do Pedágio Digital ───────────────────────
+async function scrapePedagiodigital(placa: string): Promise<{ success: boolean; debits?: any[]; manual?: boolean; error?: string }> {
+  try {
+    const normalizedPlate = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const res = await fetch('https://www.pedagiodigital.com/api/v2/consultar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Origin': 'https://www.pedagiodigital.com',
+        'Referer': 'https://www.pedagiodigital.com/',
+        'Accept': 'application/json, text/plain, */*',
+      },
+      body: JSON.stringify({ placa: normalizedPlate }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      return { success: false, manual: true, error: `HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    if (data && data.passagens && Array.isArray(data.passagens)) {
+      return { success: true, debits: data.passagens };
+    }
+    if (data && data.debitos && Array.isArray(data.debitos)) {
+      return { success: true, debits: data.debitos };
+    }
+    return { success: false, manual: true, error: 'Formato inesperado' };
+  } catch (e: any) {
+    return { success: false, manual: true, error: e.message || 'Fetch failed' };
+  }
+}
+
+app.post("/api/pedagios/check", authMiddleware, async (req, res) => {
+  try {
+    const { placa } = req.body;
+    if (!placa) return res.status(400).json({ error: 'placa required' });
+    const result = await scrapePedagiodigital(placa);
+    if (result.success && result.debits && result.debits.length > 0) {
+      const now = new Date().toISOString();
+      const inserted = [];
+      for (const d of result.debits) {
+        const id = `PED-${randomUUID().substring(0, 8)}`;
+        const valor = d.valor_total || d.normalizado_valor_total || d.valor || 0;
+        const concessionaria = d.concessionaria || d.concessionaria_nome || '';
+        const dataPassagem = d.data_passagem || d.data || null;
+        await db.insert(schema.pedagios).values({
+          id, placa: placa.toUpperCase(), concessionaria, valorTotal: valor,
+          dataPassagem, dataConsulta: now, pago: false, createdAt: now,
+        });
+        inserted.push({ id, placa: placa.toUpperCase(), concessionaria, valorTotal: valor });
+      }
+      return res.json({ success: true, source: 'scraper', inserted, total: inserted.length });
+    }
+    return res.json({ success: false, manual: true, message: 'Scraper não retornou débitos. Registre manualmente.' });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 app.get("/api/vehicles/map", authMiddleware, async (req, res) => {
   try {
@@ -1070,6 +1161,252 @@ async function startServer() {
     } catch (e: any) {
       console.error('[PORTAO] Error:', e.message);
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── FullTrack GPS Integration ────────────────────────────────────
+  const FULLTRACK_LOGIN_URL = process.env.FULLTRACK_LOGIN_URL || 'https://fulltrackapp.com/emp/24488-movek-rastreamento-veicular';
+  const FULLTRACK_USER = process.env.FULLTRACK_USER || '';
+  const FULLTRACK_PASS = process.env.FULLTRACK_PASS || '';
+
+  let fulltrackToken: { access_token: string; refresh_token: string; expires_at: number } | null = null;
+  let fulltrackPositionsCache: { data: any; ts: number } | null = null;
+  const FULLTRACK_CACHE_MS = 10_000;
+  const FULLTRACK_TOKEN_MARGIN_MS = 300_000; // renova 5min antes de expirar
+
+  async function loginFullTrack(): Promise<string> {
+    // Usa módulo https nativo pra ter controle total dos cookies no redirect
+    const https = await import('https');
+    const { URL } = await import('url');
+
+    return new Promise<string>((resolve, reject) => {
+      const url = new URL(FULLTRACK_LOGIN_URL);
+      const postData = `login=${encodeURIComponent(FULLTRACK_USER)}&password=${encodeURIComponent(FULLTRACK_PASS)}`;
+      const options = {
+        hostname: url.hostname,
+        port: 443,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postData),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        const setCookies = res.headers['set-cookie'];
+
+        if (!setCookies || setCookies.length === 0) {
+          // Pode ter redirecionado sem cookie — segue o redirect manualmente
+          const location = res.headers.location;
+          if (location && res.statusCode === 302) {
+            const redirectUrl = new URL(location, `https://${url.hostname}`);
+            const redirectOptions = {
+              hostname: redirectUrl.hostname,
+              port: 443,
+              path: redirectUrl.pathname + redirectUrl.search,
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            };
+            const req2 = https.request(redirectOptions, (res2) => {
+              const setCookies2 = res2.headers['set-cookie'];
+              if (setCookies2) {
+                const gesession = setCookies2.find(c => c.startsWith('gesession='));
+                if (gesession) {
+                  const match = gesession.match(/gesession=([^;]+)/);
+                  if (match) return resolve(match[1]);
+                }
+              }
+              reject(new Error('FullTrack login failed: no session cookie after redirect'));
+            });
+            req2.on('error', reject);
+            req2.end();
+            return;
+          }
+          return reject(new Error('FullTrack login failed: no set-cookie headers, status: ' + res.statusCode));
+        }
+
+        const gesessionCookie = setCookies.find(c => c.startsWith('gesession='));
+        if (!gesessionCookie) {
+          return reject(new Error('FullTrack login failed: no gesession in cookies'));
+        }
+        const match = gesessionCookie.match(/gesession=([^;]+)/);
+        if (!match) return reject(new Error('FullTrack login failed: gesession parse error'));
+        resolve(match[1]);
+      });
+
+      req.on('error', (e) => {
+        console.error('[FULLTRACK] Request error:', e.message);
+        reject(e);
+      });
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  async function getFullTrackToken(): Promise<string> {
+    if (fulltrackToken && Date.now() < fulltrackToken.expires_at - FULLTRACK_TOKEN_MARGIN_MS) {
+      return fulltrackToken.access_token;
+    }
+    const gesession = await loginFullTrack();
+    const https = await import('https');
+
+    const tokenData = await new Promise<any>((resolve, reject) => {
+      const postData = '{}';
+      const req = https.request({
+        hostname: 'fulltrackapp.com',
+        port: 443,
+        path: '/token/Api_ftk4_token_web',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'Cookie': `gesession=${gesession}; slug=24488-movek-rastreamento-veicular`,
+          'Origin': 'https://fulltrackapp.com',
+          'Referer': 'https://fulltrackapp.com/mapaGeral_v3/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => body += chunk);
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            return reject(new Error(`FullTrack token failed: ${res.statusCode}`));
+          }
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('FullTrack token: invalid JSON')); }
+        });
+      });
+      req.on('error', reject);
+      req.write(postData);
+      req.end();
+    });
+
+    fulltrackToken = {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: Date.now() + (tokenData.expires_in || 3600) * 1000,
+    };
+    console.log('[FULLTRACK] Token obtido com sucesso');
+    return fulltrackToken.access_token;
+  }
+
+  async function getFullTrackPositions(): Promise<any> {
+    if (fulltrackPositionsCache && Date.now() - fulltrackPositionsCache.ts < FULLTRACK_CACHE_MS) {
+      return fulltrackPositionsCache.data;
+    }
+    const accessToken = await getFullTrackToken();
+    const res = await fetch('https://mapageral.ops.fulltrackapp.com/maps/v2/last-positions/card-views/?limit=100&offset=0', {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (!res.ok) throw new Error(`FullTrack positions failed: ${res.status}`);
+    const raw = await res.json() as any;
+    const positions = (raw.data || []).map((v: any) => ({
+      vehicleId: `FT-${v.ativo_id}`,
+      driverName: v.driver_name || v.ativo?.ativo_name || 'Motorista',
+      lat: v.lat_lng?.[0] || null,
+      lng: v.lat_lng?.[1] || null,
+      speed: v.speed?.val ?? null,
+      plate: v.ativo?.plate || '',
+      vehicleName: v.ativo?.ativo_name || v.ativo?.description || '',
+      ignition: v.ignition === 1,
+      dtGps: v.dt_gps || '',
+      battery: v.battery ?? null,
+      updatedAt: new Date().toISOString(),
+      source: 'fulltrack',
+    }));
+    fulltrackPositionsCache = { data: positions, ts: Date.now() };
+    return positions;
+  }
+
+  app.get('/api/fulltrack/positions', async (_req, res) => {
+    try {
+      if (!FULLTRACK_USER || !FULLTRACK_PASS) {
+        return res.json([]);
+      }
+      const positions = await getFullTrackPositions();
+      res.json(positions);
+    } catch (e: any) {
+      console.error('[FULLTRACK] Error:', e.message);
+      // Em produção retorna vazio em vez de erro
+      if (process.env.NODE_ENV !== 'production') {
+        res.status(500).json({ error: e.message });
+      } else {
+        res.json([]);
+      }
+    }
+  });
+
+  // ── SSE: FullTrack real-time stream ─────────────────────────────────
+  const sseClients = new Set<import('express').Response>();
+  let lastPositionsHash = '';
+  let ssePollTimer: ReturnType<typeof setInterval> | null = null;
+
+  function broadcastPositions(positions: any[]) {
+    const hash = JSON.stringify(positions.map((p: any) => [p.vehicleId, p.lat, p.lng, p.speed]));
+    if (hash === lastPositionsHash) return; // nada mudou — não envia
+    lastPositionsHash = hash;
+    const payload = `data: ${JSON.stringify(positions)}\n\n`;
+    for (const client of sseClients) {
+      try { client.write(payload); } catch { sseClients.delete(client); }
+    }
+  }
+
+  function startSsePoller() {
+    if (ssePollTimer) return;
+    ssePollTimer = setInterval(async () => {
+      if (sseClients.size === 0) return;
+      try {
+        if (!FULLTRACK_USER || !FULLTRACK_PASS) return;
+        const positions = await getFullTrackPositions();
+        broadcastPositions(positions);
+      } catch {}
+    }, FULLTRACK_CACHE_MS);
+  }
+
+  app.get('/api/fulltrack/stream', (req, res) => {
+    if (!FULLTRACK_USER || !FULLTRACK_PASS) {
+      return res.status(200).set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' }).write('data: []\n\n');
+    }
+    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders();
+    sseClients.add(res);
+    startSsePoller();
+    // Envia dados atuais imediatamente
+    getFullTrackPositions().then(pos => {
+      try { res.write(`data: ${JSON.stringify(pos)}\n\n`); } catch {}
+    }).catch(() => {});
+    req.on('close', () => sseClients.delete(res));
+  });
+
+  // ── Reverse Geocoding proxy (Nominatim) ─────────────────────────────
+  const geoCache = new Map<string, string>();
+  let lastGeoCall = 0;
+  app.get('/api/reverse-geocode', async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'Invalid lat/lng' });
+      const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      if (geoCache.has(key)) return res.json({ address: geoCache.get(key) });
+      // Throttle: 1 req/sec
+      const wait = Math.max(0, 1100 - (Date.now() - lastGeoCall));
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      lastGeoCall = Date.now();
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`, {
+        headers: { 'User-Agent': 'RelampagoCacambas/1.0' },
+      });
+      if (!r.ok) return res.json({ address: '' });
+      const data = await r.json() as any;
+      const addr = (data.display_name || '').split(',').slice(0, 3).join(',').trim();
+      geoCache.set(key, addr);
+      res.json({ address: addr });
+    } catch {
+      res.json({ address: '' });
     }
   });
 

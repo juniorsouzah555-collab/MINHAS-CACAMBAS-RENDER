@@ -29,7 +29,8 @@ import {
   Lancamento,
   ComissaoMotorista,
   GarageRefill,
-  Manutencao
+  Manutencao,
+  PedagioDebito
 } from './types';
 import { 
   INITIAL_VEHICLES, 
@@ -64,9 +65,11 @@ import BoletoView from './components/BoletoView';
 import BancarioView from './components/BancarioView';
 import ManutencaoView from './components/ManutencaoView';
 import DescargaRapida from './components/DescargaRapida';
+import DriverSelectScreen from './components/DriverSelectScreen';
 import PayslipView from './components/PayslipView';
 import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
+import PedagiosView from './components/PedagiosView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -105,6 +108,10 @@ export default function App() {
 
   // Manutenções state
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
+
+  // Pedágios state
+  const [pedagios, setPedagios] = useState<PedagioDebito[]>([]);
+  const [pedagiosPendentes, setPedagiosPendentes] = useState(0);
 
   // Portão state
   const [portaoLoading, setPortaoLoading] = useState(false);
@@ -152,6 +159,30 @@ export default function App() {
 
   // NOTA: localStorage foi removido como fonte de dados.
   // Toda persistência é feita via servidor (Express + Turso).
+
+  // Carrega veículos públicos na tela raiz (antes da autenticação)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      fetch('/api/public/vehicles').then(r => r.ok ? r.json() : []).then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setVehicles(data.map((v: any) => ({
+            id: v.id,
+            status: v.status || 'Available',
+            efficiency: v.efficiency || 0,
+            fuelUsed: v.fuel_used || 0,
+            costPerKm: v.cost_per_km || 0,
+            driver: v.driver || '',
+            trend: [],
+            lat: v.lat || 0,
+            lng: v.lng || 0,
+            isActive: v.is_active !== false,
+            type: v.type || 'Caminhão',
+            initialKm: v.initial_km || 0,
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Load data from Cloud SQL / Supabase when authenticated
   useEffect(() => {
@@ -411,6 +442,25 @@ export default function App() {
           if (resDispatches.ok) {
             const data = await resDispatches.json();
             setDispatches(data);
+          }
+          const resPedagios = await fetch("/api/pedagios");
+          if (resPedagios.ok) {
+            const data = await resPedagios.json();
+            setPedagios(data.map((p: any) => ({
+              id: p.id,
+              placa: p.placa,
+              concessionaria: p.concessionaria || '',
+              valorTotal: p.valor_total ?? p.valorTotal ?? 0,
+              dataPassagem: p.data_passagem || p.dataPassagem || '',
+              dataConsulta: p.data_consulta || p.dataConsulta || '',
+              pago: p.pago === true || p.pago === 1,
+              dataPagamento: p.data_pagamento || p.dataPagamento || '',
+              pixCode: p.pix_code || p.pixCode || '',
+              observacao: p.observacao || '',
+              createdAt: p.created_at || p.createdAt || '',
+            })));
+            const pendentes = data.filter((p: any) => !p.pago);
+            setPedagiosPendentes(pendentes.length);
           }
         } catch (error) {
           console.error("Database connection error:", error);
@@ -1859,51 +1909,48 @@ export default function App() {
       ? todosMotoristas.filter(n => n === urlMotorista)
       : todosMotoristas;
 
-    return (
-      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6 relative">
-        {/* Botão Portão */}
-        <button
-          onClick={handlePortao}
-          disabled={portaoLoading}
-          className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-amber-600/80 text-white text-xs font-bold hover:bg-amber-500 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-        >
-          {portaoLoading ? '...' : 'PORTÃO'}
-        </button>
-        {portaoMsg && (
-          <div className="absolute top-12 right-4 px-3 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-amber-400 shadow-lg">
-            {portaoMsg}
-          </div>
-        )}
+    // Checa se já selecionou veículo hoje (2x ao dia = 12h)
+    const savedSelection = (() => {
+      try {
+        const raw = localStorage.getItem('relampago_vehicle_selection');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const today = new Date().toISOString().split('T')[0];
+        if (parsed.date === today && parsed.vehicleId) return parsed;
+        return null;
+      } catch { return null; }
+    })();
 
-        <div className="text-center max-w-sm w-full">
-          <Truck className="w-14 h-14 text-emerald-400 mx-auto mb-4" />
-          <h1 className="text-xl font-black text-white mb-1">Relâmpago Caçambas</h1>
-          <p className="text-sm text-slate-400 mb-8">Selecione seu nome para registrar descarga</p>
-          <div className="space-y-3">
-            {motoristasVisiveis.map(nome => (
-              <button
-                key={nome}
-                onClick={() => { window.location.href = `/?page=descarga&motorista=${nome}`; }}
-                className="w-full py-4 rounded-xl bg-emerald-600 text-white font-black text-lg hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
-              >
-                {nome}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
-            className="mt-6 w-full py-4 rounded-xl bg-orange-600 text-white font-black text-lg hover:bg-orange-700 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/30 cursor-pointer"
-          >
-            CTR
-          </button>
-          <button
-            onClick={() => { window.location.href = '/?page=admin'; }}
-            className="mt-8 text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
-          >
-            Acessar como administrador
-          </button>
-        </div>
-      </div>
+    // Se já selecionou hoje, vai direto pra descarga com o motorista salvo
+    if (savedSelection && savedSelection.motorista) {
+      window.location.href = `/?page=descarga&motorista=${savedSelection.motorista}&veiculo=${savedSelection.vehicleId}`;
+      return null;
+    }
+
+    const savedVehicle = savedSelection?.vehicleId || '';
+
+    return (
+      <DriverSelectScreen
+        motoristas={motoristasVisiveis}
+        vehicles={vehicles}
+        savedVehicle={savedVehicle}
+        onSelectMotorista={(nome, vehicleId) => {
+          // Salva seleção com data de hoje
+          try {
+            localStorage.setItem('relampago_vehicle_selection', JSON.stringify({
+              vehicleId,
+              motorista: nome,
+              date: new Date().toISOString().split('T')[0],
+            }));
+          } catch {}
+          window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
+        }}
+        onPortao={handlePortao}
+        portaoLoading={portaoLoading}
+        portaoMsg={portaoMsg}
+        onAdmin={() => { window.location.href = '/?page=admin'; }}
+        onCtr={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+      />
     );
   }
 
@@ -1970,6 +2017,7 @@ export default function App() {
           onOpenNewDispatch={() => setIsNewDispatchOpen(true)}
           transitCount={transitBadgeCount}
           unseenBoletos={boletosBadgeCount}
+          pedagiosPendentes={pedagiosPendentes}
           userRole={currentUserRole}
           userEmail={currentUserEmail}
         />
@@ -2182,6 +2230,14 @@ export default function App() {
 
           {currentTab === 'ctr-vencidos' && (
             <CtrVencidosView />
+          )}
+
+          {currentTab === 'pedagios' && (
+            <PedagiosView
+              pedagios={pedagios}
+              setPedagios={setPedagios}
+              onSummaryChange={(pendentes, valorTotal) => setPedagiosPendentes(pendentes)}
+            />
           )}
 
           {currentTab === 'settings' && (
