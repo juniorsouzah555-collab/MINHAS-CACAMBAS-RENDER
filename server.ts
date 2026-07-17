@@ -1188,20 +1188,46 @@ async function startServer() {
       return fulltrackToken.access_token;
     }
     const gesession = await loginFullTrack();
-    const res = await fetch('https://fulltrackapp.com/token/Api_ftk4_token_web', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': `gesession=${gesession}; slug=24488-movek-rastreamento-veicular`,
-      },
-      body: '{}',
+    const https = await import('https');
+
+    const tokenData = await new Promise<any>((resolve, reject) => {
+      const postData = '{}';
+      const req = https.request({
+        hostname: 'fulltrackapp.com',
+        port: 443,
+        path: '/token/Api_ftk4_token_web',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'Cookie': `gesession=${gesession}; slug=24488-movek-rastreamento-veicular`,
+          'Origin': 'https://fulltrackapp.com',
+          'Referer': 'https://fulltrackapp.com/mapaGeral_v3/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => body += chunk);
+        res.on('end', () => {
+          console.log('[FULLTRACK] Token status:', res.statusCode);
+          if (res.statusCode !== 200) {
+            console.error('[FULLTRACK] Token error body:', body.substring(0, 200));
+            return reject(new Error(`FullTrack token failed: ${res.statusCode}`));
+          }
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('FullTrack token: invalid JSON')); }
+        });
+      });
+      req.on('error', reject);
+      req.write(postData);
+      req.end();
     });
-    if (!res.ok) throw new Error(`FullTrack token failed: ${res.status}`);
-    const data = await res.json() as any;
+
     fulltrackToken = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: Date.now() + (tokenData.expires_in || 3600) * 1000,
     };
     console.log('[FULLTRACK] Token obtido com sucesso');
     return fulltrackToken.access_token;
