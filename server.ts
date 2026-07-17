@@ -1122,14 +1122,11 @@ async function startServer() {
 
       const req = https.request(options, (res) => {
         const setCookies = res.headers['set-cookie'];
-        console.log('[FULLTRACK] Login status:', res.statusCode);
-        console.log('[FULLTRACK] Set-Cookie headers:', setCookies?.length || 0);
 
         if (!setCookies || setCookies.length === 0) {
           // Pode ter redirecionado sem cookie — segue o redirect manualmente
           const location = res.headers.location;
           if (location && res.statusCode === 302) {
-            console.log('[FULLTRACK] Seguindo redirect:', location);
             const redirectUrl = new URL(location, `https://${url.hostname}`);
             const redirectOptions = {
               hostname: redirectUrl.hostname,
@@ -1142,16 +1139,11 @@ async function startServer() {
             };
             const req2 = https.request(redirectOptions, (res2) => {
               const setCookies2 = res2.headers['set-cookie'];
-              console.log('[FULLTRACK] Redirect status:', res2.statusCode);
-              console.log('[FULLTRACK] Redirect cookies:', setCookies2?.length || 0);
               if (setCookies2) {
                 const gesession = setCookies2.find(c => c.startsWith('gesession='));
                 if (gesession) {
                   const match = gesession.match(/gesession=([^;]+)/);
-                  if (match) {
-                    console.log('[FULLTRACK] Login OK via redirect');
-                    return resolve(match[1]);
-                  }
+                  if (match) return resolve(match[1]);
                 }
               }
               reject(new Error('FullTrack login failed: no session cookie after redirect'));
@@ -1165,12 +1157,10 @@ async function startServer() {
 
         const gesessionCookie = setCookies.find(c => c.startsWith('gesession='));
         if (!gesessionCookie) {
-          console.error('[FULLTRACK] Cookies recebidos:', setCookies);
           return reject(new Error('FullTrack login failed: no gesession in cookies'));
         }
         const match = gesessionCookie.match(/gesession=([^;]+)/);
         if (!match) return reject(new Error('FullTrack login failed: gesession parse error'));
-        console.log('[FULLTRACK] Login OK, gesession obtido');
         resolve(match[1]);
       });
 
@@ -1210,9 +1200,7 @@ async function startServer() {
         let body = '';
         res.on('data', (chunk) => body += chunk);
         res.on('end', () => {
-          console.log('[FULLTRACK] Token status:', res.statusCode);
           if (res.statusCode !== 200) {
-            console.error('[FULLTRACK] Token error body:', body.substring(0, 200));
             return reject(new Error(`FullTrack token failed: ${res.statusCode}`));
           }
           try { resolve(JSON.parse(body)); }
