@@ -24,25 +24,17 @@ interface TrackingViewProps {
 
 // Cache global de endereços (sobrevive re-renders)
 const addressCache = new Map<string, string>();
-let lastNominatimCall = 0;
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (addressCache.has(key)) return addressCache.get(key)!;
   try {
-    const now = Date.now();
-    const wait = Math.max(0, 1100 - (now - lastNominatimCall));
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
-    lastNominatimCall = Date.now();
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`, {
-      headers: { 'User-Agent': 'RelampagoCacambas/1.0' },
-    });
+    const res = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`);
     if (res.ok) {
       const data = await res.json();
-      const addr = data.display_name || '';
-      const short = addr.split(',').slice(0, 3).join(',').trim();
-      addressCache.set(key, short);
-      return short;
+      const addr = data.address || '';
+      if (addr) addressCache.set(key, addr);
+      return addr;
     }
   } catch {}
   return '';

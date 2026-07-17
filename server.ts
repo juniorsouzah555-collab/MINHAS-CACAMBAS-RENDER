@@ -1309,6 +1309,33 @@ async function startServer() {
     req.on('close', () => sseClients.delete(res));
   });
 
+  // ── Reverse Geocoding proxy (Nominatim) ─────────────────────────────
+  const geoCache = new Map<string, string>();
+  let lastGeoCall = 0;
+  app.get('/api/reverse-geocode', async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'Invalid lat/lng' });
+      const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      if (geoCache.has(key)) return res.json({ address: geoCache.get(key) });
+      // Throttle: 1 req/sec
+      const wait = Math.max(0, 1100 - (Date.now() - lastGeoCall));
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      lastGeoCall = Date.now();
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`, {
+        headers: { 'User-Agent': 'RelampagoCacambas/1.0' },
+      });
+      if (!r.ok) return res.json({ address: '' });
+      const data = await r.json() as any;
+      const addr = (data.display_name || '').split(',').slice(0, 3).join(',').trim();
+      geoCache.set(key, addr);
+      res.json({ address: addr });
+    } catch {
+      res.json({ address: '' });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
