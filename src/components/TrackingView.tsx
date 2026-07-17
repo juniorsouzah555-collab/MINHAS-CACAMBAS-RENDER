@@ -142,10 +142,10 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
         </div>
       </div>
 
-      {/* Live Map */}
+      {/* Live Map — só onlineUsers (FullTrack + PWA GPS real), sem vehicles fake */}
       <DriverLiveMap
         coords={null}
-        vehicles={vehicles.filter(v => (v.status === 'In Transit' || v.status === 'Assigned') && motoristas.some(m => m.toLowerCase() === (v.driver || '').toLowerCase()))}
+        vehicles={[]}
         error={null}
         onRetry={() => {}}
         onlineUsers={onlineUsers}

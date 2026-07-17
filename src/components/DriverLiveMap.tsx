@@ -177,7 +177,9 @@ export default function DriverLiveMap({
             </svg>
           </button>
           <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2.5 py-1 shadow-md text-[10px] font-bold text-slate-600">
-            {vehicles.length} motorista{vehicles.length !== 1 ? 's' : ''} • {vehicles.filter(v => v.status === 'In Transit').length} em trânsito
+            {onlineUsers.length > 0
+              ? `${onlineUsers.length} rastreado${onlineUsers.length !== 1 ? 's' : ''}`
+              : 'Nenhum rastreado'}
           </div>
           {onlineUsers.length > 0 && (
             <div className="absolute bottom-3 right-3 z-[1000] bg-white/90 border border-blue-200/60 rounded-lg px-2 py-1 shadow-md text-xs text-slate-600">
