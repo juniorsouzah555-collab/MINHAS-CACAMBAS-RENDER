@@ -1188,11 +1188,8 @@ async function startServer() {
     } catch (e: any) {
       console.error('[FULLTRACK] Error:', e.message);
       // Em dev retorna erro pra debugar, em prod retorna vazio
-      if (process.env.NODE_ENV !== 'production') {
-        res.status(500).json({ error: e.message });
-      } else {
-        res.json([]);
-      }
+      // TODO: remover temporary debug depois de confirmar que funciona
+      res.status(500).json({ error: e.message });
     }
   });
 
