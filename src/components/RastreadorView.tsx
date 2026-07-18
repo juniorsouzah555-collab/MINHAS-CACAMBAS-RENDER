@@ -8,6 +8,12 @@ interface VehicleLocation {
   speed: number | null;
   accuracy: number | null;
   updatedAt: string;
+  plate?: string;
+  vehicleName?: string;
+  ignition?: boolean;
+  dtGps?: string;
+  battery?: number | null;
+  source?: string;
 }
 
 interface TrackingTarget {
@@ -47,7 +53,7 @@ export default function RastreadorView() {
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch('/api/vehicle-locations?_=' + Date.now());
+      const res = await fetch('/api/fulltrack/positions?_=' + Date.now());
       if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) setLocations(data);
@@ -80,14 +86,14 @@ export default function RastreadorView() {
   const online: TrackingTarget[] = locations
     .filter(l => (Date.now() - new Date(l.updatedAt).getTime()) < 60 * 60 * 1000)
     .map(l => ({
-      name: l.driverName || 'Motorista',
+      name: l.driverName || l.vehicleName || 'Motorista',
       lat: l.lat,
       lng: l.lng,
       speed: l.speed,
       vehicleId: l.vehicleId,
       accuracy: l.accuracy,
       updatedAt: l.updatedAt,
-      source: l.vehicleId?.startsWith('OT-') ? 'FullTrack' : 'PWA',
+      source: l.source || 'FullTrack',
     }));
 
   const filtered = online.filter(d =>
