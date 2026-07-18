@@ -1084,7 +1084,7 @@ async function startServer() {
   const TUYA_ACCESS_ID = process.env.TUYA_ACCESS_ID || '';
   const TUYA_ACCESS_SECRET = process.env.TUYA_ACCESS_SECRET || '';
   const TUYA_DEVICE_ID = process.env.TUYA_DEVICE_ID || '';
-  const TUYA_ENDPOINT = 'https://openapi-ueaz.tuyaus.com';
+  const TUYA_ENDPOINT = 'https://openapi.tuyaus.com';
 
   function tuyaSign(method: string, url: string, secret: string, token?: string, body?: string): { sign: string; ts: number } {
     const ts = Date.now();
