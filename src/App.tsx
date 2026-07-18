@@ -1822,7 +1822,7 @@ export default function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const publicPage = urlParams.get('page');
 
-  // Rota pública: motorista selecionando veículo (SEM localStorage, sempre mostra seleção)
+  // Rota pública: motorista selecionando veículo
   const urlMotoristaParam = (urlParams.get('motorista') || urlParams.get('MOTORISTA') || '').toUpperCase();
   if (urlMotoristaParam && !publicPage) {
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
