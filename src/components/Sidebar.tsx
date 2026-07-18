@@ -23,7 +23,8 @@ import {
   Wrench,
   UserPlus,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -58,6 +59,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'manutencao', name: 'Manutencao', icon: Wrench },
     { id: 'payslip', name: 'Holerites', icon: FileText },
     { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus },
+    { id: 'portao-control', name: 'Controle Portão', icon: ShieldCheck },
     { id: 'settings', name: 'Configuracoes', icon: SettingsIcon }
   ].filter(item => {
     if (isDriver) {

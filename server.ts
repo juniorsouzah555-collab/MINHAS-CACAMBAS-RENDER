@@ -1148,11 +1148,57 @@ async function startServer() {
     if (!data.success) throw new Error(data.msg || 'Failed to toggle device');
   }
 
+  // ── Portão: controle por horário + override admin ─────────────────
+  const GATE_PASSWORD = process.env.GATE_PASSWORD || 'relampago2026';
+  let gateOverride: 'normal' | 'liberado' | 'travado' = 'normal';
+
+  function isGateOpenBySchedule(): { allowed: boolean; reason: string } {
+    const now = new Date();
+    const br = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const day = br.getDay(); // 0=Sun, 6=Sat
+    const hour = br.getHours();
+    if (day === 0) return { allowed: false, reason: 'Domingo — portão bloqueado' };
+    if (day === 6) {
+      if (hour >= 7 && hour < 14) return { allowed: true, reason: 'Sábado — horário liberado' };
+      return { allowed: false, reason: 'Sábado — fora do horário (07-14)' };
+    }
+    if (hour >= 7 && hour < 19) return { allowed: true, reason: 'Horário comercial — liberado' };
+    return { allowed: false, reason: 'Fora do horário (07-19)' };
+  }
+
+  app.get('/api/portao-control', (_req, res) => {
+    const schedule = isGateOpenBySchedule();
+    res.json({ override: gateOverride, schedule });
+  });
+
+  app.post('/api/portao-control', (req, res) => {
+    const { password, action } = req.body;
+    if (password !== GATE_PASSWORD) {
+      return res.status(401).json({ error: 'Senha incorreta' });
+    }
+    if (!['normal', 'liberado', 'travado'].includes(action)) {
+      return res.status(400).json({ error: 'Ação inválida' });
+    }
+    gateOverride = action as typeof gateOverride;
+    console.log(`[PORTAO] Override alterado para: ${gateOverride}`);
+    res.json({ success: true, override: gateOverride });
+  });
+
   app.post('/api/portao', async (req, res) => {
     try {
       if (!TUYA_ACCESS_ID || !TUYA_ACCESS_SECRET || !TUYA_DEVICE_ID) {
         return res.status(500).json({ error: 'Tuya credentials not configured' });
       }
+
+      // Verifica horário / override
+      const schedule = isGateOpenBySchedule();
+      if (gateOverride === 'travado') {
+        return res.status(403).json({ error: 'Portão travado pelo administrador' });
+      }
+      if (gateOverride === 'normal' && !schedule.allowed) {
+        return res.status(403).json({ error: schedule.reason });
+      }
+
       const token = await getTuyaToken();
       const currentState = await getTuyaDeviceStatus(token);
       await toggleTuyaDevice(token, !currentState);

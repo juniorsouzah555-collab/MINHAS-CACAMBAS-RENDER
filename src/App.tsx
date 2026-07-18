@@ -70,6 +70,7 @@ import PayslipView from './components/PayslipView';
 import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
 import PedagiosView from './components/PedagiosView';
+import PortaoControlView from './components/PortaoControlView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -2249,6 +2250,10 @@ export default function App() {
               setPedagios={setPedagios}
               onSummaryChange={(pendentes, valorTotal) => setPedagiosPendentes(pendentes)}
             />
+          )}
+
+          {currentTab === 'portao-control' && (
+            <PortaoControlView />
           )}
 
           {currentTab === 'settings' && (
