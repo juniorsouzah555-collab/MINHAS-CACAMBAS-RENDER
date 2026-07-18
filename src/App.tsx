@@ -1831,10 +1831,9 @@ export default function App() {
       return (
         <DriverSelectScreen
           motoristas={motoristasVisiveis}
-          vehicles={vehicles}
-          savedVehicle=""
-          onSelectMotorista={(nome, vehicleId) => {
-            window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
+          vehicles={[]}
+          onSelectMotorista={(nome) => {
+            window.location.href = `/?page=descarga&motorista=${nome}`;
           }}
           onPortao={handlePortao}
           portaoLoading={portaoLoading}
@@ -1929,15 +1928,12 @@ export default function App() {
   if (!isAuthenticated && !publicPage) {
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
 
-    const savedVehicle = '';
-
     return (
       <DriverSelectScreen
         motoristas={todosMotoristas}
-        vehicles={vehicles}
-        savedVehicle={savedVehicle}
-        onSelectMotorista={(nome, vehicleId) => {
-          window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
+        vehicles={[]}
+        onSelectMotorista={(nome) => {
+          window.location.href = `/?page=descarga&motorista=${nome}`;
         }}
         onPortao={handlePortao}
         portaoLoading={portaoLoading}
