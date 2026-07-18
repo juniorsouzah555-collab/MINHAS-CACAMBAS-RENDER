@@ -4,7 +4,7 @@ import express from "express";
 import Groq from 'groq-sdk';
 import path from "path";
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash, createHmac } from 'crypto';
 import { createServer as createViteServer } from "vite";
 import { db, libsqlClient, initializeDatabase } from './src/db/index.ts';
 import { initDatabase } from './src/db/init.ts';
@@ -1087,12 +1087,11 @@ async function startServer() {
   const TUYA_ENDPOINT = 'https://openapi-ueaz.tuyaus.com';
 
   function tuyaSign(method: string, url: string, secret: string, token?: string, body?: string): { sign: string; ts: number } {
-    const crypto = require('crypto');
     const ts = Date.now();
-    const contentSha256 = crypto.createHash('sha256').update(body || '').digest('hex');
+    const contentSha256 = createHash('sha256').update(body || '').digest('hex');
     const stringToSign = [method, contentSha256, '', url].join('\n');
     const str = token ? `${TUYA_ACCESS_ID}${token}${ts}${stringToSign}` : `${TUYA_ACCESS_ID}${ts}${stringToSign}`;
-    const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();
+    const sign = createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();
     return { sign, ts };
   }
 
