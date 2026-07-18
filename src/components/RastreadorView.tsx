@@ -25,6 +25,7 @@ interface TrackingTarget {
   accuracy: number | null;
   updatedAt: string;
   source: string;
+  plate?: string;
 }
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -94,6 +95,7 @@ export default function RastreadorView() {
       accuracy: l.accuracy,
       updatedAt: l.updatedAt,
       source: l.source || 'FullTrack',
+      plate: l.plate,
     }));
 
   const filtered = online.filter(d =>
@@ -130,7 +132,7 @@ export default function RastreadorView() {
     const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
     markerRef.current = L.marker([selected.lat, selected.lng], { icon })
       .addTo(mapRef.current)
-      .bindTooltip(selected.name, { permanent: true, direction: 'top', offset: L.point(0, -20), className: 'rastreador-label' });
+      .bindTooltip(selected.plate || selected.name, { permanent: true, direction: 'top', offset: L.point(0, -20), className: 'rastreador-label' });
 
     trailRef.current.push(L.circleMarker([selected.lat, selected.lng], {
       radius: 3, fillColor: '#22c55e', fillOpacity: 0.4, stroke: false
@@ -208,9 +210,9 @@ export default function RastreadorView() {
                 animation: 'pulse 2s ease-in-out infinite',
               }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>{selected.name}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>{selected.plate || selected.name}</div>
                 <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'SF Mono, monospace', marginTop: 1 }}>
-                  {selected.vehicleId} · {selected.source}
+                  {selected.name} · {selected.source}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -377,9 +379,9 @@ export default function RastreadorView() {
                 {d.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{d.name}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{d.plate || d.name}</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>
-                  {d.vehicleId}
+                  {d.name}
                 </div>
                 <div style={{ fontSize: 11, color: '#475569', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {d.source} · {timeAgo(d.updatedAt)} atrás
