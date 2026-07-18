@@ -1822,6 +1822,30 @@ export default function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const publicPage = urlParams.get('page');
 
+  // Rota pública: motorista selecionando veículo (SEM localStorage, sempre mostra seleção)
+  const urlMotoristaParam = (urlParams.get('motorista') || urlParams.get('MOTORISTA') || '').toUpperCase();
+  if (urlMotoristaParam && !publicPage) {
+    const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
+    const motoristasVisiveis = todosMotoristas.filter(n => n === urlMotoristaParam);
+    if (motoristasVisiveis.length > 0) {
+      return (
+        <DriverSelectScreen
+          motoristas={motoristasVisiveis}
+          vehicles={vehicles}
+          savedVehicle=""
+          onSelectMotorista={(nome, vehicleId) => {
+            window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
+          }}
+          onPortao={handlePortao}
+          portaoLoading={portaoLoading}
+          portaoMsg={portaoMsg}
+          onAdmin={() => { window.location.href = '/?page=admin'; }}
+          onCtr={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+        />
+      );
+    }
+  }
+
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
     return (
@@ -1903,46 +1927,16 @@ export default function App() {
 
   // Rota pública sem parâmetros (PWA instalado): mostra seleção de motorista
   if (!isAuthenticated && !publicPage) {
-    const urlMotorista = (urlParams.get('motorista') || urlParams.get('MOTORISTA') || '').toUpperCase();
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
-    const motoristasVisiveis = urlMotorista
-      ? todosMotoristas.filter(n => n === urlMotorista)
-      : todosMotoristas;
 
-    // Checa se já selecionou veículo hoje (2x ao dia = 12h)
-    const savedSelection = (() => {
-      try {
-        const raw = localStorage.getItem('relampago_vehicle_selection');
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        const today = new Date().toISOString().split('T')[0];
-        if (parsed.date === today && parsed.vehicleId) return parsed;
-        return null;
-      } catch { return null; }
-    })();
-
-    // Se já selecionou hoje, vai direto pra descarga com o motorista salvo
-    if (savedSelection && savedSelection.motorista) {
-      window.location.href = `/?page=descarga&motorista=${savedSelection.motorista}&veiculo=${savedSelection.vehicleId}`;
-      return null;
-    }
-
-    const savedVehicle = savedSelection?.vehicleId || '';
+    const savedVehicle = '';
 
     return (
       <DriverSelectScreen
-        motoristas={motoristasVisiveis}
+        motoristas={todosMotoristas}
         vehicles={vehicles}
         savedVehicle={savedVehicle}
         onSelectMotorista={(nome, vehicleId) => {
-          // Salva seleção com data de hoje
-          try {
-            localStorage.setItem('relampago_vehicle_selection', JSON.stringify({
-              vehicleId,
-              motorista: nome,
-              date: new Date().toISOString().split('T')[0],
-            }));
-          } catch {}
           window.location.href = `/?page=descarga&motorista=${nome}&veiculo=${vehicleId}`;
         }}
         onPortao={handlePortao}
