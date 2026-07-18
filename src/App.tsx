@@ -1824,6 +1824,23 @@ export default function App() {
 
   // Rota pública: motorista selecionando veículo
   const urlMotoristaParam = (urlParams.get('motorista') || urlParams.get('MOTORISTA') || '').toUpperCase();
+
+  // PWA sem ?MOTORISTA: TADEU e RAMON sempre vão direto pro nome deles
+  if (!urlMotoristaParam && !publicPage && !isAuthenticated) {
+    const savedMotorista = (() => {
+      try {
+        const raw = localStorage.getItem('relampago_driver_name');
+        if (!raw) return '';
+        const name = raw.toUpperCase();
+        return (name === 'TADEU' || name === 'RAMON') ? name : '';
+      } catch { return ''; }
+    })();
+    if (savedMotorista) {
+      window.location.href = `/?MOTORISTA=${savedMotorista}`;
+      return null;
+    }
+  }
+
   if (urlMotoristaParam && !publicPage) {
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
     const motoristasVisiveis = todosMotoristas.filter(n => n === urlMotoristaParam);
@@ -1833,6 +1850,10 @@ export default function App() {
           motoristas={motoristasVisiveis}
           vehicles={[]}
           onSelectMotorista={(nome) => {
+            // Só salva pra TADEU e RAMON
+            if (nome === 'TADEU' || nome === 'RAMON') {
+              try { localStorage.setItem('relampago_driver_name', nome); } catch {}
+            }
             window.location.href = `/?page=descarga&motorista=${nome}`;
           }}
           onPortao={handlePortao}
