@@ -71,6 +71,7 @@ import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
 import PedagiosView from './components/PedagiosView';
 import PortaoControlView from './components/PortaoControlView';
+import RastreadorView from './components/RastreadorView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -1943,6 +1944,15 @@ export default function App() {
         botaForas={botaForas}
         vehicles={vehicles}
       />
+    );
+  }
+
+  // Rota pública: /?page=rastreador — rastreador de motoristas (sem auth)
+  if (publicPage === 'rastreador') {
+    return (
+      <div className="bg-[#020617] min-h-screen">
+        <RastreadorView />
+      </div>
     );
   }
 
