@@ -26,7 +26,15 @@ function getDb(): LibSQLDatabase<typeof schema> {
 export const libsqlClient = new Proxy({} as Client, { get: (_, p) => (getClient() as any)[p] });
 export const db = new Proxy({} as LibSQLDatabase<typeof schema>, { get: (_, p) => (getDb() as any)[p] });
 
+export function isDbAvailable(): boolean {
+  return !!TURSO_URL;
+}
+
 export async function initializeDatabase() {
+  if (!TURSO_URL) {
+    console.warn('[DB] TURSO_DATABASE_URL não configurada — banco indisponível, server roda sem db');
+    return;
+  }
   getClient();
   console.log('Conectado ao Turso database');
 }

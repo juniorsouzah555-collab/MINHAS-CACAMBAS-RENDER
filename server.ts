@@ -1077,8 +1077,8 @@ app.post('/api/gmail', async (req, res) => {
 
 async function startServer() {
   await initializeDatabase();
-  await initDatabase();
-  await seedDatabaseIfEmpty();
+  try { await initDatabase(); } catch (e: any) { console.warn('[DB] initDatabase skipped:', e.message); }
+  try { await seedDatabaseIfEmpty(); } catch (e: any) { console.warn('[DB] seedDatabaseIfEmpty skipped:', e.message); }
 
   // ── Portão SmartLife / Tuya ─────────────────────────────────────
   const TUYA_ACCESS_ID = process.env.TUYA_ACCESS_ID || '';
