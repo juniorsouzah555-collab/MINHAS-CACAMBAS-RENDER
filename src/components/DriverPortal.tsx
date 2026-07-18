@@ -104,7 +104,7 @@ export default function DriverPortal({
   const isDriverUser = currentUserRole.toLowerCase().includes('motorista') || currentUserRole.toLowerCase().includes('driver') || currentUserEmail === 'motorista@relampago.com';
 
   const getLinkedFromStorage = (): string | null => {
-    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return 'Carlos Santana';
+    if (currentUserEmail.toLowerCase() === 'motorista@relampago.com') return motoristas[0] || null;
     try {
       const raw = localStorage.getItem('relampago_system_users');
       if (raw) {
@@ -121,7 +121,6 @@ export default function DriverPortal({
   // Nomes de motoristas aprovados no user_approvals (filtro para o mapa)
   const [approvedDriverNames, setApprovedDriverNames] = useState<string[]>([]);
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
     supabase.from('user_approvals').select('name, email, role').eq('role', 'Motorista').then(({ data, error }) => {
       if (!error && data) {
         const names = data.map((u: any) => u.name || u.email?.split('@')[0] || '').filter(Boolean);
@@ -140,13 +139,13 @@ export default function DriverPortal({
   // Determine active driver name
   const [selectedDriver, setSelectedDriver] = useState<string>(() => {
     if (currentUserEmail === 'motorista@relampago.com') {
-      return 'Carlos Santana';
+      return motoristas[0] || '';
     }
     if (isDriverUser) {
       const linked = getLinkedFromStorage();
       if (linked) return linked;
     }
-    return motoristas[0] || 'Carlos Santana';
+    return motoristas[0] || '';
   });
 
   // Force selectedDriver to stay linked to the actual driver if they are a driver user

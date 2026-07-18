@@ -32,17 +32,6 @@ import {
   Manutencao,
   PedagioDebito
 } from './types';
-import { 
-  INITIAL_VEHICLES, 
-  INITIAL_FUEL_LOGS,
-  INITIAL_ALERTS, 
-  INITIAL_INVOICES, 
-  INITIAL_DISPATCHES, 
-  FUEL_TREND_DATA, 
-  COST_STRUCTURE_DATA,
-  INITIAL_BOTA_FORAS,
-  INITIAL_LANCAMENTOS
-} from './mockData';
 
 import { supabase, isSupabaseConfigured, proxyInsert, proxyUpdate, proxyDelete } from './lib/supabase';
 
@@ -91,22 +80,18 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // App core state DB — carregados via API do servidor (Render + Turso)
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(INITIAL_FUEL_LOGS);
-  const [alerts, setAlerts] = useState<MaintenanceAlert[]>(INITIAL_ALERTS);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [dispatches, setDispatches] = useState<Dispatch[]>(INITIAL_DISPATCHES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   
   // Bota fora & Lançamentos eco state
-  const [botaForas, setBotaForas] = useState<BotaFora[]>(INITIAL_BOTA_FORAS);
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(INITIAL_LANCAMENTOS);
+  const [botaForas, setBotaForas] = useState<BotaFora[]>([]);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
   // Commissions (Comissões) tracking state
-  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([
-    { id: 'COM-001', motorista: 'Carlos Santana', vaziasColocadas: 24, retiradas: 22, data: '2026-06-16', createdAt: '2026-06-16T08:30:00Z' },
-    { id: 'COM-002', motorista: 'Marcus Warren', vaziasColocadas: 18, retiradas: 18, data: '2026-06-15', createdAt: '2026-06-15T09:12:00Z' },
-    { id: 'COM-003', motorista: 'Emily Watson', vaziasColocadas: 30, retiradas: 28, data: '2026-06-12', createdAt: '2026-06-12T11:05:00Z' }
-  ]);
+  const [comissoes, setComissoes] = useState<ComissaoMotorista[]>([]);
 
   // Manutenções state
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
@@ -952,8 +937,8 @@ export default function App() {
   };
 
   // Charts Telemetry State
-  const [fuelTrend, setFuelTrend] = useState(FUEL_TREND_DATA);
-  const [costStructure, setCostStructure] = useState(COST_STRUCTURE_DATA);
+  const [fuelTrend, setFuelTrend] = useState<any[]>([]);
+  const [costStructure, setCostStructure] = useState<any[]>([]);
 
   // Layout UI Controllers
   const [isNewDispatchOpen, setIsNewDispatchOpen] = useState(false);
