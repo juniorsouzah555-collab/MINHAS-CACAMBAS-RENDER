@@ -26,7 +26,7 @@ export default function DriverLoginScreen({ motorista, onLoginSuccess, onBack }:
 
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('relampago_token', data.token);
+        localStorage.setItem('relampago_driver_token', data.token);
         localStorage.setItem('relampago_driver_name', motorista);
         setIsLoading(false);
         onLoginSuccess();
@@ -36,7 +36,7 @@ export default function DriverLoginScreen({ motorista, onLoginSuccess, onBack }:
 
     // Fallback: senha fixa do motorista
     if (password === '56740305') {
-      localStorage.setItem('relampago_token', 'driver-token');
+      localStorage.setItem('relampago_driver_token', 'driver-session');
       localStorage.setItem('relampago_driver_name', motorista);
       setIsLoading(false);
       onLoginSuccess();

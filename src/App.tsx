@@ -151,7 +151,7 @@ export default function App() {
   // Carrega veículos na tela raiz (com auth)
   useEffect(() => {
     if (!isAuthenticated) return;
-    const token = localStorage.getItem('relampago_token');
+    const token = localStorage.getItem('relampago_driver_token') || localStorage.getItem('relampago_token');
     fetch('/api/public/vehicles', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => {
@@ -464,15 +464,44 @@ export default function App() {
   useEffect(() => {
     const publicPage = new URLSearchParams(window.location.search).get('page');
     if (publicPage !== 'descarga') return;
-    const token = localStorage.getItem('relampago_token');
+    const token = localStorage.getItem('relampago_driver_token') || localStorage.getItem('relampago_token');
     (async () => {
       try {
         const [resVehicles, resBf] = await Promise.all([
           fetch('/api/public/vehicles', { headers: { Authorization: `Bearer ${token}` } }),
           fetch('/api/public/botaforas', { headers: { Authorization: `Bearer ${token}` } }),
         ]);
-        if (resVehicles.ok) setVehicles(await resVehicles.json());
-        if (resBf.ok) setBotaForas(await resBf.json());
+        if (resVehicles.ok) {
+          const raw: any[] = await resVehicles.json();
+          if (Array.isArray(raw) && raw.length > 0) {
+            setVehicles(raw.map((v: any) => ({
+              id: v.id,
+              status: v.status || 'Available',
+              efficiency: v.efficiency || 0,
+              fuelUsed: v.fuel_used || 0,
+              costPerKm: v.cost_per_km || 0,
+              driver: v.driver || '',
+              trend: [],
+              lat: v.lat || 0,
+              lng: v.lng || 0,
+              isActive: v.is_active !== false,
+              type: v.type || 'Caminhão',
+              initialKm: v.initial_km || 0,
+            })));
+          }
+        }
+        if (resBf.ok) {
+          const raw: any[] = await resBf.json();
+          if (Array.isArray(raw)) {
+            setBotaForas(raw.map((b: any) => ({
+              id: b.id,
+              nome: b.nome || '',
+              endereco: b.endereco || '',
+              valorPadraoDescarte: b.valor_padrao_descarte || b.valorPadraoDescarte || 0,
+              ativo: b.ativo !== false,
+            })));
+          }
+        }
       } catch {}
     })();
   }, []);
@@ -1837,7 +1866,7 @@ export default function App() {
     const motoristasVisiveis = todosMotoristas.filter(n => n === urlMotoristaParam);
     if (motoristasVisiveis.length > 0) {
       // Verifica se o motorista já está autenticado
-      const driverToken = localStorage.getItem('relampago_token');
+      const driverToken = localStorage.getItem('relampago_driver_token');
       const driverName = localStorage.getItem('relampago_driver_name');
       const isDriverAuth = driverToken && driverName === urlMotoristaParam;
 
