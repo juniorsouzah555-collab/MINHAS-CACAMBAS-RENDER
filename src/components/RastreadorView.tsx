@@ -31,6 +31,43 @@ interface TrackingTarget {
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+function HistoryPlayer({ total, idx, setIdx }: { total: number; idx: number; setIdx: (i: number) => void }) {
+  const [playing, setPlaying] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (playing) {
+      intervalRef.current = setInterval(() => {
+        setIdx((prev: number) => {
+          if (prev >= total - 1) { setPlaying(false); return prev; }
+          return prev + 1;
+        });
+      }, 200);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [playing, total]);
+
+  return (
+    <button
+      onClick={() => {
+        if (idx >= total - 1) setIdx(0);
+        setPlaying(v => !v);
+      }}
+      style={{
+        width: 44, height: 44, borderRadius: 14,
+        background: playing ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.06)',
+        border: playing ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: playing ? '#38bdf8' : '#e2e8f0', fontSize: 18, cursor: 'pointer',
+      }}
+    >
+      {playing ? '⏸' : '▶'}
+    </button>
+  );
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
@@ -73,6 +110,13 @@ export default function RastreadorView() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<TrackingTarget | null>(null);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyPoints, setHistoryPoints] = useState<any[]>([]);
+  const [historyDate, setHistoryDate] = useState(() => {
+    const d = new Date(); return d.toISOString().slice(0, 10);
+  });
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyIdx, setHistoryIdx] = useState(0);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const miniMapContainerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +125,10 @@ export default function RastreadorView() {
   const miniMapMarkersRef = useRef<any[]>([]);
   const markerRef = useRef<any>(null);
   const trailRef = useRef<any[]>([]);
+  const historyLineRef = useRef<any>(null);
+  const historyMarkerRef = useRef<any>(null);
+  const historyStartMarkerRef = useRef<any>(null);
+  const historyEndMarkerRef = useRef<any>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const poll = useCallback(async () => {
@@ -276,11 +324,105 @@ export default function RastreadorView() {
     };
   }, []);
 
+  // Fetch history when showHistory toggled or date changes
+  const fetchHistory = useCallback(async () => {
+    if (!selected || !showHistory) return;
+    setHistoryLoading(true);
+    try {
+      const d = new Date(historyDate);
+      const fromMs = d.getTime();
+      const toMs = fromMs + 24 * 60 * 60 * 1000 - 1;
+      const res = await fetch(`/api/fulltrack/history-local?vehicle_id=${selected.vehicleId}&from=${fromMs}&to=${toMs}`);
+      if (!res.ok) { setHistoryPoints([]); return; }
+      const data = await res.json();
+      const pts = (data.points || []).sort((a: any, b: any) => a.ts - b.ts);
+      setHistoryPoints(pts);
+      setHistoryIdx(pts.length > 0 ? 0 : 0);
+    } catch { setHistoryPoints([]); }
+    setHistoryLoading(false);
+  }, [selected, showHistory, historyDate]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  // Draw history polyline + markers on map
+  useEffect(() => {
+    if (!selected || !isLeafletLoaded || !mapRef.current || !showHistory || historyPoints.length === 0) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Remove old layers
+    if (historyLineRef.current) { mapRef.current.removeLayer(historyLineRef.current); historyLineRef.current = null; }
+    if (historyMarkerRef.current) { mapRef.current.removeLayer(historyMarkerRef.current); historyMarkerRef.current = null; }
+    if (historyStartMarkerRef.current) { mapRef.current.removeLayer(historyStartMarkerRef.current); historyStartMarkerRef.current = null; }
+    if (historyEndMarkerRef.current) { mapRef.current.removeLayer(historyEndMarkerRef.current); historyEndMarkerRef.current = null; }
+
+    const latlngs = historyPoints.map((p: any) => [p.lat, p.lng] as [number, number]);
+
+    // Draw full polyline (dimmed)
+    historyLineRef.current = L.polyline(latlngs, {
+      color: '#38bdf8', weight: 4, opacity: 0.3,
+      dashArray: '6 4',
+    }).addTo(mapRef.current);
+
+    // Start marker (green)
+    const startIcon = L.divIcon({
+      html: '<div style="width:14px;height:14px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
+      className: '', iconSize: [14, 14], iconAnchor: [7, 7],
+    });
+    historyStartMarkerRef.current = L.marker(latlngs[0], { icon: startIcon })
+      .bindTooltip('Início', { permanent: true, direction: 'top', offset: L.point(0, -10), className: 'rastreador-label' })
+      .addTo(mapRef.current);
+
+    // End marker (red)
+    const endIcon = L.divIcon({
+      html: '<div style="width:14px;height:14px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
+      className: '', iconSize: [14, 14], iconAnchor: [7, 7],
+    });
+    historyEndMarkerRef.current = L.marker(latlngs[latlngs.length - 1], { icon: endIcon })
+      .bindTooltip('Fim', { permanent: true, direction: 'top', offset: L.point(0, -10), className: 'rastreador-label' })
+      .addTo(mapRef.current);
+
+    // Fit bounds
+    mapRef.current.fitBounds(historyLineRef.current.getBounds(), { padding: [50, 50] });
+  }, [selected, isLeafletLoaded, showHistory, historyPoints]);
+
+  // Position marker along scrubber
+  useEffect(() => {
+    if (!selected || !isLeafletLoaded || !mapRef.current || !showHistory || historyPoints.length === 0) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    if (historyMarkerRef.current) { mapRef.current.removeLayer(historyMarkerRef.current); historyMarkerRef.current = null; }
+
+    const pt = historyPoints[historyIdx];
+    if (!pt) return;
+
+    const icon = L.divIcon({
+      html: `<div style="position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;width:30px;height:30px;border-radius:50%;background:rgba(56,189,248,0.2);animation:pulse 1.5s ease-in-out infinite"></div>
+        <div style="width:14px;height:14px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);position:relative;z-index:1"></div>
+      </div>`,
+      className: '', iconSize: [30, 30], iconAnchor: [15, 15],
+    });
+
+    historyMarkerRef.current = L.marker([pt.lat, pt.lng], { icon })
+      .addTo(mapRef.current);
+
+    mapRef.current.setView([pt.lat, pt.lng], mapRef.current.getZoom());
+  }, [historyIdx, historyPoints, isLeafletLoaded, showHistory]);
+
   const handleBack = () => {
     setSelected(null);
+    setShowHistory(false);
+    setHistoryPoints([]);
+    setHistoryIdx(0);
     if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     markerRef.current = null;
     trailRef.current = [];
+    historyLineRef.current = null;
+    historyMarkerRef.current = null;
+    historyStartMarkerRef.current = null;
+    historyEndMarkerRef.current = null;
   };
 
   if (selected) {
@@ -308,77 +450,183 @@ export default function RastreadorView() {
           ‹
         </button>
 
+        {/* Histórico toggle */}
+        <button
+          onClick={() => { setShowHistory(v => !v); }}
+          style={{
+            position: 'absolute', top: 16, left: 68, zIndex: 1000,
+            height: 44, borderRadius: 14, padding: '0 16px',
+            background: showHistory ? 'rgba(56,189,248,0.15)' : 'rgba(2,6,23,0.85)',
+            backdropFilter: 'blur(12px)',
+            border: showHistory ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.08)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, color: showHistory ? '#38bdf8' : '#e2e8f0', fontSize: 13,
+            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📅</span>
+          {showHistory ? 'Voltar ao Live' : 'Histórico'}
+        </button>
+
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000,
           background: 'linear-gradient(transparent, rgba(2,6,23,0.95) 30%)',
           padding: '40px 20px 28px',
         }}>
-          <div style={{
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 18, padding: 18,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: '#22c55e', boxShadow: '0 0 8px rgba(34,197,94,0.5)',
-                animation: 'pulse 2s ease-in-out infinite',
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>{selected.plate || selected.name}</div>
-                <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'SF Mono, monospace', marginTop: 1 }}>
-                  {selected.name} · {selected.source}
-                </div>
-                {selected.address && (
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
-                    📍 {selected.address}
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                  {selected.speed != null ? Math.round(selected.speed) : '—'}
-                </div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>km/h</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{
-                flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
-                borderRadius: 12, padding: '10px 12px', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Precisão</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }}>
-                  {selected.accuracy != null ? `±${Math.round(selected.accuracy)}m` : '—'}
-                </div>
-              </div>
-              <div style={{
-                flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
-                borderRadius: 12, padding: '10px 12px', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Atualizado</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
-                  {timeAgo(selected.updatedAt)}
-                </div>
-              </div>
-              <div style={{
-                flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
-                borderRadius: 12, padding: '10px 12px', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Fonte</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
-                  {selected.source}
-                </div>
-              </div>
-            </div>
-
+          {showHistory ? (
+            /* ── History Controls ── */
             <div style={{
-              marginTop: 10, fontSize: 11, color: '#475569', fontFamily: 'SF Mono, monospace',
-              textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(56,189,248,0.15)',
+              borderRadius: 18, padding: 18,
             }}>
-              {selected.lat.toFixed(6)}, {selected.lng.toFixed(6)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 18 }}>📅</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#38bdf8' }}>Histórico de Rota</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                    {historyPoints.length} ponto{historyPoints.length !== 1 ? 's' : ''} registrado{historyPoints.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <input
+                  type="date"
+                  value={historyDate}
+                  onChange={e => setHistoryDate(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  style={{
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10, padding: '8px 12px', color: '#e2e8f0',
+                    fontSize: 13, fontFamily: 'inherit', outline: 'none',
+                  }}
+                />
+              </div>
+
+              {historyLoading ? (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>Carregando...</div>
+                </div>
+              ) : historyPoints.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>Nenhum ponto registrado neste dia</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>Os dados começam a se acumular a cada 8 segundos</div>
+                </div>
+              ) : (
+                <>
+                  {/* Time display */}
+                  <div style={{
+                    textAlign: 'center', marginBottom: 10,
+                    fontSize: 13, color: '#94a3b8', fontFamily: 'SF Mono, monospace',
+                  }}>
+                    {new Date(historyPoints[historyIdx]?.ts || 0).toLocaleTimeString('pt-BR')}
+                    {historyPoints[historyIdx]?.speed != null && historyPoints[historyIdx].speed > 0 && (
+                      <span style={{ marginLeft: 10, color: '#4ade80', fontWeight: 700 }}>
+                        {Math.round(historyPoints[historyIdx].speed)} km/h
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Scrubber */}
+                  <input
+                    type="range"
+                    min={0}
+                    max={historyPoints.length - 1}
+                    value={historyIdx}
+                    onChange={e => setHistoryIdx(parseInt(e.target.value))}
+                    style={{
+                      width: '100%', height: 6, borderRadius: 3,
+                      background: 'rgba(255,255,255,0.06)', outline: 'none',
+                      accentColor: '#38bdf8', cursor: 'pointer',
+                    }}
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                    <span style={{ fontSize: 10, color: '#475569' }}>
+                      {new Date(historyPoints[0]?.ts || 0).toLocaleTimeString('pt-BR')}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#475569' }}>
+                      {new Date(historyPoints[historyPoints.length - 1]?.ts || 0).toLocaleTimeString('pt-BR')}
+                    </span>
+                  </div>
+
+                  {/* Play/Pause button */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                    <HistoryPlayer
+                      total={historyPoints.length}
+                      idx={historyIdx}
+                      setIdx={setHistoryIdx}
+                    />
+                  </div>
+                </>
+              )}
             </div>
-          </div>
+          ) : (
+            /* ── Normal Live Detail ── */
+            <div style={{
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 18, padding: 18,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: '#22c55e', boxShadow: '0 0 8px rgba(34,197,94,0.5)',
+                  animation: 'pulse 2s ease-in-out infinite',
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>{selected.plate || selected.name}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'SF Mono, monospace', marginTop: 1 }}>
+                    {selected.name} · {selected.source}
+                  </div>
+                  {selected.address && (
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+                      📍 {selected.address}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                    {selected.speed != null ? Math.round(selected.speed) : '—'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>km/h</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{
+                  flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
+                  borderRadius: 12, padding: '10px 12px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Precisão</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }}>
+                    {selected.accuracy != null ? `±${Math.round(selected.accuracy)}m` : '—'}
+                  </div>
+                </div>
+                <div style={{
+                  flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
+                  borderRadius: 12, padding: '10px 12px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Atualizado</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
+                    {timeAgo(selected.updatedAt)}
+                  </div>
+                </div>
+                <div style={{
+                  flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)',
+                  borderRadius: 12, padding: '10px 12px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Fonte</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
+                    {selected.source}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: 10, fontSize: 11, color: '#475569', fontFamily: 'SF Mono, monospace',
+                textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+              }}>
+                {selected.lat.toFixed(6)}, {selected.lng.toFixed(6)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
