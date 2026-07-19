@@ -1310,6 +1310,7 @@ async function startServer() {
         return res.json([]);
       }
       const positions = await getFullTrackPositions();
+      storePositions(positions); // armazena no histórico
       res.json(positions);
     } catch (e: any) {
       console.error('[FULLTRACK] Error:', e.message);
@@ -1322,61 +1323,60 @@ async function startServer() {
     }
   });
 
-  // ── FullTrack History (test endpoint) ────────────────────────────────
-  app.get('/api/fulltrack/history', async (req, res) => {
+  // ── FullTrack History (in-memory buffer) ─────────────────────────────
+  // Stores last 7 days of positions per vehicle — zero Turso cost
+  const positionHistory = new Map<string, Array<{
+    lat: number; lng: number; speed: number;
+    ts: number; // unix ms
+    ignition?: boolean; battery?: number; plate?: string; vehicleName?: string;
+  }>>();
+  const HISTORY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const HISTORY_MAX_POINTS_PER_VEHICLE = 5000;
+
+  function storePositions(positions: any[]) {
+    const now = Date.now();
+    for (const p of positions) {
+      if (!p.vehicleId || !p.lat || !p.lng) continue;
+      if (!positionHistory.has(p.vehicleId)) positionHistory.set(p.vehicleId, []);
+      const arr = positionHistory.get(p.vehicleId)!;
+      // Avoid duplicate if nothing changed (same lat/lng within 5s)
+      const last = arr[arr.length - 1];
+      if (last && Math.abs(last.lat - p.lat) < 0.00001 && Math.abs(last.lng - p.lng) < 0.00001 && (now - last.ts) < 5000) continue;
+      arr.push({
+        lat: p.lat, lng: p.lng, speed: p.speed || 0,
+        ts: p.updatedAt ? new Date(p.updatedAt).getTime() : now,
+        ignition: p.ignition, battery: p.battery,
+        plate: p.plate, vehicleName: p.vehicleName,
+      });
+      // Trim old + excess
+      while (arr.length > HISTORY_MAX_POINTS_PER_VEHICLE) arr.shift();
+    }
+    // Cleanup old vehicles
+    for (const [vid, arr] of positionHistory) {
+      while (arr.length > 0 && arr[0].ts < now - HISTORY_MAX_AGE_MS) arr.shift();
+      if (arr.length === 0) positionHistory.delete(vid);
+    }
+  }
+
+  // Periodic cleanup every 10 min
+  setInterval(() => {
+    const now = Date.now();
+    for (const [vid, arr] of positionHistory) {
+      while (arr.length > 0 && arr[0].ts < now - HISTORY_MAX_AGE_MS) arr.shift();
+      if (arr.length === 0) positionHistory.delete(vid);
+    }
+  }, 10 * 60 * 1000);
+
+  app.get('/api/fulltrack/history-local', (req, res) => {
     try {
-      if (!FULLTRACK_USER || !FULLTRACK_PASS) return res.json({ error: 'no credentials' });
       const vehicleId = req.query.vehicle_id as string;
-      const from = req.query.from as string; // unix timestamp
-      const to = req.query.to as string;     // unix timestamp
+      const fromMs = parseInt(req.query.from as string) || 0;
+      const toMs = parseInt(req.query.to as string) || Date.now();
+      if (!vehicleId) return res.status(400).json({ error: 'vehicle_id required' });
 
-      // 1) Try RESTrack API (ws.fulltrack2.com) with authorize/client
-      let apiToken = '';
-      try {
-        const authResp = await fetch('https://ws.fulltrack2.com/authorize/client', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ras_usu_login: FULLTRACK_USER, ras_usu_senha: FULLTRACK_PASS }),
-        });
-        const authData: any = await authResp.json();
-        if (authData.status && authData.data?.[0]?.loginOK) {
-          apiToken = 'ok';
-        }
-      } catch {}
-
-      // 2) Try events/interval on ws.fulltrack2.com
-      const results: any[] = [];
-
-      // RESTrack API
-      try {
-        const r = await fetch(`https://ws.fulltrack2.com/events/interval/id/${vehicleId}/begin/${from}/end/${to}`);
-        const text = await r.text();
-        results.push({ api: 'restrack', url: `events/interval/id/${vehicleId}/begin/${from}/end/${to}`, status: r.status, body: text.substring(0, 1000) });
-      } catch (e: any) {
-        results.push({ api: 'restrack', error: e.message });
-      }
-
-      // mapageral interval endpoints
-      const gesession = await loginFullTrack();
-      const mapUrls = [
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/events/interval/?ativo_id=${vehicleId}&from=${from}&to=${to}`,
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/positions/interval/?ativo_id=${vehicleId}&begin=${from}&end=${to}`,
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/tracker/positions/?ativo_id=${vehicleId}&from=${from}&to=${to}`,
-      ];
-
-      for (const url of mapUrls) {
-        try {
-          const r = await fetch(url, {
-            headers: { 'Cookie': `gesession=${gesession}` },
-          });
-          const text = await r.text();
-          results.push({ api: 'mapageral', url: url.split('?')[0], status: r.status, body: text.substring(0, 500) });
-        } catch (e: any) {
-          results.push({ api: 'mapageral', url: url.split('?')[0], error: e.message });
-        }
-      }
-
-      res.json({ apiToken, results });
+      const arr = positionHistory.get(vehicleId) || [];
+      const filtered = arr.filter(p => p.ts >= fromMs && p.ts <= toMs);
+      res.json({ count: filtered.length, points: filtered });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -1391,23 +1391,32 @@ async function startServer() {
     const hash = JSON.stringify(positions.map((p: any) => [p.vehicleId, p.lat, p.lng, p.speed]));
     if (hash === lastPositionsHash) return; // nada mudou — não envia
     lastPositionsHash = hash;
+    storePositions(positions); // armazena no histórico em memória
     const payload = `data: ${JSON.stringify(positions)}\n\n`;
     for (const client of sseClients) {
       try { client.write(payload); } catch { sseClients.delete(client); }
     }
   }
 
-  function startSsePoller() {
-    if (ssePollTimer) return;
-    ssePollTimer = setInterval(async () => {
-      if (sseClients.size === 0) return;
-      try {
-        if (!FULLTRACK_USER || !FULLTRACK_PASS) return;
-        const positions = await getFullTrackPositions();
-        broadcastPositions(positions);
-      } catch {}
-    }, FULLTRACK_CACHE_MS);
-  }
+  // Background poller: stores positions even without SSE clients
+  setInterval(async () => {
+    if (!FULLTRACK_USER || !FULLTRACK_PASS) return;
+    try {
+      const positions = await getFullTrackPositions();
+      storePositions(positions);
+      // Also broadcast if SSE clients connected
+      if (sseClients.size > 0) {
+        const hash = JSON.stringify(positions.map((p: any) => [p.vehicleId, p.lat, p.lng, p.speed]));
+        if (hash !== lastPositionsHash) {
+          lastPositionsHash = hash;
+          const payload = `data: ${JSON.stringify(positions)}\n\n`;
+          for (const client of sseClients) {
+            try { client.write(payload); } catch { sseClients.delete(client); }
+          }
+        }
+      }
+    } catch {}
+  }, FULLTRACK_CACHE_MS);
 
   app.get('/api/fulltrack/stream', (req, res) => {
     if (!FULLTRACK_USER || !FULLTRACK_PASS) {
@@ -1416,7 +1425,6 @@ async function startServer() {
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     res.flushHeaders();
     sseClients.add(res);
-    startSsePoller();
     // Envia dados atuais imediatamente
     getFullTrackPositions().then(pos => {
       try { res.write(`data: ${JSON.stringify(pos)}\n\n`); } catch {}
