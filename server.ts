@@ -1323,6 +1323,70 @@ async function startServer() {
     }
   });
 
+  // ── FullTrack History (real API from FullTrack) ──────────────────────
+  // POST https://api-fulltrack4.fulltrackapp.com/relatorio/HistoricoPosicao/gerar/
+  app.get('/api/fulltrack/positions-history', async (req, res) => {
+    try {
+      if (!FULLTRACK_USER || !FULLTRACK_PASS) return res.json({ rows: [] });
+      const vehicleIdRaw = req.query.vehicle_id as string; // e.g. "FT-1081910" or "1081910"
+      const dtInitial = req.query.dt_initial as string; // "DD/MM/YYYY HH:mm:ss"
+      const dtFinal = req.query.dt_final as string;     // "DD/MM/YYYY HH:mm:ss"
+      if (!vehicleIdRaw || !dtInitial || !dtFinal) {
+        return res.status(400).json({ error: 'vehicle_id, dt_initial, dt_final required' });
+      }
+      const ativoId = parseInt(vehicleIdRaw.replace('FT-', ''), 10);
+      if (isNaN(ativoId)) return res.status(400).json({ error: 'Invalid vehicle_id' });
+
+      const accessToken = await getFullTrackToken();
+      const url = 'https://api-fulltrack4.fulltrackapp.com/relatorio/HistoricoPosicao/gerar/';
+      const body = {
+        id_ativo: ativoId,
+        dt_inicial: dtInitial,
+        dt_final: dtFinal,
+        ponto_referencia: 0,
+        id_motorista: 0,
+        pagination_client: 1,
+      };
+
+      console.log(`[FULLTRACK] History request: vehicle=${ativoId}, from=${dtInitial}, to=${dtFinal}`);
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        console.error(`[FULLTRACK] History error: ${resp.status} - ${text.substring(0, 300)}`);
+        return res.status(resp.status).json({ error: `FullTrack API error: ${resp.status}` });
+      }
+
+      const data = await resp.json() as any;
+      const rows = (data.rows || []).map((r: any) => ({
+        lat: r.lst_localizacao?.[0] || null,
+        lng: r.lst_localizacao?.[1] || null,
+        speed: r.vl_velocidade || 0,
+        ts: r.timestamp_gps || 0,
+        dtGps: r.dt_gps || '',
+        ignition: r.flg_ignicao === 1,
+        plate: r.tag_ativo || '',
+        vehicleName: r.desc_ativo || '',
+        driverName: r.desc_motorista || '',
+        vehicleId: vehicleIdRaw,
+      }));
+
+      console.log(`[FULLTRACK] History returned ${rows.length} points`);
+      res.json({ count: rows.length, points: rows });
+    } catch (e: any) {
+      console.error('[FULLTRACK] History error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── FullTrack History (in-memory buffer) ─────────────────────────────
   // Stores last 7 days of positions per vehicle — zero Turso cost
   const positionHistory = new Map<string, Array<{

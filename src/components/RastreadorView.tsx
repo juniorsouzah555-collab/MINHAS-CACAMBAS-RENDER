@@ -324,20 +324,24 @@ export default function RastreadorView() {
     };
   }, []);
 
-  // Fetch history when showHistory toggled or date changes
+  // Fetch history from FullTrack real API
   const fetchHistory = useCallback(async () => {
     if (!selected || !showHistory) return;
     setHistoryLoading(true);
     try {
       const d = new Date(historyDate);
-      const fromMs = d.getTime();
-      const toMs = fromMs + 24 * 60 * 60 * 1000 - 1;
-      const res = await fetch(`/api/fulltrack/history-local?vehicle_id=${selected.vehicleId}&from=${fromMs}&to=${toMs}`);
+      // Format: "DD/MM/YYYY HH:mm:ss" (FullTrack format)
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const dtInitial = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 00:00:00`;
+      const dtFinal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 23:59:59`;
+      const res = await fetch(
+        `/api/fulltrack/positions-history?vehicle_id=${selected.vehicleId}&dt_initial=${encodeURIComponent(dtInitial)}&dt_final=${encodeURIComponent(dtFinal)}`
+      );
       if (!res.ok) { setHistoryPoints([]); return; }
       const data = await res.json();
       const pts = (data.points || []).sort((a: any, b: any) => a.ts - b.ts);
       setHistoryPoints(pts);
-      setHistoryIdx(pts.length > 0 ? 0 : 0);
+      setHistoryIdx(0);
     } catch { setHistoryPoints([]); }
     setHistoryLoading(false);
   }, [selected, showHistory, historyDate]);
