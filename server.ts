@@ -18,7 +18,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const JWT_SECRET = process.env.JWT_SECRET || 'relampago-jwt-secret-dev';
 const APP_PASSWORD = process.env.APP_PASSWORD || 'admin123';
 const DRIVER_PASSWORD = process.env.DRIVER_PASSWORD || 'parceiro123';
-const VALID_CREDENTIALS = [APP_PASSWORD, DRIVER_PASSWORD, '12345678'];
+const VALID_CREDENTIALS = [APP_PASSWORD, DRIVER_PASSWORD, '56740305'];
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -41,8 +41,8 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", database: "sqlite" });
 });
 
-// Endpoints públicos (sem auth) para a página de descarga rápida
-app.get("/api/public/vehicles", async (_req, res) => {
+// Endpoints protegidos com auth
+app.get("/api/public/vehicles", authMiddleware, async (_req, res) => {
   try {
     const rows = await db.select().from(schema.vehicles);
     res.json(rows);
@@ -51,7 +51,7 @@ app.get("/api/public/vehicles", async (_req, res) => {
   }
 });
 
-app.get("/api/public/botaforas", async (_req, res) => {
+app.get("/api/public/botaforas", authMiddleware, async (_req, res) => {
   try {
     const rows = await db.select().from(schema.botaForas);
     res.json(rows);
@@ -60,7 +60,7 @@ app.get("/api/public/botaforas", async (_req, res) => {
   }
 });
 
-app.post("/api/descarga-rapida", async (req, res) => {
+app.post("/api/descarga-rapida", authMiddleware, async (req, res) => {
   try {
     const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao, source } = req.body;
     if (!id || !bota_fora_id || !quantidade_cacambas) {

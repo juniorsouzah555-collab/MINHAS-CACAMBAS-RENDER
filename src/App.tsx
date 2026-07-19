@@ -71,6 +71,7 @@ import NovoCliente from './components/NovoCliente';
 import CtrVencidosView from './components/CtrVencidosView';
 import PedagiosView from './components/PedagiosView';
 import PortaoControlView from './components/PortaoControlView';
+import DriverLoginScreen from './components/DriverLoginScreen';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -161,10 +162,13 @@ export default function App() {
   // NOTA: localStorage foi removido como fonte de dados.
   // Toda persistência é feita via servidor (Express + Turso).
 
-  // Carrega veículos públicos na tela raiz (antes da autenticação)
+  // Carrega veículos na tela raiz (com auth)
   useEffect(() => {
-    if (!isAuthenticated) {
-      fetch('/api/public/vehicles').then(r => r.ok ? r.json() : []).then((data: any[]) => {
+    if (!isAuthenticated) return;
+    const token = localStorage.getItem('relampago_token');
+    fetch('/api/public/vehicles', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
         if (Array.isArray(data) && data.length > 0) {
           setVehicles(data.map((v: any) => ({
             id: v.id,
@@ -182,7 +186,6 @@ export default function App() {
           })));
         }
       }).catch(() => {});
-    }
   }, [isAuthenticated]);
 
   // Load data from Cloud SQL / Supabase when authenticated
@@ -471,15 +474,16 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  // Carrega dados mínimos para a página pública de descarga (sem auth)
+  // Carrega dados para a página de descarga (com auth)
   useEffect(() => {
     const publicPage = new URLSearchParams(window.location.search).get('page');
     if (publicPage !== 'descarga') return;
+    const token = localStorage.getItem('relampago_token');
     (async () => {
       try {
         const [resVehicles, resBf] = await Promise.all([
-          fetch('/api/public/vehicles'),
-          fetch('/api/public/botaforas'),
+          fetch('/api/public/vehicles', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/public/botaforas', { headers: { Authorization: `Bearer ${token}` } }),
         ]);
         if (resVehicles.ok) setVehicles(await resVehicles.json());
         if (resBf.ok) setBotaForas(await resBf.json());
@@ -1846,6 +1850,25 @@ export default function App() {
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
     const motoristasVisiveis = todosMotoristas.filter(n => n === urlMotoristaParam);
     if (motoristasVisiveis.length > 0) {
+      // Verifica se o motorista já está autenticado
+      const driverToken = localStorage.getItem('relampago_token');
+      const driverName = localStorage.getItem('relampago_driver_name');
+      const isDriverAuth = driverToken && driverName === urlMotoristaParam;
+
+      if (!isDriverAuth) {
+        // Tela de login do motorista
+        return (
+          <DriverLoginScreen
+            motorista={urlMotoristaParam}
+            onLoginSuccess={() => {
+              // Força re-render após login
+              window.location.reload();
+            }}
+            onBack={() => { window.location.href = '/'; }}
+          />
+        );
+      }
+
       return (
         <DriverSelectScreen
           motoristas={motoristasVisiveis}

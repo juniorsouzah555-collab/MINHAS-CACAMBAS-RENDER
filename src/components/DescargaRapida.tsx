@@ -84,9 +84,10 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
       const valorFinal = isPortoDeAreia
         ? parseFloat(valorCustomizado)
         : (selectedBf?.valorPadraoDescarte || 0) * quantidade;
+      const token = localStorage.getItem('relampago_token');
       const res = await fetch('/api/descarga-rapida', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           id: crypto.randomUUID(),
           bota_fora_id: selectedBotaFora,
