@@ -1326,32 +1326,57 @@ async function startServer() {
   app.get('/api/fulltrack/history', async (req, res) => {
     try {
       if (!FULLTRACK_USER || !FULLTRACK_PASS) return res.json({ error: 'no credentials' });
-      const accessToken = await getFullTrackToken();
       const vehicleId = req.query.vehicle_id as string;
-      const from = req.query.from as string;
-      const to = req.query.to as string;
+      const from = req.query.from as string; // unix timestamp
+      const to = req.query.to as string;     // unix timestamp
 
-      // Try different history API endpoints
-      const urls = [
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/positions-history/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/history/?ativo_id=${vehicleId}&start=${encodeURIComponent(from || '')}&end=${encodeURIComponent(to || '')}`,
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/trip-history/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
-        `https://mapageral.ops.fulltrackapp.com/maps/v2/events/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
+      // 1) Try RESTrack API (ws.fulltrack2.com) with authorize/client
+      let apiToken = '';
+      try {
+        const authResp = await fetch('https://ws.fulltrack2.com/authorize/client', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ras_usu_login: FULLTRACK_USER, ras_usu_senha: FULLTRACK_PASS }),
+        });
+        const authData: any = await authResp.json();
+        if (authData.status && authData.data?.[0]?.loginOK) {
+          apiToken = 'ok';
+        }
+      } catch {}
+
+      // 2) Try events/interval on ws.fulltrack2.com
+      const results: any[] = [];
+
+      // RESTrack API
+      try {
+        const r = await fetch(`https://ws.fulltrack2.com/events/interval/id/${vehicleId}/begin/${from}/end/${to}`);
+        const text = await r.text();
+        results.push({ api: 'restrack', url: `events/interval/id/${vehicleId}/begin/${from}/end/${to}`, status: r.status, body: text.substring(0, 1000) });
+      } catch (e: any) {
+        results.push({ api: 'restrack', error: e.message });
+      }
+
+      // mapageral interval endpoints
+      const gesession = await loginFullTrack();
+      const mapUrls = [
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/events/interval/?ativo_id=${vehicleId}&from=${from}&to=${to}`,
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/positions/interval/?ativo_id=${vehicleId}&begin=${from}&end=${to}`,
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/tracker/positions/?ativo_id=${vehicleId}&from=${from}&to=${to}`,
       ];
 
-      const results: any[] = [];
-      for (const url of urls) {
+      for (const url of mapUrls) {
         try {
           const r = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
+            headers: { 'Cookie': `gesession=${gesession}` },
           });
           const text = await r.text();
-          results.push({ url: url.split('?')[0], status: r.status, body: text.substring(0, 500) });
+          results.push({ api: 'mapageral', url: url.split('?')[0], status: r.status, body: text.substring(0, 500) });
         } catch (e: any) {
-          results.push({ url: url.split('?')[0], error: e.message });
+          results.push({ api: 'mapageral', url: url.split('?')[0], error: e.message });
         }
       }
-      res.json(results);
+
+      res.json({ apiToken, results });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
