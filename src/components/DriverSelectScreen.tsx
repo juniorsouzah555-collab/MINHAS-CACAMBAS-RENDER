@@ -46,13 +46,22 @@ export default function DriverSelectScreen({
         {/* Botões dos Motoristas */}
         <div className="space-y-3">
           {motoristas.map(nome => (
-            <button
-              key={nome}
-              onClick={() => onSelectMotorista(nome)}
-              className="w-full py-4 rounded-xl bg-emerald-600 text-white font-black text-lg hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
-            >
-              {nome}
-            </button>
+            <React.Fragment key={nome}>
+              <button
+                onClick={() => onSelectMotorista(nome)}
+                className="w-full py-4 rounded-xl bg-emerald-600 text-white font-black text-lg hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
+              >
+                {nome}
+              </button>
+              {nome === 'JUNIOR' && (
+                <button
+                  onClick={() => { window.location.href = '/?page=rastreador'; }}
+                  className="w-full py-3 rounded-xl bg-sky-600/80 text-white font-bold text-sm hover:bg-sky-700 active:scale-[0.98] transition-all shadow-lg shadow-sky-500/20 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  📍 RASTREADOR
+                </button>
+              )}
+            </React.Fragment>
           ))}
         </div>
 

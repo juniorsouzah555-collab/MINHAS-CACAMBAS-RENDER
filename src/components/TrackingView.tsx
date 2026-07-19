@@ -199,6 +199,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     speed: l.speed,
     accuracy: l.accuracy,
     vehicleId: l.vehicleId,
+    plate: l.plate,
   }));
 
   const pwaCount = displayList.filter(l => l.source !== 'fulltrack').length;

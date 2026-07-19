@@ -7,6 +7,20 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: TUYA_ACCESS_ID
+        sync: false
+      - key: TUYA_ACCESS_SECRET
+        sync: false
+      - key: TUYA_DEVICE_ID
+        sync: false
+      - key: FULLTRACK_USER
+        sync: false
+      - key: FULLTRACK_PASS
+        sync: false
     plan: free
     autoDeploy: true
     healthCheckPath: /
