@@ -26,6 +26,7 @@ interface TrackingTarget {
   updatedAt: string;
   source: string;
   plate?: string;
+  address?: string;
 }
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -40,14 +41,44 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+const addressCache = new Map<string, string>();
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (addressCache.has(key)) return addressCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { headers: { 'User-Agent': 'RelampagoTracker/1.0' } }
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    const addr = data.address;
+    if (!addr) return '';
+    const parts: string[] = [];
+    if (addr.road) parts.push(addr.road);
+    if (addr.suburb || addr.neighbourhood) parts.push(addr.suburb || addr.neighbourhood);
+    if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
+    const result = parts.join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || '';
+    addressCache.set(key, result);
+    return result;
+  } catch {
+    return '';
+  }
+}
+
 export default function RastreadorView() {
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
+  const [addresses, setAddresses] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<TrackingTarget | null>(null);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const miniMapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const miniMapRef = useRef<any>(null);
+  const miniMapMarkersRef = useRef<any[]>([]);
   const markerRef = useRef<any>(null);
   const trailRef = useRef<any[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -96,13 +127,96 @@ export default function RastreadorView() {
       updatedAt: l.updatedAt,
       source: l.source || 'FullTrack',
       plate: l.plate,
+      address: addresses[l.vehicleId] || '',
     }));
 
   const filtered = online.filter(d =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.vehicleId.toLowerCase().includes(search.toLowerCase())
+    d.vehicleId.toLowerCase().includes(search.toLowerCase()) ||
+    (d.address && d.address.toLowerCase().includes(search.toLowerCase()))
   );
 
+  // Reverse geocode all online vehicles
+  useEffect(() => {
+    if (online.length === 0) return;
+    let cancelled = false;
+    const loadAddresses = async () => {
+      for (const v of online) {
+        if (addresses[v.vehicleId]) continue;
+        const addr = await reverseGeocode(v.lat, v.lng);
+        if (!cancelled && addr) {
+          setAddresses(prev => ({ ...prev, [v.vehicleId]: addr }));
+        }
+        await new Promise(r => setTimeout(r, 1100));
+      }
+    };
+    loadAddresses();
+    return () => { cancelled = true; };
+  }, [online.map(v => v.vehicleId).join(',')]);
+
+  // Minimap — shows all vehicles
+  useEffect(() => {
+    if (!isLeafletLoaded || !miniMapContainerRef.current || selected) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    if (!miniMapRef.current) {
+      miniMapRef.current = L.map(miniMapContainerRef.current, {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        touchZoom: false,
+        keyboard: false,
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+      }).addTo(miniMapRef.current);
+    }
+
+    // Clear old markers
+    miniMapMarkersRef.current.forEach(m => miniMapRef.current.removeLayer(m));
+    miniMapMarkersRef.current = [];
+
+    if (online.length === 0) return;
+
+    const bounds: [number, number][] = [];
+
+    online.forEach((v, i) => {
+      const color = COLORS[i % COLORS.length];
+      const iconHtml = `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 1px 6px rgba(0,0,0,0.4)"></div>`;
+      const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [14, 14], iconAnchor: [7, 7] });
+      const marker = L.marker([v.lat, v.lng], { icon })
+        .bindTooltip(v.plate || v.name, { permanent: false, direction: 'top', offset: L.point(0, -10) })
+        .addTo(miniMapRef.current);
+      miniMapMarkersRef.current.push(marker);
+      bounds.push([v.lat, v.lng]);
+    });
+
+    if (bounds.length > 0) {
+      miniMapRef.current.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+    }
+  }, [online, isLeafletLoaded, selected]);
+
+  // Cleanup minimap on unmount or when selecting a vehicle
+  useEffect(() => {
+    return () => {
+      if (miniMapRef.current) { miniMapRef.current.remove(); miniMapRef.current = null; }
+      miniMapMarkersRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selected && miniMapRef.current) {
+      miniMapRef.current.remove();
+      miniMapRef.current = null;
+      miniMapMarkersRef.current = [];
+    }
+  }, [selected]);
+
+  // Full map — selected vehicle
   useEffect(() => {
     if (!selected || !isLeafletLoaded || !mapContainerRef.current) return;
     const L = (window as any).L;
@@ -150,7 +264,7 @@ export default function RastreadorView() {
     if (!selected) return;
     const updated = online.find(d => d.vehicleId === selected.vehicleId);
     if (updated) {
-      setSelected(prev => prev ? { ...prev, lat: updated.lat, lng: updated.lng, speed: updated.speed, updatedAt: updated.updatedAt } : prev);
+      setSelected(prev => prev ? { ...prev, lat: updated.lat, lng: updated.lng, speed: updated.speed, updatedAt: updated.updatedAt, address: updated.address } : prev);
     }
   }, [locations]);
 
@@ -214,6 +328,11 @@ export default function RastreadorView() {
                 <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'SF Mono, monospace', marginTop: 1 }}>
                   {selected.name} · {selected.source}
                 </div>
+                {selected.address && (
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+                    📍 {selected.address}
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
@@ -303,6 +422,22 @@ export default function RastreadorView() {
         </div>
       </div>
 
+      {/* Minimap */}
+      {online.length > 0 && (
+        <div style={{ padding: '16px 24px 0' }}>
+          <div style={{
+            borderRadius: 18, overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.06)',
+            height: 180,
+          }}>
+            <div ref={miniMapContainerRef} style={{ width: '100%', height: '100%' }} />
+          </div>
+          <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 6 }}>
+            {online.length} veículo{online.length !== 1 ? 's' : ''} no mapa
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div style={{ padding: '16px 24px 0' }}>
         <div className="rt-search" style={{
@@ -314,7 +449,7 @@ export default function RastreadorView() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou placa..."
+            placeholder="Buscar por nome, placa ou endereço..."
             style={{ background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 15, width: '100%', fontFamily: 'inherit' }}
           />
         </div>
@@ -363,38 +498,50 @@ export default function RastreadorView() {
               style={{
                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: 18, padding: 16, marginBottom: 10,
-                display: 'flex', alignItems: 'center', gap: 14,
                 cursor: 'pointer',
                 transition: 'transform 0.15s ease, background 0.15s ease, border-color 0.15s ease',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
             >
-              <div style={{
-                width: 44, height: 44, borderRadius: 14,
-                background: `linear-gradient(135deg, ${COLORS[i % COLORS.length]}, ${COLORS[i % COLORS.length]}88)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 800, color: 'white', flexShrink: 0,
-              }}>
-                {d.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{d.plate || d.name}</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>
-                  {d.name}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14,
+                  background: `linear-gradient(135deg, ${COLORS[i % COLORS.length]}, ${COLORS[i % COLORS.length]}88)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16, fontWeight: 800, color: 'white', flexShrink: 0,
+                }}>
+                  {d.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {d.source} · {timeAgo(d.updatedAt)} atrás
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{d.plate || d.name}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
+                    {d.name}
+                  </div>
+                  {d.address ? (
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      📍 {d.address}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: '#475569', marginTop: 3 }}>
+                      {d.source} · {timeAgo(d.updatedAt)} atrás
+                    </div>
+                  )}
+                  {d.address && (
+                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>
+                      {d.source} · {timeAgo(d.updatedAt)} atrás
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div style={{
-                fontSize: 14, fontWeight: 800,
-                padding: '6px 12px', borderRadius: 12,
-                fontVariantNumeric: 'tabular-nums',
-                background: d.speed != null && d.speed > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                color: d.speed != null && d.speed > 0 ? '#4ade80' : '#f87171',
-              }}>
-                {d.speed != null ? Math.round(d.speed) : '—'}
+                <div style={{
+                  fontSize: 14, fontWeight: 800,
+                  padding: '6px 12px', borderRadius: 12,
+                  fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+                  background: d.speed != null && d.speed > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                  color: d.speed != null && d.speed > 0 ? '#4ade80' : '#f87171',
+                }}>
+                  {d.speed != null ? Math.round(d.speed) : '—'}
+                </div>
               </div>
             </div>
           ))
