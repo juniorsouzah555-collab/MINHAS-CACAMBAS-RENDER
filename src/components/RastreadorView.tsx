@@ -117,6 +117,10 @@ export default function RastreadorView() {
   });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyIdx, setHistoryIdx] = useState(0);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const miniMapContainerRef = useRef<HTMLDivElement>(null);
@@ -131,19 +135,32 @@ export default function RastreadorView() {
   const historyEndMarkerRef = useRef<any>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const poll = useCallback(async () => {
+  const poll = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
       const res = await fetch('/api/fulltrack/positions?_=' + Date.now());
-      if (!res.ok) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (Array.isArray(data)) setLocations(data);
-    } catch {}
+      if (Array.isArray(data)) {
+        setLocations(data);
+        setFetchError(null);
+      }
+    } catch (e: any) {
+      setFetchError(e.message || 'Erro de conexão');
+    } finally {
+      setInitialLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
     poll();
-    pollRef.current = setInterval(poll, 8000);
+    pollRef.current = setInterval(() => poll(), 8000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [poll]);
+
+  const handleManualRefresh = useCallback(() => {
+    poll(true);
   }, [poll]);
 
   useEffect(() => {
@@ -328,21 +345,29 @@ export default function RastreadorView() {
   const fetchHistory = useCallback(async () => {
     if (!selected || !showHistory) return;
     setHistoryLoading(true);
+    setHistoryError(null);
     try {
       const d = new Date(historyDate);
-      // Format: "DD/MM/YYYY HH:mm:ss" (FullTrack format)
       const pad = (n: number) => n.toString().padStart(2, '0');
       const dtInitial = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 00:00:00`;
       const dtFinal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 23:59:59`;
       const res = await fetch(
         `/api/fulltrack/positions-history?vehicle_id=${selected.vehicleId}&dt_initial=${encodeURIComponent(dtInitial)}&dt_final=${encodeURIComponent(dtFinal)}`
       );
-      if (!res.ok) { setHistoryPoints([]); return; }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setHistoryError(errData.error || `Erro ${res.status}`);
+        setHistoryPoints([]);
+        return;
+      }
       const data = await res.json();
       const pts = (data.points || []).sort((a: any, b: any) => a.ts - b.ts);
       setHistoryPoints(pts);
       setHistoryIdx(0);
-    } catch { setHistoryPoints([]); }
+    } catch (e: any) {
+      setHistoryError(e.message || 'Erro de conexão');
+      setHistoryPoints([]);
+    }
     setHistoryLoading(false);
   }, [selected, showHistory, historyDate]);
 
@@ -502,11 +527,40 @@ export default function RastreadorView() {
                     fontSize: 13, fontFamily: 'inherit', outline: 'none',
                   }}
                 />
+                <button
+                  onClick={fetchHistory}
+                  disabled={historyLoading}
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: historyLoading ? '#38bdf8' : '#94a3b8', fontSize: 14, cursor: historyLoading ? 'wait' : 'pointer',
+                  }}
+                  title="Recarregar histórico"
+                >
+                  <span className={historyLoading ? 'rt-spin' : ''}>🔄</span>
+                </button>
               </div>
 
               {historyLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <div className="rt-spin" style={{ fontSize: 24, marginBottom: 8 }}>🔄</div>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>Carregando histórico...</div>
+                </div>
+              ) : historyError ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <div style={{ fontSize: 13, color: '#64748b' }}>Carregando...</div>
+                  <div style={{ fontSize: 13, color: '#ef4444', fontWeight: 700 }}>Erro ao carregar</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{historyError}</div>
+                  <button
+                    onClick={fetchHistory}
+                    style={{
+                      marginTop: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)',
+                      borderRadius: 8, padding: '6px 16px', color: '#38bdf8', fontSize: 12,
+                      fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
               ) : historyPoints.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
@@ -641,6 +695,7 @@ export default function RastreadorView() {
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
         @keyframes fadeInUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         .rt-card { animation: fadeInUp 0.4s ease backwards; }
         .rt-card:nth-child(2) { animation-delay: 0.05s; }
         .rt-card:nth-child(3) { animation-delay: 0.1s; }
@@ -648,6 +703,7 @@ export default function RastreadorView() {
         .rt-card:nth-child(5) { animation-delay: 0.2s; }
         .rt-card:active { transform: scale(0.97) !important; }
         .rt-search:focus-within { border-color: rgba(56,189,248,0.4) !important; box-shadow: 0 0 0 3px rgba(56,189,248,0.1) !important; }
+        .rt-spin { animation: spin 0.8s linear infinite; display: inline-block; }
       `}</style>
 
       {/* Header */}
@@ -667,9 +723,24 @@ export default function RastreadorView() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Rastreamento</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s ease-in-out infinite' }} />
-            <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 700 }}>LIVE</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              style={{
+                width: 36, height: 36, borderRadius: 12,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: refreshing ? '#38bdf8' : '#94a3b8', fontSize: 16, cursor: refreshing ? 'wait' : 'pointer',
+              }}
+              title="Atualizar posições"
+            >
+              <span className={refreshing ? 'rt-spin' : ''}>🔄</span>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 700 }}>LIVE</span>
+            </div>
           </div>
         </div>
       </div>
@@ -731,15 +802,49 @@ export default function RastreadorView() {
           <span style={{ fontSize: 11, color: '#475569' }}>{filtered.length} encontrado{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+        {initialLoading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div className="rt-spin" style={{ fontSize: 32, marginBottom: 12 }}>🔄</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#64748b' }}>Conectando ao GPS...</div>
+            <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>Aguarde um momento</div>
+          </div>
+        ) : fetchError ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>Erro ao conectar</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, marginBottom: 16 }}>{fetchError}</div>
+            <button
+              onClick={handleManualRefresh}
+              style={{
+                background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)',
+                borderRadius: 12, padding: '10px 24px', color: '#38bdf8', fontSize: 13,
+                fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>📡</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>
               {online.length === 0 ? 'Nenhum motorista online' : 'Nenhum resultado'}
             </div>
             <div style={{ fontSize: 12, color: '#334155', marginTop: 4 }}>
-              {online.length === 0 ? 'GPS atualizado a cada 8 segundos' : 'Tente outro termo de busca'}
+              {online.length === 0 ? 'Verifique se o GPS está conectado' : 'Tente outro termo de busca'}
             </div>
+            {online.length === 0 && (
+              <button
+                onClick={handleManualRefresh}
+                style={{
+                  marginTop: 16, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)',
+                  borderRadius: 12, padding: '10px 24px', color: '#38bdf8', fontSize: 13,
+                  fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Atualizar agora
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((d, i) => (
