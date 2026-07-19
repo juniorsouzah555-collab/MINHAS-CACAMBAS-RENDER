@@ -438,7 +438,7 @@ export default function RastreadorView() {
 
     // Fit bounds
     mapRef.current.fitBounds(historyLineRef.current.getBounds(), { padding: [50, 50] });
-  }, [selected, isLeafletLoaded, showHistory, historyPoints]);
+  }, [selected?.vehicleId, isLeafletLoaded, showHistory, historyPoints]);
 
   // Position marker along scrubber
   useEffect(() => {
