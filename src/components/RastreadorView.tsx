@@ -134,6 +134,7 @@ export default function RastreadorView() {
   const historyStartMarkerRef = useRef<any>(null);
   const historyEndMarkerRef = useRef<any>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const selectedRef = useRef<TrackingTarget | null>(null);
 
   const poll = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -345,18 +346,24 @@ export default function RastreadorView() {
     };
   }, []);
 
-  // Fetch history from FullTrack real API
+  // Keep ref in sync with selected
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+
+  // Fetch history from FullTrack real API — uses selectedRef so it NEVER re-creates when selected changes
   const fetchHistory = useCallback(async () => {
-    if (!selected || !showHistory) return;
+    const sel = selectedRef.current;
+    const show = showHistory;
+    const dateStr = historyDate;
+    if (!sel || !show) return;
     setHistoryLoading(true);
     setHistoryError(null);
     try {
-      const d = new Date(historyDate);
+      const d = new Date(dateStr);
       const pad = (n: number) => n.toString().padStart(2, '0');
       const dtInitial = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 00:00:00`;
       const dtFinal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} 23:59:59`;
       const res = await fetch(
-        `/api/fulltrack/positions-history?vehicle_id=${selected.vehicleId}&dt_initial=${encodeURIComponent(dtInitial)}&dt_final=${encodeURIComponent(dtFinal)}`
+        `/api/fulltrack/positions-history?vehicle_id=${sel.vehicleId}&dt_initial=${encodeURIComponent(dtInitial)}&dt_final=${encodeURIComponent(dtFinal)}`
       );
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -373,9 +380,15 @@ export default function RastreadorView() {
       setHistoryPoints([]);
     }
     setHistoryLoading(false);
-  }, [selected, showHistory, historyDate]);
+  }, [showHistory, historyDate]);
 
+  // Fetch when date or showHistory changes
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  // Fetch when user selects a vehicle while history is showing
+  useEffect(() => {
+    if (selected && showHistory) fetchHistory();
+  }, [selected, showHistory]);
 
   // Draw history polyline + markers on map
   useEffect(() => {
