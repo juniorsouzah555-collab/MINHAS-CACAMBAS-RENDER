@@ -329,7 +329,11 @@ export default function RastreadorView() {
     if (!selected) return;
     const updated = online.find(d => d.vehicleId === selected.vehicleId);
     if (updated) {
-      setSelected(prev => prev ? { ...prev, lat: updated.lat, lng: updated.lng, speed: updated.speed, updatedAt: updated.updatedAt, address: updated.address } : prev);
+      setSelected(prev => {
+        if (!prev) return prev;
+        if (prev.lat === updated.lat && prev.lng === updated.lng && prev.speed === updated.speed && prev.updatedAt === updated.updatedAt && prev.address === updated.address) return prev;
+        return { ...prev, lat: updated.lat, lng: updated.lng, speed: updated.speed, updatedAt: updated.updatedAt, address: updated.address };
+      });
     }
   }, [locations]);
 
