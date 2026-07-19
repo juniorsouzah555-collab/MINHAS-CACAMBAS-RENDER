@@ -1322,6 +1322,41 @@ async function startServer() {
     }
   });
 
+  // ── FullTrack History (test endpoint) ────────────────────────────────
+  app.get('/api/fulltrack/history', async (req, res) => {
+    try {
+      if (!FULLTRACK_USER || !FULLTRACK_PASS) return res.json({ error: 'no credentials' });
+      const accessToken = await getFullTrackToken();
+      const vehicleId = req.query.vehicle_id as string;
+      const from = req.query.from as string;
+      const to = req.query.to as string;
+
+      // Try different history API endpoints
+      const urls = [
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/positions-history/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/history/?ativo_id=${vehicleId}&start=${encodeURIComponent(from || '')}&end=${encodeURIComponent(to || '')}`,
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/trip-history/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
+        `https://mapageral.ops.fulltrackapp.com/maps/v2/events/?ativo_id=${vehicleId}&from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`,
+      ];
+
+      const results: any[] = [];
+      for (const url of urls) {
+        try {
+          const r = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          });
+          const text = await r.text();
+          results.push({ url: url.split('?')[0], status: r.status, body: text.substring(0, 500) });
+        } catch (e: any) {
+          results.push({ url: url.split('?')[0], error: e.message });
+        }
+      }
+      res.json(results);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── SSE: FullTrack real-time stream ─────────────────────────────────
   const sseClients = new Set<import('express').Response>();
   let lastPositionsHash = '';
