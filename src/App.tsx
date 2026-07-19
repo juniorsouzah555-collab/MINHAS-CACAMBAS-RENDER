@@ -1863,7 +1863,11 @@ export default function App() {
 
   if (urlMotoristaParam && !publicPage) {
     const todosMotoristas = ['TADEU', 'JUNIOR', 'RAMON'];
-    const motoristasVisiveis = todosMotoristas.filter(n => n === urlMotoristaParam);
+    // JUNIOR vê TODOS os motoristas (preenche pros outros)
+    // TADEU e RAMON só veem o próprio nome
+    const motoristasVisiveis = urlMotoristaParam === 'JUNIOR'
+      ? todosMotoristas
+      : todosMotoristas.filter(n => n === urlMotoristaParam);
     if (motoristasVisiveis.length > 0) {
       // Verifica se o motorista já está autenticado
       const driverToken = localStorage.getItem('relampago_driver_token');
