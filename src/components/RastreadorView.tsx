@@ -385,10 +385,18 @@ export default function RastreadorView() {
   // Fetch when date or showHistory changes
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-  // Fetch when user selects a vehicle while history is showing
+  // Fetch when user selects a NEW vehicle while history is showing (track vehicleId, not the whole object)
+  const lastFetchedVehicleRef = useRef<string | null>(null);
   useEffect(() => {
-    if (selected && showHistory) fetchHistory();
-  }, [selected, showHistory]);
+    if (selected && showHistory) {
+      if (lastFetchedVehicleRef.current !== selected.vehicleId) {
+        lastFetchedVehicleRef.current = selected.vehicleId;
+        fetchHistory();
+      }
+    } else {
+      lastFetchedVehicleRef.current = null;
+    }
+  }, [selected?.vehicleId, showHistory]);
 
   // Draw history polyline + markers on map
   useEffect(() => {
