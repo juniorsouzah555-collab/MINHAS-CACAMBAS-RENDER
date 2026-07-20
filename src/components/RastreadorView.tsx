@@ -282,9 +282,9 @@ export default function RastreadorView() {
     }
   }, [selected]);
 
-  // Full map — selected vehicle
+  // Full map — selected vehicle (only in LIVE mode, not history)
   useEffect(() => {
-    if (!selected || !isLeafletLoaded || !mapContainerRef.current) return;
+    if (!selected || !isLeafletLoaded || !mapContainerRef.current || showHistory) return;
     const L = (window as any).L;
     if (!L) return;
 
@@ -300,8 +300,6 @@ export default function RastreadorView() {
 
       L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
     }
-
-    mapRef.current.setView([selected.lat, selected.lng], 15);
 
     if (markerRef.current) mapRef.current.removeLayer(markerRef.current);
 
@@ -322,9 +320,7 @@ export default function RastreadorView() {
       const old = trailRef.current.shift();
       mapRef.current.removeLayer(old);
     }
-
-    return () => {};
-  }, [selected, isLeafletLoaded]);
+  }, [selected?.vehicleId, isLeafletLoaded, showHistory]);
 
   useEffect(() => {
     if (!selected) return;
