@@ -590,17 +590,33 @@ export default function RastreadorView() {
                 </div>
               ) : (
                 <>
-                  {/* Time display */}
+                  {/* Current time display — large */}
                   <div style={{
                     textAlign: 'center', marginBottom: 10,
-                    fontSize: 13, color: '#94a3b8', fontFamily: 'SF Mono, monospace',
+                    padding: '8px 0',
+                    borderRadius: 12, background: 'rgba(56,189,248,0.06)',
                   }}>
-                    {new Date(historyPoints[historyIdx]?.ts || 0).toLocaleTimeString('pt-BR')}
-                    {historyPoints[historyIdx]?.speed != null && historyPoints[historyIdx].speed > 0 && (
-                      <span style={{ marginLeft: 10, color: '#4ade80', fontWeight: 700 }}>
-                        {Math.round(historyPoints[historyIdx].speed)} km/h
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9', fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
+                      {new Date(historyPoints[historyIdx]?.ts || 0).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                      {new Date(historyPoints[historyIdx]?.ts || 0).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 6 }}>
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                        Velocidade: <b style={{ color: historyPoints[historyIdx]?.speed > 0 ? '#4ade80' : '#f87171' }}>
+                          {historyPoints[historyIdx]?.speed != null ? `${Math.round(historyPoints[historyIdx].speed)} km/h` : '—'}
+                        </b>
                       </span>
-                    )}
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                        Ignição: <b style={{ color: historyPoints[historyIdx]?.ignition ? '#4ade80' : '#f87171' }}>
+                          {historyPoints[historyIdx]?.ignition ? 'Ligada' : 'Desligada'}
+                        </b>
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#475569', fontFamily: 'SF Mono, monospace', marginTop: 4 }}>
+                      Ponto {historyIdx + 1} de {historyPoints.length}
+                    </div>
                   </div>
 
                   {/* Scrubber */}
@@ -617,13 +633,27 @@ export default function RastreadorView() {
                     }}
                   />
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                    <span style={{ fontSize: 10, color: '#475569' }}>
-                      {new Date(historyPoints[0]?.ts || 0).toLocaleTimeString('pt-BR')}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#475569' }}>
-                      {new Date(historyPoints[historyPoints.length - 1]?.ts || 0).toLocaleTimeString('pt-BR')}
-                    </span>
+                  {/* Time labels — evenly spaced */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, position: 'relative' }}>
+                    {(() => {
+                      const total = historyPoints.length;
+                      const numLabels = Math.min(6, total);
+                      const indices = Array.from({ length: numLabels }, (_, i) => Math.round((i / (numLabels - 1)) * (total - 1)));
+                      return indices.map((idx, i) => (
+                        <span
+                          key={i}
+                          onClick={() => setHistoryIdx(idx)}
+                          style={{
+                            fontSize: 9, color: idx === historyIdx ? '#38bdf8' : '#475569',
+                            fontFamily: 'SF Mono, monospace', cursor: 'pointer',
+                            fontWeight: idx === historyIdx ? 700 : 400,
+                            transition: 'color 0.15s ease',
+                          }}
+                        >
+                          {new Date(historyPoints[idx]?.ts || 0).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      ));
+                    })()}
                   </div>
 
                   {/* Play/Pause button */}
