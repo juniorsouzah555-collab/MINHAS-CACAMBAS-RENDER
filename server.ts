@@ -1370,7 +1370,7 @@ async function startServer() {
         lat: r.lst_localizacao?.[0] || null,
         lng: r.lst_localizacao?.[1] || null,
         speed: r.vl_velocidade || 0,
-        ts: r.timestamp_gps || 0,
+        ts: (r.timestamp_gps || 0) * 1000,
         dtGps: r.dt_gps || '',
         ignition: r.flg_ignicao === 1,
         plate: r.tag_ativo || '',
