@@ -1523,6 +1523,140 @@ async function startServer() {
     }
   });
 
+  // ── CTR Expiradas — SOAP puro ──────────────────────────────────────
+  const { buscarDadosCTR, retirarCacamba, solicitarCTR, enviarCacambaObra } = await import('./lib/coletasApiClient.ts');
+
+  app.post('/api/ctr/buscar', authMiddleware, async (req, res) => {
+    try {
+      const { ctrNumero } = req.body;
+      if (!ctrNumero) return res.status(400).json({ error: 'ctrNumero obrigatório' });
+
+      const numero = String(ctrNumero).replace(/\D/g, '');
+      const dados = await buscarDadosCTR(numero);
+      if (!dados) return res.status(404).json({ error: 'CTR não encontrada' });
+
+      res.json({ sucesso: true, dados });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  app.post('/api/ctr/processar', authMiddleware, async (req, res) => {
+    try {
+      const { ctrNumero, placa, dados } = req.body;
+      if (!ctrNumero || !placa) return res.status(400).json({ error: 'ctrNumero e placa obrigatórios' });
+
+      const numero = String(ctrNumero).replace(/\D/g, '');
+      const hoje = new Date().toISOString().split('T')[0];
+      const id = randomUUID();
+
+      await libsqlClient.execute({
+        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, placa, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processando', ?, ?, ?)`,
+        args: [id, numero, dados?.cacamba || '', dados?.geradorNome || '', dados?.cpfCnpj || '', dados?.geradorEndereco || '', dados?.geradorBairro || '', dados?.geradorCidade || '', placa, new Date().toISOString(), new Date().toISOString()],
+      });
+
+      const retirada = await retirarCacamba(numero, hoje, placa);
+      if (retirada.codigo !== '00') {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = ?, atualizado_em = ? WHERE id = ?`,
+          args: [retirada.mensagem, new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: false, id, erro: 'retirada', mensagem: retirada.mensagem });
+      }
+
+      const criar = await solicitarCTR({
+        tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
+        ggCpf: dados?.cpfCnpj || '', ggNome: dados?.geradorNome || '',
+        ggEmail: dados?.geradorEmail || '', ggCep: '', ggRua: dados?.geradorEndereco || '',
+        ggNum: '', ggCompl: '', ggBairro: dados?.geradorBairro || '', ggCidade: dados?.geradorCidade || '',
+        ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
+      });
+      if (criar.codigo !== '00') {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = ?, atualizado_em = ? WHERE id = ?`,
+          args: [criar.mensagem, new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: false, id, erro: 'criacao', mensagem: criar.mensagem });
+      }
+
+      const novoCtr = criar.idCtr || '';
+      const enviar = await enviarCacambaObra(novoCtr, hoje, placa, dados?.cacamba || '');
+
+      if (enviar.codigo !== '00') {
+        const isVinculada = enviar.mensagem?.includes('vinculada') || enviar.mensagem?.includes('transito');
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = ?, novo_ctr_numero = ?, mensagem = ?, atualizado_em = ? WHERE id = ?`,
+          args: [isVinculada ? 'pendente' : 'erro', novoCtr, enviar.mensagem, new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: isVinculada, id, status: isVinculada ? 'pendente' : 'erro', novoCtr, mensagem: enviar.mensagem });
+      }
+
+      await libsqlClient.execute({
+        sql: `UPDATE ctr_expiradas SET status = 'concluida', novo_ctr_numero = ?, mensagem = 'Retirada + nova CTR + envio concluídos', atualizado_em = ? WHERE id = ?`,
+        args: [novoCtr, new Date().toISOString(), id],
+      });
+      res.json({ sucesso: true, id, novoCtr, mensagem: 'Fluxo completo concluído' });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  app.post('/api/ctr/refazer', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.body;
+      if (!id) return res.status(400).json({ error: 'id obrigatório' });
+
+      const result = await libsqlClient.execute({ sql: 'SELECT * FROM ctr_expiradas WHERE id = ?', args: [id] });
+      const row = result.rows?.[0] as any;
+      if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
+
+      const hoje = new Date().toISOString().split('T')[0];
+      const placa = row.placa;
+
+      await libsqlClient.execute({
+        sql: `UPDATE ctr_expiradas SET status = 'processando', tentativas = tentativas + 1, atualizado_em = ? WHERE id = ?`,
+        args: [new Date().toISOString(), id],
+      });
+
+      const novoCtr = row.novo_ctr_numero?.replace(/^GG-/, '') || '';
+      if (!novoCtr) {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = 'Sem novo CTR para reenviar', atualizado_em = ? WHERE id = ?`,
+          args: [new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: false, mensagem: 'Sem novo CTR para reenviar' });
+      }
+
+      const enviar = await enviarCacambaObra(novoCtr, hoje, placa, row.cacamba || '');
+
+      if (enviar.codigo !== '00') {
+        const isVinculada = enviar.mensagem?.includes('vinculada') || enviar.mensagem?.includes('transito');
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = ?, mensagem = ?, atualizado_em = ? WHERE id = ?`,
+          args: [isVinculada ? 'pendente' : 'erro', enviar.mensagem, new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: isVinculada, status: isVinculada ? 'pendente' : 'erro', mensagem: enviar.mensagem });
+      }
+
+      await libsqlClient.execute({
+        sql: `UPDATE ctr_expiradas SET status = 'concluida', mensagem = 'Reenvio concluído', atualizado_em = ? WHERE id = ?`,
+        args: [new Date().toISOString(), id],
+      });
+      res.json({ sucesso: true, mensagem: 'Reenvio concluído' });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  app.get('/api/ctr/historico', authMiddleware, async (_req, res) => {
+    try {
+      const result = await libsqlClient.execute('SELECT * FROM ctr_expiradas ORDER BY criado_em DESC LIMIT 50');
+      res.json({ sucesso: true, registros: result.rows });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

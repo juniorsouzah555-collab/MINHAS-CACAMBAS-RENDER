@@ -333,3 +333,21 @@ export const folhaPagamento = sqliteTable('folha_pagamento', {
   funcionarioData: text('funcionario_data').notNull(),
   createdAt: text('created_at'),
 });
+
+export const ctrExpiradas = sqliteTable('ctr_expiradas', {
+  id: text('id').primaryKey(),
+  ctrNumero: text('ctr_numero').notNull(),
+  cacamba: text('cacamba'),
+  clienteNome: text('cliente_nome'),
+  clienteCpfCnpj: text('cliente_cpf_cnpj'),
+  endereco: text('endereco'),
+  bairro: text('bairro'),
+  cidade: text('cidade'),
+  novoCtrNumero: text('novo_ctr_numero'),
+  status: text('status').default('buscando'),
+  mensagem: text('mensagem'),
+  placa: text('placa'),
+  tentativas: integer('tentativas').default(0),
+  criadoEm: text('criado_em'),
+  atualizadoEm: text('atualizado_em'),
+});
