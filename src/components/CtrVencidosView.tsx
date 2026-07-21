@@ -110,7 +110,35 @@ export default function CtrVencidosView() {
         return;
       }
       setCtrInput("");
-      await carregarDados();
+      const r = data.registro;
+      const novoCard: Registro = {
+        id: r.id,
+        ctr_numero: r.ctr_numero || numero,
+        cacamba: data.dados?.cacamba || "",
+        cliente_nome: data.dados?.geradorNome || "",
+        cliente_cpf_cnpj: data.dados?.cpfCnpj || "",
+        endereco: data.dados?.geradorEndereco || "",
+        bairro: data.dados?.geradorBairro || "",
+        cidade: data.dados?.geradorCidade || "",
+        gerador_rua: data.dados?.geradorRua || r.gerador_rua || "",
+        gerador_num: data.dados?.geradorNum || r.gerador_num || "",
+        gerador_cep: data.dados?.geradorCep || r.gerador_cep || "",
+        novo_ctr_numero: r.novo_ctr_numero || "",
+        status: r.status,
+        mensagem: data.dados?.dataDestinoFinal ? `Entregue em ${data.dados.dataDestinoFinal}` : "",
+        placa: r.placa || "",
+        tentativas: r.tentativas || 0,
+        data_envio: data.dados?.dataEnvio || "",
+        data_retirada: data.dados?.dataRetirada || "",
+        data_destino_final: data.dados?.dataDestinoFinal || "",
+        criado_em: r.criado_em || new Date().toISOString(),
+        atualizado_em: r.atualizado_em || new Date().toISOString(),
+      };
+      setAtivos(prev => {
+        const exists = prev.find(p => p.id === novoCard.id);
+        if (exists) return prev.map(p => p.id === novoCard.id ? novoCard : p);
+        return [novoCard, ...prev];
+      });
     } catch (err: any) {
       setMensagem(`Erro: ${err.message}`);
     } finally {
