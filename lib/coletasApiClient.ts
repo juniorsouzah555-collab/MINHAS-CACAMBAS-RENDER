@@ -241,7 +241,9 @@ export async function solicitarCTR(input: SolicitarCTRInput): Promise<SoapResult
     CTR_Cidade: input.ctrCidade,
   });
 
-  const idCtr = res.raw?.match(/<ID_CTR[^>]*>([^<]+)/)?.[1];
+  const idCtr = res.raw?.match(/numeroCTR[^>]*>([^<]+)/i)?.[1]
+    || res.raw?.match(/NumeroCTR[^>]*>([^<]+)/i)?.[1]
+    || res.raw?.match(/<ID_CTR[^>]*>([^<]+)/)?.[1];
   return { ...res, idCtr };
 }
 

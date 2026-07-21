@@ -1678,6 +1678,13 @@ async function startServer() {
       }
 
       const novoCtr = criar.idCtr || '';
+      if (!novoCtr) {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = ?, atualizado_em = ? WHERE id = ?`,
+          args: ['SolicitaCTR OK mas numeroCTR vazio na resposta', new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: false, id, erro: 'criacao', mensagem: 'SolicitaCTR OK mas numeroCTR vazio na resposta' });
+      }
       const enviar = await enviarCacambaObra(novoCtr, hoje, placa, dados?.cacamba || '');
 
       if (enviar.codigo !== '00') {
@@ -1768,6 +1775,13 @@ async function startServer() {
           return res.json({ sucesso: false, erro: 'criacao', mensagem: criar.mensagem });
         }
         const ctrCriado = criar.idCtr || '';
+        if (!ctrCriado) {
+          await libsqlClient.execute({
+            sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = ?, atualizado_em = ? WHERE id = ?`,
+            args: ['SolicitaCTR OK mas numeroCTR vazio na resposta', new Date().toISOString(), id],
+          });
+          return res.json({ sucesso: false, erro: 'criacao', mensagem: 'SolicitaCTR OK mas numeroCTR vazio na resposta' });
+        }
         const enviar = await enviarCacambaObra(ctrCriado, hoje, placa, row.cacamba || '');
 
         if (enviar.codigo !== '00') {
