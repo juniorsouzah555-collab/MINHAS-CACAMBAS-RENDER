@@ -1,5 +1,26 @@
 import { callSoap, SoapResult } from "./soapClient";
 
+function splitEndereco(endereco: string): { rua: string; num: string } {
+  const match = endereco.match(/^(.+?),\s*(\S+)$/);
+  if (match) return { rua: match[1].trim(), num: match[2].trim() };
+  return { rua: endereco, num: '' };
+}
+
+export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
+  try {
+    const cid = encodeURIComponent(cidade);
+    const bai = encodeURIComponent(bairro);
+    const r = encodeURIComponent(rua);
+    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${cid}/${bai}/${r}/json/`);
+    if (!resp.ok) return '';
+    const data = await resp.json() as any[];
+    if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+      return data[0].cep.replace(/\D/g, '');
+    }
+  } catch {}
+  return '';
+}
+
 export interface CtrPrintData {
   numeroGuia: string;
   cacamba: string;
@@ -7,8 +28,11 @@ export interface CtrPrintData {
   geradorNome: string;
   geradorEmail: string;
   geradorEndereco: string;
+  geradorRua: string;
+  geradorNum: string;
   geradorBairro: string;
   geradorCidade: string;
+  geradorCep: string;
   transportadorCnpj: string;
   transportadorNome: string;
   transportadorPlaca: string;
@@ -41,15 +65,28 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
     return match?.[1]?.trim() || "";
   };
 
+  const endereco = extract("lb_GeradorEndereco");
+  const bairro = extract("lb_GeradorBairro");
+  const cidade = extract("lb_GeradorCidade");
+  const { rua, num } = splitEndereco(endereco);
+
+  let cep = '';
+  if (rua && bairro && cidade) {
+    cep = await buscarCep('SP', cidade, bairro, rua);
+  }
+
   return {
     numeroGuia: extract("lb_NumeroGuia"),
     cacamba: extract("lb_cacamba"),
     cpfCnpj: extract("lb_CpfCNPJ"),
     geradorNome: extract("lb_GeradorNome"),
     geradorEmail: extract("lb_GeradorEmail"),
-    geradorEndereco: extract("lb_GeradorEndereco"),
-    geradorBairro: extract("lb_GeradorBairro"),
-    geradorCidade: extract("lb_GeradorCidade"),
+    geradorEndereco: endereco,
+    geradorRua: rua,
+    geradorNum: num,
+    geradorBairro: bairro,
+    geradorCidade: cidade,
+    geradorCep: cep,
     transportadorCnpj: extract("lb_TransportadorCNPJ"),
     transportadorNome: extract("lb_TransportadorNome"),
     transportadorPlaca: extract("lb_TransportadorVeiculo"),

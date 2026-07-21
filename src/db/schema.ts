@@ -351,6 +351,9 @@ export const ctrExpiradas = sqliteTable('ctr_expiradas', {
   dataEnvio: text('data_envio'),
   dataRetirada: text('data_retirada'),
   dataDestinoFinal: text('data_destino_final'),
+  geradorRua: text('gerador_rua'),
+  geradorNum: text('gerador_num'),
+  geradorCep: text('gerador_cep'),
   criadoEm: text('criado_em'),
   atualizadoEm: text('atualizado_em'),
 });

@@ -46,6 +46,9 @@ const MIGRATIONS = [
   `ALTER TABLE ctr_expiradas ADD COLUMN data_envio TEXT`,
   `ALTER TABLE ctr_expiradas ADD COLUMN data_retirada TEXT`,
   `ALTER TABLE ctr_expiradas ADD COLUMN data_destino_final TEXT`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN gerador_rua TEXT`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN gerador_num TEXT`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN gerador_cep TEXT`,
 ];
 
 async function deduplicateFolhaPagamento() {

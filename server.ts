@@ -1563,8 +1563,8 @@ async function startServer() {
 
       const id = randomUUID();
       await libsqlClient.execute({
-        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, new Date().toISOString(), new Date().toISOString()],
+        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, gerador_rua, gerador_num, gerador_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), new Date().toISOString()],
       });
 
       res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
@@ -1612,8 +1612,11 @@ async function startServer() {
       const criar = await solicitarCTR({
         tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
         ggCpf: dados?.cpfCnpj || '', ggNome: dados?.geradorNome || '',
-        ggEmail: dados?.geradorEmail || '', ggCep: '', ggRua: dados?.geradorEndereco || '',
-        ggNum: '', ggCompl: '', ggBairro: dados?.geradorBairro || '', ggCidade: dados?.geradorCidade || '',
+        ggEmail: dados?.geradorEmail || '',
+        ggCep: dados?.geradorCep || '',
+        ggRua: dados?.geradorRua || dados?.geradorEndereco || '',
+        ggNum: dados?.geradorNum || '',
+        ggCompl: '', ggBairro: dados?.geradorBairro || '', ggCidade: dados?.geradorCidade || '',
         ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
       });
       if (criar.codigo !== '00') {
@@ -1670,8 +1673,11 @@ async function startServer() {
         const criar = await solicitarCTR({
           tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
           ggCpf: row.cliente_cpf_cnpj || '', ggNome: row.cliente_nome || '',
-          ggEmail: '', ggCep: '', ggRua: row.endereco || '',
-          ggNum: '', ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
+          ggEmail: '',
+          ggCep: row.gerador_cep || '',
+          ggRua: row.gerador_rua || row.endereco || '',
+          ggNum: row.gerador_num || '',
+          ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
           ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
         });
         if (criar.codigo !== '00') {
