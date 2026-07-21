@@ -1647,11 +1647,20 @@ async function startServer() {
       let ctrBairro = dados?.obraBairro || '';
       let ctrCidade = dados?.obraCidade || '';
 
-      if (!ctrCep && ctrRua) {
+      if (ctrRua && ctrBairro && ctrCidade && !ctrCep) {
         const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
         const split = splitEndereco(ctrRua);
-        ctrCep = await buscarCep('SP', ctrCidade || 'São Paulo', ctrBairro, split.rua);
+        ctrCep = await buscarCep('SP', ctrCidade, ctrBairro, split.rua);
         if (!ctrNum) ctrNum = split.num;
+      }
+
+      // Se obra não tem dados completos, usa gerador como fallback
+      if (!ctrCep || !ctrRua || !ctrBairro || !ctrCidade) {
+        ctrCep = ctrCep || ggCep;
+        ctrRua = ctrRua || ggRua;
+        ctrNum = ctrNum || ggNum;
+        ctrBairro = ctrBairro || dados?.geradorBairro || '';
+        ctrCidade = ctrCidade || dados?.geradorCidade || '';
       }
 
       const criar = await solicitarCTR({

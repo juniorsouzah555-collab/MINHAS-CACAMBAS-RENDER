@@ -7,7 +7,23 @@ export function splitEndereco(endereco: string): { rua: string; num: string } {
 }
 
 export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
-  // 1) Nominatim/OSM
+  const cidadeNormalizada = cidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+  // 1) ViaCEP por bairro — garante CEP da cidade correta
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+        const cep = data[0].cep.replace(/\D/g, '');
+        if (cep) return cep;
+      }
+    }
+  } catch {}
+
+  // 2) Nominatim/OSM — validado contra a cidade
   try {
     const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
@@ -18,38 +34,31 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
       const data = await resp.json() as any[];
       if (data.length > 0 && data[0].display_name) {
         const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
-        if (cepMatch) return cepMatch[1].replace(/\D/g, '');
-      }
-    }
-  } catch {}
-
-  // 2) ViaCEP por bairro
-  try {
-    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (resp.ok) {
-      const data = await resp.json() as any[];
-      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
-        return data[0].cep.replace(/\D/g, '');
-      }
-    }
-  } catch {}
-
-  // 3) Fallback: ViaCEP pega primeiro CEP do bairro como aproximacao
-  try {
-    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (resp.ok) {
-      const data = await resp.json() as any[];
-      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
-        return data[0].cep.replace(/\D/g, '');
+        if (cepMatch) {
+          const cep = cepMatch[1].replace(/\D/g, '');
+          const validado = await validarCep(cep);
+          if (validado && validado.toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
+            return cep;
+          }
+        }
       }
     }
   } catch {}
 
   return '';
+}
+
+async function validarCep(cep: string): Promise<string | null> {
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any;
+      if (data && !data.erro) return data.localidade || null;
+    }
+  } catch {}
+  return null;
 }
 
 export interface CtrPrintData {
