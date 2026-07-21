@@ -1534,7 +1534,7 @@ async function startServer() {
       const numero = String(ctrNumero).replace(/\D/g, '');
 
       const existing = await libsqlClient.execute({
-        sql: 'SELECT * FROM ctr_expiradas WHERE ctr_numero = ? AND status NOT IN (?,?,?,?,?) ORDER BY criado_em DESC LIMIT 1',
+        sql: 'SELECT * FROM ctr_expiradas WHERE ctr_numero = ? AND status NOT IN (?,?) ORDER BY criado_em DESC LIMIT 1',
         args: [numero, 'concluida', 'processando'],
       });
       const existRow = existing.rows?.[0] as any;
@@ -1555,13 +1555,19 @@ async function startServer() {
       const dados = await buscarDadosCTR(numero);
       if (!dados) return res.status(404).json({ error: 'CTR não encontrada' });
 
+      const jaEntregue = !!dados.dataDestinoFinal;
+      const statusInicial = jaEntregue ? 'entregue' : 'pronto';
+      const mensagemInicial = jaEntregue
+        ? `Entregue em ${dados.dataDestinoFinal} — clique Refazer para reenviar`
+        : '';
+
       const id = randomUUID();
       await libsqlClient.execute({
-        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pronto', ?, ?)`,
-        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, new Date().toISOString(), new Date().toISOString()],
+        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, new Date().toISOString(), new Date().toISOString()],
       });
 
-      res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: 'pronto' } });
+      res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
     } catch (err: any) {
       res.status(200).json({ sucesso: false, error: err.message });
     }
@@ -1651,6 +1657,7 @@ async function startServer() {
 
       const hoje = new Date().toISOString().split('T')[0];
       const placa = row.placa;
+      const statusAtual = row.status;
 
       await libsqlClient.execute({
         sql: `UPDATE ctr_expiradas SET status = 'processando', tentativas = tentativas + 1, atualizado_em = ? WHERE id = ?`,
@@ -1658,6 +1665,41 @@ async function startServer() {
       });
 
       const novoCtr = row.novo_ctr_numero?.replace(/^GG-/, '') || '';
+
+      if (statusAtual === 'entregue' && !novoCtr) {
+        const criar = await solicitarCTR({
+          tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
+          ggCpf: row.cliente_cpf_cnpj || '', ggNome: row.cliente_nome || '',
+          ggEmail: '', ggCep: '', ggRua: row.endereco || '',
+          ggNum: '', ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
+          ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
+        });
+        if (criar.codigo !== '00') {
+          await libsqlClient.execute({
+            sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = ?, atualizado_em = ? WHERE id = ?`,
+            args: [criar.mensagem, new Date().toISOString(), id],
+          });
+          return res.json({ sucesso: false, erro: 'criacao', mensagem: criar.mensagem });
+        }
+        const ctrCriado = criar.idCtr || '';
+        const enviar = await enviarCacambaObra(ctrCriado, hoje, placa, row.cacamba || '');
+
+        if (enviar.codigo !== '00') {
+          const isVinculada = enviar.mensagem?.includes('vinculada') || enviar.mensagem?.includes('transito');
+          await libsqlClient.execute({
+            sql: `UPDATE ctr_expiradas SET status = ?, novo_ctr_numero = ?, mensagem = ?, atualizado_em = ? WHERE id = ?`,
+            args: [isVinculada ? 'pendente' : 'erro', ctrCriado, enviar.mensagem, new Date().toISOString(), id],
+          });
+          return res.json({ sucesso: isVinculada, status: isVinculada ? 'pendente' : 'erro', novoCtr: ctrCriado, mensagem: enviar.mensagem });
+        }
+
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'concluida', novo_ctr_numero = ?, mensagem = 'Renovação concluída', atualizado_em = ? WHERE id = ?`,
+          args: [ctrCriado, new Date().toISOString(), id],
+        });
+        return res.json({ sucesso: true, novoCtr: ctrCriado, mensagem: 'Renovação concluída' });
+      }
+
       if (!novoCtr) {
         await libsqlClient.execute({
           sql: `UPDATE ctr_expiradas SET status = 'erro', mensagem = 'Sem novo CTR para reenviar', atualizado_em = ? WHERE id = ?`,

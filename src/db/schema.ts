@@ -348,6 +348,9 @@ export const ctrExpiradas = sqliteTable('ctr_expiradas', {
   mensagem: text('mensagem'),
   placa: text('placa'),
   tentativas: integer('tentativas').default(0),
+  dataEnvio: text('data_envio'),
+  dataRetirada: text('data_retirada'),
+  dataDestinoFinal: text('data_destino_final'),
   criadoEm: text('criado_em'),
   atualizadoEm: text('atualizado_em'),
 });

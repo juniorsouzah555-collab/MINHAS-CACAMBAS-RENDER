@@ -37,6 +37,9 @@ interface Registro {
   mensagem: string;
   placa: string;
   tentativas: number;
+  data_envio: string;
+  data_retirada: string;
+  data_destino_final: string;
   criado_em: string;
   atualizado_em: string;
 }
@@ -47,6 +50,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Rea
   processando: { label: "Processando...", color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Loader2 className="w-4 h-4 animate-spin" /> },
   concluida: { label: "Concluído", color: "text-green-600 bg-green-50 border-green-200", icon: <CheckCircle2 className="w-4 h-4" /> },
   pendente: { label: "Caçamba não liberada", color: "text-orange-600 bg-orange-50 border-orange-200", icon: <Clock className="w-4 h-4" /> },
+  entregue: { label: "Já entregue no destino", color: "text-purple-600 bg-purple-50 border-purple-200", icon: <CheckCircle2 className="w-4 h-4" /> },
   erro: { label: "Erro", color: "text-red-600 bg-red-50 border-red-200", icon: <XCircle className="w-4 h-4" /> },
 };
 
@@ -248,6 +252,7 @@ export default function CtrVencidosView() {
                 className={`rounded-xl border p-5 ${
                   r.status === "pendente" ? "bg-orange-50 border-orange-200" :
                   r.status === "erro" ? "bg-red-50 border-red-200" :
+                  r.status === "entregue" ? "bg-purple-50 border-purple-200" :
                   "bg-white border-slate-200"
                 }`}
               >
@@ -277,6 +282,18 @@ export default function CtrVencidosView() {
                       <span className="ml-1 font-bold text-green-700">{r.novo_ctr_numero}</span>
                     </div>
                   )}
+                  {r.status === "entregue" && r.data_envio && (
+                    <div>
+                      <span className="text-slate-400">Enviada:</span>
+                      <span className="ml-1 text-purple-700 font-bold">{r.data_envio}</span>
+                    </div>
+                  )}
+                  {r.status === "entregue" && r.data_destino_final && (
+                    <div>
+                      <span className="text-slate-400">Entregue:</span>
+                      <span className="ml-1 text-purple-700 font-bold">{r.data_destino_final}</span>
+                    </div>
+                  )}
                 </div>
                 {r.mensagem && <p className="text-xs text-slate-500 mb-3">{r.mensagem}</p>}
                 <div className="flex items-center justify-between">
@@ -293,6 +310,15 @@ export default function CtrVencidosView() {
                       >
                         <RefreshCw className={`w-3 h-3 ${processando ? "animate-spin" : ""}`} />
                         Processar — Retirar + Criar + Enviar
+                      </button>
+                    )}
+                    {r.status === "entregue" && (
+                      <button
+                        onClick={() => handleRefazer(r.id)}
+                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Refazer — Criar nova CTR + Enviar
                       </button>
                     )}
                     {(r.status === "pendente" || r.status === "erro") && r.novo_ctr_numero && (

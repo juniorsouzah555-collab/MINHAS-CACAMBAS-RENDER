@@ -43,6 +43,9 @@ const MIGRATIONS = [
   `ALTER TABLE lancamentos ADD COLUMN source TEXT`,
   `ALTER TABLE vehicle_locations ADD COLUMN speed REAL`,
   `ALTER TABLE vehicle_locations ADD COLUMN accuracy REAL`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN data_envio TEXT`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN data_retirada TEXT`,
+  `ALTER TABLE ctr_expiradas ADD COLUMN data_destino_final TEXT`,
 ];
 
 async function deduplicateFolhaPagamento() {
