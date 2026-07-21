@@ -1538,15 +1538,18 @@ async function startServer() {
         args: [numero, 'concluida', 'processando'],
       });
       const existRow = existing.rows?.[0] as any;
-      if (existRow && existRow.status !== 'erro') {
+      if (existRow && existRow.status !== 'erro' && existRow.gerador_rua) {
         return res.json({ sucesso: true, dados: {
           numeroGuia: 'GG-' + existRow.ctr_numero,
           cacamba: existRow.cacamba || '',
           cpfCnpj: existRow.cliente_cpf_cnpj || '',
           geradorNome: existRow.cliente_nome || '',
           geradorEndereco: existRow.endereco || '',
+          geradorRua: existRow.gerador_rua || '',
+          geradorNum: existRow.gerador_num || '',
           geradorBairro: existRow.bairro || '',
           geradorCidade: existRow.cidade || '',
+          geradorCep: existRow.gerador_cep || '',
           volumesCacamba: '',
           dataEnvio: '',
         }, registro: existRow });
@@ -1561,13 +1564,20 @@ async function startServer() {
         ? `Entregue em ${dados.dataDestinoFinal} — clique Refazer para reenviar`
         : '';
 
-      const id = randomUUID();
-      await libsqlClient.execute({
-        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, gerador_rua, gerador_num, gerador_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), new Date().toISOString()],
-      });
-
-      res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
+      if (existRow) {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET cacamba = ?, cliente_nome = ?, cliente_cpf_cnpj = ?, endereco = ?, bairro = ?, cidade = ?, status = ?, mensagem = ?, data_envio = ?, data_retirada = ?, data_destino_final = ?, gerador_rua = ?, gerador_num = ?, gerador_cep = ?, atualizado_em = ? WHERE id = ?`,
+          args: [dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), existRow.id],
+        });
+        res.json({ sucesso: true, dados, registro: { id: existRow.id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
+      } else {
+        const id = randomUUID();
+        await libsqlClient.execute({
+          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, gerador_rua, gerador_num, gerador_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), new Date().toISOString()],
+        });
+        res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
+      }
     } catch (err: any) {
       res.status(200).json({ sucesso: false, error: err.message });
     }
