@@ -4,11 +4,9 @@ import {
   RefreshCw,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   Loader2,
   Truck,
   Search,
-  Trash2,
 } from "lucide-react";
 
 const PLACAS = ["BTR-7G55", "BTT-1H69", "CVP-5184", "DHP-2C75"];
@@ -60,26 +58,26 @@ export default function CtrVencidosView() {
   const [ctrInput, setCtrInput] = useState("");
   const [placa, setPlaca] = useState(PLACAS[0]);
   const [buscando, setBuscando] = useState(false);
-  const [dadosEncontrados, setDadosEncontrados] = useState<CtrDados | null>(null);
-  const [ctrAtiva, setCtrAtiva] = useState<string | null>(null);
-  const [registros, setRegistros] = useState<Registro[]>([]);
   const [mensagem, setMensagem] = useState("");
+  const [ativos, setAtivos] = useState<Registro[]>([]);
+  const [concluidas, setConcluidas] = useState<Registro[]>([]);
 
-  const carregarHistorico = useCallback(async () => {
+  const carregarDados = useCallback(async () => {
     try {
       const res = await fetch("/api/ctr/historico", {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json();
       if (data.sucesso && data.registros) {
-        setRegistros(data.registros);
+        setAtivos(data.registros.filter((r: Registro) => r.status !== "concluida"));
+        setConcluidas(data.registros.filter((r: Registro) => r.status === "concluida"));
       }
     } catch {}
   }, []);
 
   useEffect(() => {
-    carregarHistorico();
-  }, [carregarHistorico]);
+    carregarDados();
+  }, [carregarDados]);
 
   const handleBuscar = useCallback(async () => {
     const numero = ctrInput.replace(/\D/g, "").replace(/^0+/, "");
@@ -87,12 +85,8 @@ export default function CtrVencidosView() {
       setMensagem("Digite o número da CTR");
       return;
     }
-
     setBuscando(true);
     setMensagem("");
-    setDadosEncontrados(null);
-    setCtrAtiva(null);
-
     try {
       const res = await fetch("/api/ctr/buscar", {
         method: "POST",
@@ -103,25 +97,22 @@ export default function CtrVencidosView() {
         body: JSON.stringify({ ctrNumero: numero }),
       });
       const data = await res.json();
-
       if (!data.sucesso) {
         setMensagem(data.error || "CTR não encontrada");
         return;
       }
-
-      setDadosEncontrados(data.dados);
-      setCtrAtiva(numero);
+      setCtrInput("");
+      await carregarDados();
     } catch (err: any) {
       setMensagem(`Erro: ${err.message}`);
     } finally {
       setBuscando(false);
     }
-  }, [ctrInput]);
+  }, [ctrInput, carregarDados]);
 
-  const handleProcessar = useCallback(async () => {
-    if (!ctrAtiva || !dadosEncontrados) return;
-
+  const handleProcessar = useCallback(async (registro: Registro) => {
     setMensagem("");
+    setAtivos(prev => prev.map(r => r.id === registro.id ? { ...r, status: "processando" } : r));
     try {
       const res = await fetch("/api/ctr/processar", {
         method: "POST",
@@ -130,30 +121,32 @@ export default function CtrVencidosView() {
           Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
-          ctrNumero: ctrAtiva,
+          ctrNumero: registro.ctr_numero,
           placa,
-          dados: dadosEncontrados,
+          dados: {
+            cacamba: registro.cacamba,
+            cpfCnpj: registro.cliente_cpf_cnpj,
+            geradorNome: registro.cliente_nome,
+            geradorEndereco: registro.endereco,
+            geradorBairro: registro.bairro,
+            geradorCidade: registro.cidade,
+          },
         }),
       });
       const data = await res.json();
-
       if (data.sucesso) {
-        setMensagem(`✅ CTR processada! Nova CTR: GG-${data.novoCtr}`);
-        setDadosEncontrados(null);
-        setCtrAtiva(null);
-        setCtrInput("");
+        setMensagem(`✅ GG-${registro.ctr_numero} processada! Nova CTR: GG-${data.novoCtr}`);
       } else if (data.status === "pendente") {
-        setMensagem(`⚠️ Caçamba ainda não liberada pelo destino final. Nova CTR: GG-${data.novoCtr}. Clique "Refazer" quando liberar.`);
-        await carregarHistorico();
+        setMensagem(`⚠️ GG-${registro.ctr_numero}: Caçamba não liberada. Nova CTR: GG-${data.novoCtr}`);
       } else {
-        setMensagem(`❌ ${data.mensagem || data.error || "Erro ao processar"}`);
-        await carregarHistorico();
+        setMensagem(`❌ GG-${registro.ctr_numero}: ${data.mensagem || data.error || "Erro"}`);
       }
-      await carregarHistorico();
+      await carregarDados();
     } catch (err: any) {
       setMensagem(`Erro: ${err.message}`);
+      await carregarDados();
     }
-  }, [ctrAtiva, dadosEncontrados, placa, carregarHistorico]);
+  }, [placa, carregarDados]);
 
   const handleRefazer = useCallback(async (id: string) => {
     setMensagem("");
@@ -167,7 +160,6 @@ export default function CtrVencidosView() {
         body: JSON.stringify({ id }),
       });
       const data = await res.json();
-
       if (data.sucesso) {
         setMensagem("✅ Reenvio concluído!");
       } else if (data.status === "pendente") {
@@ -175,36 +167,30 @@ export default function CtrVencidosView() {
       } else {
         setMensagem(`❌ ${data.mensagem || data.error || "Erro ao reenviar"}`);
       }
-      await carregarHistorico();
+      await carregarDados();
     } catch (err: any) {
       setMensagem(`Erro: ${err.message}`);
     }
-  }, [carregarHistorico]);
+  }, [carregarDados]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
+      {/* Header + Busca */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-600">
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-slate-900">
-              CTRs Vencidas — Renovação
-            </h2>
+            <h2 className="text-lg font-black text-slate-900">CTRs Vencidas — Renovação</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Informe o número da CTR vencida. O sistema busca os dados, dá retirada, cria nova CTR e envia pra obra.
             </p>
           </div>
         </div>
-
-        {/* Input */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-1">
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Número da CTR
-            </label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Número da CTR</label>
             <input
               type="text"
               value={ctrInput}
@@ -215,17 +201,13 @@ export default function CtrVencidosView() {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Placa do Caminhão
-            </label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Placa do Caminhão</label>
             <select
               value={placa}
               onChange={(e) => setPlaca(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
-              {PLACAS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              {PLACAS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div className="flex items-end">
@@ -242,54 +224,6 @@ export default function CtrVencidosView() {
             </button>
           </div>
         </div>
-
-        {/* Dados encontrados */}
-        {dadosEncontrados && (
-          <div className="mt-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="font-black text-indigo-900 text-base">
-                  GG-{ctrAtiva}
-                </h3>
-                <p className="text-xs text-indigo-600">
-                  Caçamba: {dadosEncontrados.cacamba} — {dadosEncontrados.volumesCacamba}
-                </p>
-              </div>
-              <span className="text-xs text-indigo-500 bg-indigo-100 px-2 py-1 rounded-full">
-                Dados carregados via SOAP
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
-              <div>
-                <span className="text-indigo-400">Cliente:</span>
-                <span className="ml-1 font-bold text-indigo-900">{dadosEncontrados.geradorNome}</span>
-              </div>
-              <div>
-                <span className="text-indigo-400">CPF/CNPJ:</span>
-                <span className="ml-1 text-indigo-800">{dadosEncontrados.cpfCnpj}</span>
-              </div>
-              <div>
-                <span className="text-indigo-400">Endereço:</span>
-                <span className="ml-1 text-indigo-800">
-                  {dadosEncontrados.geradorEndereco}, {dadosEncontrados.geradorBairro} — {dadosEncontrados.geradorCidade}
-                </span>
-              </div>
-              <div>
-                <span className="text-indigo-400">Envio Obra:</span>
-                <span className="ml-1 text-indigo-800">{dadosEncontrados.dataEnvio}</span>
-              </div>
-            </div>
-            <button
-              onClick={handleProcessar}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 active:scale-[0.98] transition-all shadow-lg shadow-green-500/30 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Processar — Retirar + Criar Nova + Enviar
-            </button>
-          </div>
-        )}
-
-        {/* Mensagem */}
         {mensagem && (
           <div className={`mt-4 p-3 rounded-lg text-sm ${
             mensagem.startsWith("✅") ? "bg-green-50 border border-green-200 text-green-700" :
@@ -302,74 +236,69 @@ export default function CtrVencidosView() {
         )}
       </div>
 
-      {/* Lista de processadas */}
-      {registros.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4">Histórico</h3>
-          <div className="space-y-3">
-            {registros.map((r) => {
-              const st = STATUS_MAP[r.status] || STATUS_MAP.erro;
-              return (
-                <div
-                  key={r.id}
-                  className={`rounded-xl border p-4 ${
-                    r.status === "concluida"
-                      ? "bg-green-50 border-green-200"
-                      : r.status === "pendente"
-                      ? "bg-orange-50 border-orange-200"
-                      : r.status === "erro"
-                      ? "bg-red-50 border-red-200"
-                      : "bg-white border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-slate-600" />
-                      <span className="font-black text-slate-900">
-                        GG-{r.ctr_numero}
-                      </span>
-                      {r.cacamba && (
-                        <span className="text-xs text-slate-500">Caçamba {r.cacamba}</span>
-                      )}
-                    </div>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${st.color}`}>
-                      {st.icon}
-                      {st.label}
-                    </span>
+      {/* CTRs Ativas — não concluídas */}
+      {ativos.length > 0 && (
+        <div className="space-y-3">
+          {ativos.map((r) => {
+            const st = STATUS_MAP[r.status] || STATUS_MAP.erro;
+            const processando = r.status === "processando";
+            return (
+              <div
+                key={r.id}
+                className={`rounded-xl border p-5 ${
+                  r.status === "pendente" ? "bg-orange-50 border-orange-200" :
+                  r.status === "erro" ? "bg-red-50 border-red-200" :
+                  "bg-white border-slate-200"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-slate-600" />
+                    <span className="font-black text-lg text-slate-900">GG-{r.ctr_numero}</span>
+                    {r.cacamba && <span className="text-xs text-slate-500">Caçamba {r.cacamba}</span>}
                   </div>
-
-                  {r.cliente_nome && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-xs mb-2">
-                      <div>
-                        <span className="text-slate-400">Cliente:</span>
-                        <span className="ml-1 text-slate-700">{r.cliente_nome}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Endereço:</span>
-                        <span className="ml-1 text-slate-700">{r.endereco}</span>
-                      </div>
-                      {r.novo_ctr_numero && (
-                        <div>
-                          <span className="text-slate-400">Nova CTR:</span>
-                          <span className="ml-1 font-bold text-green-700">{r.novo_ctr_numero}</span>
-                        </div>
-                      )}
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${st.color}`}>
+                    {st.icon}
+                    {st.label}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-xs mb-3">
+                  <div>
+                    <span className="text-slate-400">Cliente:</span>
+                    <span className="ml-1 font-bold text-slate-800">{r.cliente_nome}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Endereço:</span>
+                    <span className="ml-1 text-slate-700">{r.endereco}</span>
+                  </div>
+                  {r.novo_ctr_numero && (
+                    <div>
+                      <span className="text-slate-400">Nova CTR:</span>
+                      <span className="ml-1 font-bold text-green-700">{r.novo_ctr_numero}</span>
                     </div>
                   )}
-
-                  {r.mensagem && (
-                    <p className="text-xs text-slate-500 mb-2">{r.mensagem}</p>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">
-                      {r.criado_em ? new Date(r.criado_em).toLocaleString("pt-BR") : ""}
-                      {r.tentativas > 0 && ` — ${r.tentativas} tentativa(s)`}
-                    </span>
+                </div>
+                {r.mensagem && <p className="text-xs text-slate-500 mb-3">{r.mensagem}</p>}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">
+                    {r.criado_em ? new Date(r.criado_em).toLocaleString("pt-BR") : ""}
+                    {r.tentativas > 0 && ` — ${r.tentativas} tentativa(s)`}
+                  </span>
+                  <div className="flex gap-2">
+                    {r.status === "pronto" && (
+                      <button
+                        onClick={() => handleProcessar(r)}
+                        disabled={processando}
+                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${processando ? "animate-spin" : ""}`} />
+                        Processar — Retirar + Criar + Enviar
+                      </button>
+                    )}
                     {(r.status === "pendente" || r.status === "erro") && r.novo_ctr_numero && (
                       <button
                         onClick={() => handleRefazer(r.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-bold hover:bg-orange-600 active:scale-[0.98] transition-all cursor-pointer"
+                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-orange-500 text-white text-xs font-bold hover:bg-orange-600 active:scale-[0.98] transition-all cursor-pointer"
                       >
                         <RefreshCw className="w-3 h-3" />
                         Refazer
@@ -377,9 +306,41 @@ export default function CtrVencidosView() {
                     )}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Histórico — concluídas */}
+      {concluidas.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">Histórico — Concluídas</h3>
+          <div className="space-y-2">
+            {concluidas.map((r) => (
+              <div key={r.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-bold text-slate-800">GG-{r.ctr_numero}</span>
+                  {r.cacamba && <span className="text-xs text-slate-500">Caçamba {r.cacamba}</span>}
+                  {r.novo_ctr_numero && (
+                    <span className="text-xs text-green-600 font-bold">→ {r.novo_ctr_numero}</span>
+                  )}
+                </div>
+                <span className="text-xs text-slate-400">
+                  {r.criado_em ? new Date(r.criado_em).toLocaleString("pt-BR") : ""}
+                </span>
+              </div>
+            ))}
           </div>
+        </div>
+      )}
+
+      {/* Vazio */}
+      {ativos.length === 0 && concluidas.length === 0 && !mensagem && (
+        <div className="text-center py-12 text-slate-400">
+          <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Nenhuma CTR vencida registrada. Digite o número de uma CTR acima para começar.</p>
         </div>
       )}
     </div>

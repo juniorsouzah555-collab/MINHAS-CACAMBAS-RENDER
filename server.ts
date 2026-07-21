@@ -1532,10 +1532,36 @@ async function startServer() {
       if (!ctrNumero) return res.status(400).json({ error: 'ctrNumero obrigatório' });
 
       const numero = String(ctrNumero).replace(/\D/g, '');
+
+      const existing = await libsqlClient.execute({
+        sql: 'SELECT * FROM ctr_expiradas WHERE ctr_numero = ? AND status NOT IN (?,?,?,?,?) ORDER BY criado_em DESC LIMIT 1',
+        args: [numero, 'concluida', 'processando'],
+      });
+      const existRow = existing.rows?.[0] as any;
+      if (existRow && existRow.status !== 'erro') {
+        return res.json({ sucesso: true, dados: {
+          numeroGuia: 'GG-' + existRow.ctr_numero,
+          cacamba: existRow.cacamba || '',
+          cpfCnpj: existRow.cliente_cpf_cnpj || '',
+          geradorNome: existRow.cliente_nome || '',
+          geradorEndereco: existRow.endereco || '',
+          geradorBairro: existRow.bairro || '',
+          geradorCidade: existRow.cidade || '',
+          volumesCacamba: '',
+          dataEnvio: '',
+        }, registro: existRow });
+      }
+
       const dados = await buscarDadosCTR(numero);
       if (!dados) return res.status(404).json({ error: 'CTR não encontrada' });
 
-      res.json({ sucesso: true, dados });
+      const id = randomUUID();
+      await libsqlClient.execute({
+        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pronto', ?, ?)`,
+        args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, new Date().toISOString(), new Date().toISOString()],
+      });
+
+      res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: 'pronto' } });
     } catch (err: any) {
       res.status(200).json({ sucesso: false, error: err.message });
     }
@@ -1548,12 +1574,25 @@ async function startServer() {
 
       const numero = String(ctrNumero).replace(/\D/g, '');
       const hoje = new Date().toISOString().split('T')[0];
-      const id = randomUUID();
 
-      await libsqlClient.execute({
-        sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, placa, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processando', ?, ?, ?)`,
-        args: [id, numero, dados?.cacamba || '', dados?.geradorNome || '', dados?.cpfCnpj || '', dados?.geradorEndereco || '', dados?.geradorBairro || '', dados?.geradorCidade || '', placa, new Date().toISOString(), new Date().toISOString()],
+      const existente = await libsqlClient.execute({
+        sql: `SELECT id FROM ctr_expiradas WHERE ctr_numero = ? AND status IN ('pronto', 'erro', 'pendente') ORDER BY criado_em DESC LIMIT 1`,
+        args: [numero],
       });
+      const id = (existente.rows?.[0] as any)?.id || randomUUID();
+      const isNew = !existente.rows?.length;
+
+      if (isNew) {
+        await libsqlClient.execute({
+          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, placa, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processando', ?, ?, ?)`,
+          args: [id, numero, dados?.cacamba || '', dados?.geradorNome || '', dados?.cpfCnpj || '', dados?.geradorEndereco || '', dados?.geradorBairro || '', dados?.geradorCidade || '', placa, new Date().toISOString(), new Date().toISOString()],
+        });
+      } else {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET status = 'processando', placa = ?, atualizado_em = ? WHERE id = ?`,
+          args: [placa, new Date().toISOString(), id],
+        });
+      }
 
       const retirada = await retirarCacamba(numero, hoje, placa);
       if (retirada.codigo !== '00') {
