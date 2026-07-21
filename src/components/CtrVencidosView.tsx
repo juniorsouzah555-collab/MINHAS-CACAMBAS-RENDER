@@ -345,28 +345,13 @@ export default function CtrVencidosView() {
                       </button>
                     )}
                     {r.status === "entregue" && (
-                      <div className="flex items-center gap-2">
-                        {!r.gerador_cep && (
-                          <input
-                            type="text"
-                            placeholder="CEP"
-                            value={cepEdits[r.id] || ""}
-                            onChange={(e) => setCepEdits(prev => ({ ...prev, [r.id]: e.target.value }))}
-                            className="w-24 px-2 py-1.5 rounded border border-purple-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
-                          />
-                        )}
-                        <button
-                          onClick={() => {
-                            const cep = r.gerador_cep || cepEdits[r.id] || "";
-                            if (!cep) { setMensagem("❌ Informe o CEP do gerador"); return; }
-                            handleRefazer(r.id, cep, r.gerador_rua || r.endereco, r.gerador_num || "");
-                          }}
-                          className="flex items-center gap-1 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          Refazer — Criar nova CTR + Enviar
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleRefazer(r.id)}
+                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Refazer — Criar nova CTR + Enviar
+                      </button>
                     )}
                     {(r.status === "pendente" || r.status === "erro") && r.novo_ctr_numero && (
                       <button

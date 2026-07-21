@@ -1,24 +1,54 @@
 import { callSoap, SoapResult } from "./soapClient";
 
-function splitEndereco(endereco: string): { rua: string; num: string } {
+export function splitEndereco(endereco: string): { rua: string; num: string } {
   const match = endereco.match(/^(.+?),\s*(\S+)$/);
   if (match) return { rua: match[1].trim(), num: match[2].trim() };
   return { rua: endereco, num: '' };
 }
 
 export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
+  // 1) Nominatim/OSM
   try {
     const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
       headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
+      signal: AbortSignal.timeout(5000),
     });
-    if (!resp.ok) return '';
-    const data = await resp.json() as any[];
-    if (data.length > 0 && data[0].display_name) {
-      const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
-      if (cepMatch) return cepMatch[1].replace(/\D/g, '');
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (data.length > 0 && data[0].display_name) {
+        const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
+        if (cepMatch) return cepMatch[1].replace(/\D/g, '');
+      }
     }
   } catch {}
+
+  // 2) ViaCEP por bairro
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+        return data[0].cep.replace(/\D/g, '');
+      }
+    }
+  } catch {}
+
+  // 3) Fallback: ViaCEP pega primeiro CEP do bairro como aproximacao
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+        return data[0].cep.replace(/\D/g, '');
+      }
+    }
+  } catch {}
+
   return '';
 }
 

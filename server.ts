@@ -1619,13 +1619,29 @@ async function startServer() {
         return res.json({ sucesso: false, id, erro: 'retirada', mensagem: retirada.mensagem });
       }
 
+      let ggCep = dados?.geradorCep || '';
+      let ggRua = dados?.geradorRua || dados?.geradorEndereco || '';
+      let ggNum = dados?.geradorNum || '';
+
+      if (!ggCep) {
+        const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
+        const bairro = dados?.geradorBairro || '';
+        const cidade = dados?.geradorCidade || 'São Paulo';
+        ggCep = await buscarCep('SP', cidade, bairro, ggRua);
+        if (!ggCep) {
+          const split = splitEndereco(ggRua);
+          ggCep = await buscarCep('SP', cidade, bairro, split.rua);
+          if (!ggNum) ggNum = split.num;
+        }
+      }
+
       const criar = await solicitarCTR({
         tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
         ggCpf: dados?.cpfCnpj || '', ggNome: dados?.geradorNome || '',
         ggEmail: dados?.geradorEmail || '',
-        ggCep: dados?.geradorCep || '',
-        ggRua: dados?.geradorRua || dados?.geradorEndereco || '',
-        ggNum: dados?.geradorNum || '',
+        ggCep,
+        ggRua,
+        ggNum,
         ggCompl: '', ggBairro: dados?.geradorBairro || '', ggCidade: dados?.geradorCidade || '',
         ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
       });
@@ -1661,21 +1677,23 @@ async function startServer() {
 
   app.post('/api/ctr/refazer', authMiddleware, async (req, res) => {
     try {
-      const { id, geradorCep, geradorRua, geradorNum } = req.body;
+      const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
       const result = await libsqlClient.execute({ sql: 'SELECT * FROM ctr_expiradas WHERE id = ?', args: [id] });
       const row = result.rows?.[0] as any;
       if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
 
-      if (geradorCep) {
-        await libsqlClient.execute({
-          sql: `UPDATE ctr_expiradas SET gerador_cep = ?, gerador_rua = COALESCE(?, gerador_rua), gerador_num = COALESCE(?, gerador_num) WHERE id = ?`,
-          args: [geradorCep, geradorRua || null, geradorNum || null, id],
-        });
-        row.gerador_cep = geradorCep;
-        if (geradorRua) row.gerador_rua = geradorRua;
-        if (geradorNum) row.gerador_num = geradorNum;
+      if (!row.gerador_cep) {
+        const { buscarCep } = await import('./lib/coletasApiClient.ts');
+        const cep = await buscarCep('SP', row.cidade || 'São Paulo', row.bairro || '', row.gerador_rua || row.endereco || '');
+        if (cep) {
+          await libsqlClient.execute({
+            sql: `UPDATE ctr_expiradas SET gerador_cep = ? WHERE id = ?`,
+            args: [cep, id],
+          });
+          row.gerador_cep = cep;
+        }
       }
 
       const hoje = new Date().toISOString().split('T')[0];
