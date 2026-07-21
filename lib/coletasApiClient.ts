@@ -54,9 +54,9 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
     transportadorNome: extract("lb_TransportadorNome"),
     transportadorPlaca: extract("lb_TransportadorVeiculo"),
     volumesCacamba: extract("lb_VolumesCacamba"),
-    dataEnvio: extract("lb_AssinaturasDataEnvio") || extract("lb_AssinaturasDataGerador"),
-    dataRetirada: extract("lb_AssinaturasDataRetiradaTransportador"),
-    dataDestinoFinal: extract("lb_AssinaturasDataDestinoFinal"),
+    dataEnvio: extract("lb_DtEnvio") || extract("lb_AssinaturasDataEnvio") || extract("lb_AssinaturasDataGerador"),
+    dataRetirada: extract("lb_DtRetirada") || extract("lb_AssinaturasDataRetiradaTransportador"),
+    dataDestinoFinal: extract("lb_DtDestino") || extract("lb_AssinaturasDataDestinoFinal"),
   };
 }
 
