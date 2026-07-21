@@ -1550,6 +1550,12 @@ async function startServer() {
           geradorBairro: existRow.bairro || '',
           geradorCidade: existRow.cidade || '',
           geradorCep: existRow.gerador_cep || '',
+          obraEndereco: existRow.obra_endereco || '',
+          obraRua: existRow.obra_rua || '',
+          obraNum: existRow.obra_num || '',
+          obraBairro: existRow.obra_bairro || '',
+          obraCidade: existRow.obra_cidade || '',
+          obraCep: existRow.obra_cep || '',
           volumesCacamba: '',
           dataEnvio: '',
         }, registro: existRow });
@@ -1566,15 +1572,15 @@ async function startServer() {
 
       if (existRow) {
         await libsqlClient.execute({
-          sql: `UPDATE ctr_expiradas SET cacamba = ?, cliente_nome = ?, cliente_cpf_cnpj = ?, endereco = ?, bairro = ?, cidade = ?, status = ?, mensagem = ?, data_envio = ?, data_retirada = ?, data_destino_final = ?, gerador_rua = ?, gerador_num = ?, gerador_cep = ?, atualizado_em = ? WHERE id = ?`,
-          args: [dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), existRow.id],
+          sql: `UPDATE ctr_expiradas SET cacamba = ?, cliente_nome = ?, cliente_cpf_cnpj = ?, endereco = ?, bairro = ?, cidade = ?, status = ?, mensagem = ?, data_envio = ?, data_retirada = ?, data_destino_final = ?, gerador_rua = ?, gerador_num = ?, gerador_cep = ?, obra_endereco = ?, obra_rua = ?, obra_num = ?, obra_bairro = ?, obra_cidade = ?, obra_cep = ?, atualizado_em = ? WHERE id = ?`,
+          args: [dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, dados.obraEndereco, dados.obraRua, dados.obraNum, dados.obraBairro, dados.obraCidade, dados.obraCep, new Date().toISOString(), existRow.id],
         });
         res.json({ sucesso: true, dados, registro: { id: existRow.id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
       } else {
         const id = randomUUID();
         await libsqlClient.execute({
-          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, gerador_rua, gerador_num, gerador_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, new Date().toISOString(), new Date().toISOString()],
+          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, mensagem, data_envio, data_retirada, data_destino_final, gerador_rua, gerador_num, gerador_cep, obra_endereco, obra_rua, obra_num, obra_bairro, obra_cidade, obra_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [id, numero, dados.cacamba, dados.geradorNome, dados.cpfCnpj, dados.geradorEndereco, dados.geradorBairro, dados.geradorCidade, statusInicial, mensagemInicial, dados.dataEnvio, dados.dataRetirada, dados.dataDestinoFinal, dados.geradorRua, dados.geradorNum, dados.geradorCep, dados.obraEndereco, dados.obraRua, dados.obraNum, dados.obraBairro, dados.obraCidade, dados.obraCep, new Date().toISOString(), new Date().toISOString()],
         });
         res.json({ sucesso: true, dados, registro: { id, ctr_numero: numero, status: statusInicial, dataDestinoFinal: dados.dataDestinoFinal } });
       }
@@ -1600,8 +1606,8 @@ async function startServer() {
 
       if (isNew) {
         await libsqlClient.execute({
-          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, placa, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processando', ?, ?, ?)`,
-          args: [id, numero, dados?.cacamba || '', dados?.geradorNome || '', dados?.cpfCnpj || '', dados?.geradorEndereco || '', dados?.geradorBairro || '', dados?.geradorCidade || '', placa, new Date().toISOString(), new Date().toISOString()],
+          sql: `INSERT INTO ctr_expiradas (id, ctr_numero, cacamba, cliente_nome, cliente_cpf_cnpj, endereco, bairro, cidade, status, placa, gerador_rua, gerador_num, gerador_cep, obra_endereco, obra_rua, obra_num, obra_bairro, obra_cidade, obra_cep, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processando', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [id, numero, dados?.cacamba || '', dados?.geradorNome || '', dados?.cpfCnpj || '', dados?.geradorEndereco || '', dados?.geradorBairro || '', dados?.geradorCidade || '', placa, dados?.geradorRua || '', dados?.geradorNum || '', dados?.geradorCep || '', dados?.obraEndereco || '', dados?.obraRua || '', dados?.obraNum || '', dados?.obraBairro || '', dados?.obraCidade || '', dados?.obraCep || '', new Date().toISOString(), new Date().toISOString()],
         });
       } else {
         await libsqlClient.execute({
@@ -1635,6 +1641,19 @@ async function startServer() {
         }
       }
 
+      let ctrCep = dados?.obraCep || '';
+      let ctrRua = dados?.obraRua || dados?.obraEndereco || '';
+      let ctrNum = dados?.obraNum || '';
+      let ctrBairro = dados?.obraBairro || '';
+      let ctrCidade = dados?.obraCidade || '';
+
+      if (!ctrCep && ctrRua) {
+        const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
+        const split = splitEndereco(ctrRua);
+        ctrCep = await buscarCep('SP', ctrCidade || 'São Paulo', ctrBairro, split.rua);
+        if (!ctrNum) ctrNum = split.num;
+      }
+
       const criar = await solicitarCTR({
         tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
         ggCpf: dados?.cpfCnpj || '', ggNome: dados?.geradorNome || '',
@@ -1643,7 +1662,12 @@ async function startServer() {
         ggRua,
         ggNum,
         ggCompl: '', ggBairro: dados?.geradorBairro || '', ggCidade: dados?.geradorCidade || '',
-        ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
+        ctrCep,
+        ctrRua,
+        ctrNum,
+        ctrCompl: '',
+        ctrBairro,
+        ctrCidade,
       });
       if (criar.codigo !== '00') {
         await libsqlClient.execute({
@@ -1696,6 +1720,19 @@ async function startServer() {
         }
       }
 
+      if (!row.obra_cep && row.obra_rua) {
+        const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
+        const split = splitEndereco(row.obra_rua);
+        const cep = await buscarCep('SP', row.obra_cidade || row.cidade || 'São Paulo', row.obra_bairro || row.bairro || '', split.rua);
+        if (cep) {
+          await libsqlClient.execute({
+            sql: `UPDATE ctr_expiradas SET obra_cep = ? WHERE id = ?`,
+            args: [cep, id],
+          });
+          row.obra_cep = cep;
+        }
+      }
+
       const hoje = new Date().toISOString().split('T')[0];
       const placa = row.placa;
       const statusAtual = row.status;
@@ -1716,7 +1753,12 @@ async function startServer() {
           ggRua: row.gerador_rua || row.endereco || '',
           ggNum: row.gerador_num || '',
           ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
-          ctrCep: '', ctrRua: '', ctrNum: '', ctrCompl: '', ctrBairro: '', ctrCidade: '',
+          ctrCep: row.obra_cep || row.gerador_cep || '',
+          ctrRua: row.obra_rua || row.gerador_rua || row.endereco || '',
+          ctrNum: row.obra_num || row.gerador_num || '',
+          ctrCompl: '',
+          ctrBairro: row.obra_bairro || row.bairro || '',
+          ctrCidade: row.obra_cidade || row.cidade || '',
         });
         if (criar.codigo !== '00') {
           await libsqlClient.execute({

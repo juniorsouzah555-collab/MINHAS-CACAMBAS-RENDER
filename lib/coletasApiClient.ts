@@ -64,6 +64,12 @@ export interface CtrPrintData {
   geradorBairro: string;
   geradorCidade: string;
   geradorCep: string;
+  obraEndereco: string;
+  obraRua: string;
+  obraNum: string;
+  obraBairro: string;
+  obraCidade: string;
+  obraCep: string;
   transportadorCnpj: string;
   transportadorNome: string;
   transportadorPlaca: string;
@@ -73,13 +79,14 @@ export interface CtrPrintData {
   dataDestinoFinal: string;
 }
 
-export async function consultarCTR(ctrNumero: string): Promise<{ link: string; hash: string } | null> {
+export async function consultarCTR(ctrNumero: string): Promise<{ link: string; hash: string; item?: any } | null> {
   const res = await callSoap("ConsultarCTR", { stNumeroCTR: ctrNumero });
   if (res.codigo !== "00") return null;
 
   const link = res.raw?.match(/<link[^>]*>([^<]+)/)?.[1] || "";
   const hash = link.match(/id=([^&]+)/)?.[1] || "";
-  return link ? { link, hash } : null;
+  const item = res.items?.[0] || null;
+  return link ? { link, hash, item } : null;
 }
 
 async function buscarCepPelaConsultaCTRs(cpfCnpj: string): Promise<{ cep: string; rua: string; num: string } | null> {
@@ -134,6 +141,18 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
     cep = await buscarCep('SP', cidade, bairro, rua);
   }
 
+  // Endereço da Obra vem do XML do ConsultarCTR (campos sem prefixo)
+  const item = result.item;
+  const obraEndereco = item?.Endereco || '';
+  const obraBairro = item?.Bairro || '';
+  const obraCidade = item?.Cidade || '';
+  const { rua: obraRua, num: obraNum } = obraEndereco ? splitEndereco(obraEndereco) : { rua: '', num: '' };
+
+  let obraCep = '';
+  if (obraRua && obraBairro && obraCidade) {
+    obraCep = await buscarCep('SP', obraCidade, obraBairro, obraRua);
+  }
+
   return {
     numeroGuia: extract("lb_NumeroGuia"),
     cacamba: extract("lb_cacamba"),
@@ -146,6 +165,12 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
     geradorBairro: bairro,
     geradorCidade: cidade,
     geradorCep: cep,
+    obraEndereco,
+    obraRua,
+    obraNum,
+    obraBairro,
+    obraCidade,
+    obraCep,
     transportadorCnpj: extract("lb_TransportadorCNPJ"),
     transportadorNome: extract("lb_TransportadorNome"),
     transportadorPlaca: extract("lb_TransportadorVeiculo"),
