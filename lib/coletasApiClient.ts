@@ -126,7 +126,9 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
 
   const extract = (id: string) => {
     const match = html.match(new RegExp(`id="${id}"[^>]*>([^<]*)`));
-    return match?.[1]?.trim() || "";
+    const val = match?.[1]?.trim() || "";
+    if (/^[_\/]+$/.test(val)) return "";
+    return val;
   };
 
   const endereco = extract("lb_GeradorEndereco");
