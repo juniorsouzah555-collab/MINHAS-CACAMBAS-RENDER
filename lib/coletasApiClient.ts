@@ -8,14 +8,15 @@ function splitEndereco(endereco: string): { rua: string; num: string } {
 
 export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
   try {
-    const cid = encodeURIComponent(cidade);
-    const bai = encodeURIComponent(bairro);
-    const r = encodeURIComponent(rua);
-    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${cid}/${bai}/${r}/json/`);
+    const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
+      headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
+    });
     if (!resp.ok) return '';
     const data = await resp.json() as any[];
-    if (Array.isArray(data) && data.length > 0 && data[0].cep) {
-      return data[0].cep.replace(/\D/g, '');
+    if (data.length > 0 && data[0].display_name) {
+      const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
+      if (cepMatch) return cepMatch[1].replace(/\D/g, '');
     }
   } catch {}
   return '';
@@ -51,6 +52,23 @@ export async function consultarCTR(ctrNumero: string): Promise<{ link: string; h
   return link ? { link, hash } : null;
 }
 
+async function buscarCepPelaConsultaCTRs(cpfCnpj: string): Promise<{ cep: string; rua: string; num: string } | null> {
+  try {
+    const res = await callSoap("ConsultaCTRs", {});
+    if (res.codigo !== "00" || !res.items) return null;
+    for (const item of res.items) {
+      if (item.GG_CPF === cpfCnpj && item.GG_Endereco_CEP) {
+        return {
+          cep: item.GG_Endereco_CEP.replace(/\D/g, ''),
+          rua: item.GG_Endereco_Rua || '',
+          num: item.GG_Endereco_Num || '',
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | null> {
   const result = await consultarCTR(ctrNumero);
   if (!result) return null;
@@ -68,22 +86,33 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
   const endereco = extract("lb_GeradorEndereco");
   const bairro = extract("lb_GeradorBairro");
   const cidade = extract("lb_GeradorCidade");
+  const cpfCnpj = extract("lb_CpfCNPJ");
   const { rua, num } = splitEndereco(endereco);
 
   let cep = '';
-  if (rua && bairro && cidade) {
+  let ruaFinal = rua;
+  let numFinal = num;
+
+  const dadosConsulta = await buscarCepPelaConsultaCTRs(cpfCnpj);
+  if (dadosConsulta) {
+    cep = dadosConsulta.cep;
+    if (dadosConsulta.rua) ruaFinal = dadosConsulta.rua;
+    if (dadosConsulta.num) numFinal = dadosConsulta.num;
+  }
+
+  if (!cep && rua && bairro && cidade) {
     cep = await buscarCep('SP', cidade, bairro, rua);
   }
 
   return {
     numeroGuia: extract("lb_NumeroGuia"),
     cacamba: extract("lb_cacamba"),
-    cpfCnpj: extract("lb_CpfCNPJ"),
+    cpfCnpj,
     geradorNome: extract("lb_GeradorNome"),
     geradorEmail: extract("lb_GeradorEmail"),
     geradorEndereco: endereco,
-    geradorRua: rua,
-    geradorNum: num,
+    geradorRua: ruaFinal,
+    geradorNum: numFinal,
     geradorBairro: bairro,
     geradorCidade: cidade,
     geradorCep: cep,
