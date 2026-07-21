@@ -32,6 +32,9 @@ interface Registro {
   endereco: string;
   bairro: string;
   cidade: string;
+  gerador_rua: string;
+  gerador_num: string;
+  gerador_cep: string;
   novo_ctr_numero: string;
   status: string;
   mensagem: string;
@@ -65,6 +68,7 @@ export default function CtrVencidosView() {
   const [mensagem, setMensagem] = useState("");
   const [ativos, setAtivos] = useState<Registro[]>([]);
   const [concluidas, setConcluidas] = useState<Registro[]>([]);
+  const [cepEdits, setCepEdits] = useState<Record<string, string>>({});
 
   const carregarDados = useCallback(async () => {
     try {
@@ -152,7 +156,7 @@ export default function CtrVencidosView() {
     }
   }, [placa, carregarDados]);
 
-  const handleRefazer = useCallback(async (id: string) => {
+  const handleRefazer = useCallback(async (id: string, geradorCep?: string, geradorRua?: string, geradorNum?: string) => {
     setMensagem("");
     try {
       const res = await fetch("/api/ctr/refazer", {
@@ -161,7 +165,7 @@ export default function CtrVencidosView() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, geradorCep, geradorRua, geradorNum }),
       });
       const data = await res.json();
       if (data.sucesso) {
@@ -313,13 +317,28 @@ export default function CtrVencidosView() {
                       </button>
                     )}
                     {r.status === "entregue" && (
-                      <button
-                        onClick={() => handleRefazer(r.id)}
-                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Refazer — Criar nova CTR + Enviar
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {!r.gerador_cep && (
+                          <input
+                            type="text"
+                            placeholder="CEP"
+                            value={cepEdits[r.id] || ""}
+                            onChange={(e) => setCepEdits(prev => ({ ...prev, [r.id]: e.target.value }))}
+                            className="w-24 px-2 py-1.5 rounded border border-purple-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        )}
+                        <button
+                          onClick={() => {
+                            const cep = r.gerador_cep || cepEdits[r.id] || "";
+                            if (!cep) { setMensagem("❌ Informe o CEP do gerador"); return; }
+                            handleRefazer(r.id, cep, r.gerador_rua || r.endereco, r.gerador_num || "");
+                          }}
+                          className="flex items-center gap-1 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Refazer — Criar nova CTR + Enviar
+                        </button>
+                      </div>
                     )}
                     {(r.status === "pendente" || r.status === "erro") && r.novo_ctr_numero && (
                       <button

@@ -1661,12 +1661,22 @@ async function startServer() {
 
   app.post('/api/ctr/refazer', authMiddleware, async (req, res) => {
     try {
-      const { id } = req.body;
+      const { id, geradorCep, geradorRua, geradorNum } = req.body;
       if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
       const result = await libsqlClient.execute({ sql: 'SELECT * FROM ctr_expiradas WHERE id = ?', args: [id] });
       const row = result.rows?.[0] as any;
       if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
+
+      if (geradorCep) {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET gerador_cep = ?, gerador_rua = COALESCE(?, gerador_rua), gerador_num = COALESCE(?, gerador_num) WHERE id = ?`,
+          args: [geradorCep, geradorRua || null, geradorNum || null, id],
+        });
+        row.gerador_cep = geradorCep;
+        if (geradorRua) row.gerador_rua = geradorRua;
+        if (geradorNum) row.gerador_num = geradorNum;
+      }
 
       const hoje = new Date().toISOString().split('T')[0];
       const placa = row.placa;
