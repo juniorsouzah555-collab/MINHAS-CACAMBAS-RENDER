@@ -1708,7 +1708,7 @@ async function startServer() {
 
   app.post('/api/ctr/refazer', authMiddleware, async (req, res) => {
     try {
-      const { id } = req.body;
+      const { id, placa: placaReq } = req.body;
       if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
       const result = await libsqlClient.execute({ sql: 'SELECT * FROM ctr_expiradas WHERE id = ?', args: [id] });
@@ -1741,8 +1741,16 @@ async function startServer() {
       }
 
       const hoje = new Date().toISOString().split('T')[0];
-      const placa = row.placa;
+      const placa = row.placa || placaReq || '';
       const statusAtual = row.status;
+
+      if (!row.placa && placa) {
+        await libsqlClient.execute({
+          sql: `UPDATE ctr_expiradas SET placa = ? WHERE id = ?`,
+          args: [placa, id],
+        });
+        row.placa = placa;
+      }
 
       await libsqlClient.execute({
         sql: `UPDATE ctr_expiradas SET status = 'processando', tentativas = tentativas + 1, atualizado_em = ? WHERE id = ?`,
@@ -1782,6 +1790,7 @@ async function startServer() {
           });
           return res.json({ sucesso: false, erro: 'criacao', mensagem: 'SolicitaCTR OK mas numeroCTR vazio na resposta' });
         }
+        console.log(`[refazer] ctrCriado=${ctrCriado} placa=${placa} cacamba=${row.cacamba} hoje=${hoje}`);
         const enviar = await enviarCacambaObra(ctrCriado, hoje, placa, row.cacamba || '');
 
         if (enviar.codigo !== '00') {

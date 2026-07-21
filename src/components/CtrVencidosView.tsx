@@ -184,7 +184,7 @@ export default function CtrVencidosView() {
     }
   }, [placa, carregarDados]);
 
-  const handleRefazer = useCallback(async (id: string, geradorCep?: string, geradorRua?: string, geradorNum?: string) => {
+  const handleRefazer = useCallback(async (id: string) => {
     setMensagem("");
     try {
       const res = await fetch("/api/ctr/refazer", {
@@ -193,7 +193,7 @@ export default function CtrVencidosView() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify({ id, geradorCep, geradorRua, geradorNum }),
+        body: JSON.stringify({ id, placa }),
       });
       const data = await res.json();
       if (data.sucesso) {
