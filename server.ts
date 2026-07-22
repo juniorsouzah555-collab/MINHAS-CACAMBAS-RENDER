@@ -12,6 +12,10 @@ import { eq, count } from 'drizzle-orm';
 import * as schema from './src/db/schema.ts';
 // mock data removed — system uses only real DB data
 
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
@@ -1666,6 +1670,29 @@ async function startServer() {
         ctrCidade = ctrCidade || dados?.geradorCidade || '';
       }
 
+      // Validate CEP matches city before sending to SOAP
+      const { validarCep: valCep2 } = await import('./lib/coletasApiClient.ts');
+      if (ggCep) {
+        const cidadeDoCep = await valCep2(ggCep);
+        if (cidadeDoCep && !norm(cidadeDoCep).includes(norm(dados?.geradorCidade || 'SAO PAULO').substring(0, 5))) {
+          console.log(`[processar] GG CEP ${ggCep} não corresponde a ${dados?.geradorCidade}. Rebuscando...`);
+          const { buscarCep: bc2 } = await import('./lib/coletasApiClient.ts');
+          ggCep = await bc2('SP', dados?.geradorCidade || 'São Paulo', dados?.geradorBairro || '', ggRua);
+          if (ggCep) {
+            ggRua = ggRua; // keep same rua
+          }
+        }
+      }
+      if (ctrCep) {
+        const cidadeDoCep = await valCep2(ctrCep);
+        if (cidadeDoCep && !norm(cidadeDoCep).includes(norm(ctrCidade).substring(0, 5))) {
+          console.log(`[processar] CTR CEP ${ctrCep} não corresponde a ${ctrCidade}. Rebuscando...`);
+          const { buscarCep: bc3, splitEndereco: se3 } = await import('./lib/coletasApiClient.ts');
+          const split = se3(ctrRua);
+          ctrCep = await bc3('SP', ctrCidade, ctrBairro, split.rua);
+        }
+      }
+
       const criar = await solicitarCTR({
         tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
         ggCpf: dados?.cpfCnpj || '', ggNome: dados?.geradorNome || '',
@@ -1772,6 +1799,41 @@ async function startServer() {
       const novoCtr = row.novo_ctr_numero?.replace(/^GG-/, '') || '';
 
       if (statusAtual === 'entregue' && !novoCtr) {
+        const { validarCep: valCep, buscarCep: bcRefazer, splitEndereco: seRefazer } = await import('./lib/coletasApiClient.ts');
+
+        // Validate GG CEP matches GG city
+        let ggCep = row.gerador_cep || '';
+        const ggCidade = row.cidade || '';
+        if (ggCep && ggCidade) {
+          const ggCidadeDoCep = await valCep(ggCep);
+          if (ggCidadeDoCep && !norm(ggCidadeDoCep).includes(norm(ggCidade).substring(0, 5))) {
+            console.log(`[refazer] GG CEP ${ggCep} não corresponde a ${ggCidade} (retorna ${ggCidadeDoCep}). Rebuscando...`);
+            ggCep = await bcRefazer('SP', ggCidade, row.bairro || '', row.gerador_rua || row.endereco || '');
+            if (ggCep) {
+              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET gerador_cep = ? WHERE id = ?`, args: [ggCep, id] });
+              row.gerador_cep = ggCep;
+            }
+          }
+        }
+
+        // Validate CTR CEP matches CTR city
+        let ctrCep = row.obra_cep || ggCep || '';
+        const ctrCidade = row.obra_cidade || ggCidade || '';
+        if (ctrCep && ctrCidade) {
+          const ctrCidadeDoCep = await valCep(ctrCep);
+          if (ctrCidadeDoCep && !norm(ctrCidadeDoCep).includes(norm(ctrCidade).substring(0, 5))) {
+            console.log(`[refazer] CTR CEP ${ctrCep} não corresponde a ${ctrCidade} (retorna ${ctrCidadeDoCep}). Rebuscando...`);
+            const obraRua = row.obra_rua || row.gerador_rua || row.endereco || '';
+            const obraBairro = row.obra_bairro || row.bairro || '';
+            const split = seRefazer(obraRua);
+            ctrCep = await bcRefazer('SP', ctrCidade, obraBairro, split.rua);
+            if (ctrCep) {
+              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET obra_cep = ? WHERE id = ?`, args: [ctrCep, id] });
+              row.obra_cep = ctrCep;
+            }
+          }
+        }
+
         const criar = await solicitarCTR({
           tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
           ggCpf: row.cliente_cpf_cnpj || '', ggNome: row.cliente_nome || '',
@@ -1779,13 +1841,13 @@ async function startServer() {
           ggCep: row.gerador_cep || '',
           ggRua: row.gerador_rua || row.endereco || '',
           ggNum: row.gerador_num || '',
-          ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
+          ggCompl: '', ggBairro: row.bairro || '', ggCidade: ggCidade,
           ctrCep: row.obra_cep || row.gerador_cep || '',
           ctrRua: row.obra_rua || row.gerador_rua || row.endereco || '',
           ctrNum: row.obra_num || row.gerador_num || '',
           ctrCompl: '',
           ctrBairro: row.obra_bairro || row.bairro || '',
-          ctrCidade: row.obra_cidade || row.cidade || '',
+          ctrCidade: ctrCidade,
         });
         if (criar.codigo !== '00') {
           await libsqlClient.execute({

@@ -23,6 +23,23 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
     }
   } catch {}
 
+  // 1b) ViaCEP with expanded abbreviation (JD → JARDIM, VL → VILA, etc.)
+  const expanded = bairro.replace(/\bJD\b/gi, 'JARDIM').replace(/\bVL\b/gi, 'VILA').replace(/\bJD\b/gi, 'JARDIM');
+  if (expanded !== bairro) {
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(expanded)}/json/`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as any[];
+        if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+          const cep = data[0].cep.replace(/\D/g, '');
+          if (cep) return cep;
+        }
+      }
+    } catch {}
+  }
+
   // 2) Nominatim/OSM — validado contra a cidade
   try {
     const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
@@ -37,7 +54,29 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
         if (cepMatch) {
           const cep = cepMatch[1].replace(/\D/g, '');
           const validado = await validarCep(cep);
-          if (validado && validado.toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
+          if (validado && validado.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
+            return cep;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2b) Nominatim without bairro (just street + city)
+  try {
+    const q2 = encodeURIComponent(`${rua} ${cidade}`);
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=1`, {
+      headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (data.length > 0 && data[0].display_name) {
+        const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
+        if (cepMatch) {
+          const cep = cepMatch[1].replace(/\D/g, '');
+          const validado = await validarCep(cep);
+          if (validado && validado.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
             return cep;
           }
         }
@@ -48,7 +87,7 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
   return '';
 }
 
-async function validarCep(cep: string): Promise<string | null> {
+export async function validarCep(cep: string): Promise<string | null> {
   try {
     const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
       signal: AbortSignal.timeout(3000),
@@ -140,13 +179,6 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
   let cep = '';
   let ruaFinal = rua;
   let numFinal = num;
-
-  const dadosConsulta = await buscarCepPelaConsultaCTRs(cpfCnpj);
-  if (dadosConsulta) {
-    cep = dadosConsulta.cep;
-    if (dadosConsulta.rua) ruaFinal = dadosConsulta.rua;
-    if (dadosConsulta.num) numFinal = dadosConsulta.num;
-  }
 
   if (!cep && rua && bairro && cidade) {
     cep = await buscarCep('SP', cidade, bairro, rua);
