@@ -1779,6 +1779,42 @@ async function startServer() {
         }
       }
 
+      // ALWAYS validate CEP matches city before SolicitaCTR (any status path)
+      {
+        const { validarCep: valCep, buscarCep: bcVal, splitEndereco: seVal } = await import('./lib/coletasApiClient.ts');
+
+        let ggCep = row.gerador_cep || '';
+        const ggCidade = row.cidade || '';
+        if (ggCidade) {
+          const cidadeDoCep = ggCep ? await valCep(ggCep) : null;
+          if (!cidadeDoCep || !norm(cidadeDoCep).includes(norm(ggCidade).substring(0, 5))) {
+            console.log(`[refazer] GG CEP ${ggCep} invalido para ${ggCidade}. Rebuscando...`);
+            ggCep = await bcVal('SP', ggCidade, row.bairro || '', row.gerador_rua || row.endereco || '');
+            if (ggCep) {
+              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET gerador_cep = ? WHERE id = ?`, args: [ggCep, id] });
+              row.gerador_cep = ggCep;
+            }
+          }
+        }
+
+        let ctrCep = row.obra_cep || ggCep || '';
+        const ctrCidade = row.obra_cidade || ggCidade || '';
+        if (ctrCidade) {
+          const cidadeDoCep = ctrCep ? await valCep(ctrCep) : null;
+          if (!cidadeDoCep || !norm(cidadeDoCep).includes(norm(ctrCidade).substring(0, 5))) {
+            console.log(`[refazer] CTR CEP ${ctrCep} invalido para ${ctrCidade}. Rebuscando...`);
+            const obraRua = row.obra_rua || row.gerador_rua || row.endereco || '';
+            const obraBairro = row.obra_bairro || row.bairro || '';
+            const split = seVal(obraRua);
+            ctrCep = await bcVal('SP', ctrCidade, obraBairro, split.rua);
+            if (ctrCep) {
+              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET obra_cep = ? WHERE id = ?`, args: [ctrCep, id] });
+              row.obra_cep = ctrCep;
+            }
+          }
+        }
+      }
+
       const hoje = new Date().toISOString().split('T')[0];
       const placa = row.placa || placaReq || '';
       const statusAtual = row.status;
@@ -1799,41 +1835,6 @@ async function startServer() {
       const novoCtr = row.novo_ctr_numero?.replace(/^GG-/, '') || '';
 
       if (statusAtual === 'entregue' && !novoCtr) {
-        const { validarCep: valCep, buscarCep: bcRefazer, splitEndereco: seRefazer } = await import('./lib/coletasApiClient.ts');
-
-        // Validate GG CEP matches GG city
-        let ggCep = row.gerador_cep || '';
-        const ggCidade = row.cidade || '';
-        if (ggCep && ggCidade) {
-          const ggCidadeDoCep = await valCep(ggCep);
-          if (ggCidadeDoCep && !norm(ggCidadeDoCep).includes(norm(ggCidade).substring(0, 5))) {
-            console.log(`[refazer] GG CEP ${ggCep} não corresponde a ${ggCidade} (retorna ${ggCidadeDoCep}). Rebuscando...`);
-            ggCep = await bcRefazer('SP', ggCidade, row.bairro || '', row.gerador_rua || row.endereco || '');
-            if (ggCep) {
-              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET gerador_cep = ? WHERE id = ?`, args: [ggCep, id] });
-              row.gerador_cep = ggCep;
-            }
-          }
-        }
-
-        // Validate CTR CEP matches CTR city
-        let ctrCep = row.obra_cep || ggCep || '';
-        const ctrCidade = row.obra_cidade || ggCidade || '';
-        if (ctrCep && ctrCidade) {
-          const ctrCidadeDoCep = await valCep(ctrCep);
-          if (ctrCidadeDoCep && !norm(ctrCidadeDoCep).includes(norm(ctrCidade).substring(0, 5))) {
-            console.log(`[refazer] CTR CEP ${ctrCep} não corresponde a ${ctrCidade} (retorna ${ctrCidadeDoCep}). Rebuscando...`);
-            const obraRua = row.obra_rua || row.gerador_rua || row.endereco || '';
-            const obraBairro = row.obra_bairro || row.bairro || '';
-            const split = seRefazer(obraRua);
-            ctrCep = await bcRefazer('SP', ctrCidade, obraBairro, split.rua);
-            if (ctrCep) {
-              await libsqlClient.execute({ sql: `UPDATE ctr_expiradas SET obra_cep = ? WHERE id = ?`, args: [ctrCep, id] });
-              row.obra_cep = ctrCep;
-            }
-          }
-        }
-
         const criar = await solicitarCTR({
           tipoVeiculo: 34, classificacao: 6, classe: 2, volume: 4,
           ggCpf: row.cliente_cpf_cnpj || '', ggNome: row.cliente_nome || '',
@@ -1841,13 +1842,13 @@ async function startServer() {
           ggCep: row.gerador_cep || '',
           ggRua: row.gerador_rua || row.endereco || '',
           ggNum: row.gerador_num || '',
-          ggCompl: '', ggBairro: row.bairro || '', ggCidade: ggCidade,
+          ggCompl: '', ggBairro: row.bairro || '', ggCidade: row.cidade || '',
           ctrCep: row.obra_cep || row.gerador_cep || '',
           ctrRua: row.obra_rua || row.gerador_rua || row.endereco || '',
           ctrNum: row.obra_num || row.gerador_num || '',
           ctrCompl: '',
           ctrBairro: row.obra_bairro || row.bairro || '',
-          ctrCidade: ctrCidade,
+          ctrCidade: row.obra_cidade || row.cidade || '',
         });
         if (criar.codigo !== '00') {
           await libsqlClient.execute({
