@@ -42,6 +42,7 @@ export const lancamentos = sqliteTable('lancamentos', {
   valorPago: real('valor_pago'),
   dataPagamento: text('data_pagamento'),
   source: text('source'),
+  numero: integer('numero'),
 });
 
 export const vehicleLocations = sqliteTable('vehicle_locations', {

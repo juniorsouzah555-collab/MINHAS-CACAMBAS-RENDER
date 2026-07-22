@@ -15,6 +15,7 @@ export interface BotaFora {
 
 export interface Lancamento {
   id: string;
+  numero?: number;
   botaForaId: string;
   botaForaNome: string;
   quantidadeCacambas: number;

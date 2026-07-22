@@ -66,8 +66,11 @@ app.post("/api/descarga-rapida", authMiddleware, async (req, res) => {
     if (!id || !bota_fora_id || !quantidade_cacambas) {
       return res.status(400).json({ error: 'Campos obrigatórios: id, bota_fora_id, quantidade_cacambas' });
     }
+    const [{ count: cnt }] = await db.select({ count: count() }).from(schema.lancamentos);
+    const nextNumero = (cnt || 0) + 1;
     await db.insert(schema.lancamentos).values({
       id,
+      numero: nextNumero,
       botaForaId: bota_fora_id,
       botaForaNome: bota_fora_nome || '',
       quantidadeCacambas: quantidade_cacambas,
@@ -80,7 +83,7 @@ app.post("/api/descarga-rapida", authMiddleware, async (req, res) => {
       createdAt: new Date().toISOString(),
       source: source || null,
     });
-    res.json({ success: true });
+    res.json({ success: true, numero: nextNumero });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

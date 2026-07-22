@@ -21,6 +21,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
 
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sentNumero, setSentNumero] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   // ── GPS Tracking Inteligente (só no PWA do celular) ──────────────
@@ -104,6 +105,8 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
         }),
       });
       if (!res.ok) throw new Error('Erro ao enviar');
+      const resData = await res.json();
+      setSentNumero(resData.numero ?? null);
       setSent(true);
       if (onSuccess) onSuccess();
     } catch (e: any) {
@@ -119,6 +122,7 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
         <div className="bg-white rounded-2xl p-8 text-center max-w-sm w-full shadow-2xl">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h2 className="text-xl font-black text-slate-900 mb-2">Descarga Registrada!</h2>
+          {sentNumero != null && <p className="text-sm font-black text-indigo-600 mb-1">Lançamento #{sentNumero}</p>}
           <p className="text-sm text-slate-500 mb-1">{quantidade} caçamba{quantidade > 1 ? 's' : ''}</p>
           <p className="text-sm text-slate-500 mb-4">{botaForas.find(b => b.id === selectedBotaFora)?.nome}</p>
           <p className="text-xs text-slate-400 mb-4">{motorista} • {selectedVehicleId}</p>
@@ -131,8 +135,10 @@ export default function DescargaRapida({ motorista, veiculo, botaForas, vehicles
               ? parseFloat(valorCustomizado || '0')
               : (botaForas.find(b => b.id === selectedBotaFora)?.valorPadraoDescarte || 0) * quantidade;
             const valorLinha = valorTotal > 0 ? `\n💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}` : '';
+            const numLinha = sentNumero != null ? `📋 *Lançamento #${sentNumero}*\n` : '';
             const msg =
               `✅ *Descarga registrada*\n` +
+              numLinha +
               `📍 Local: ${local}\n` +
               `📦 Quantidade: ${quantidade} caçamba${quantidade > 1 ? 's' : ''}\n` +
               valorLinha +

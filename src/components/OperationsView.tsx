@@ -103,8 +103,10 @@ export default function OperationsView({
     const local = lan.botaForaNome || '';
     const dataFmt = lan.data ? new Date(lan.data + 'T12:00:00').toLocaleDateString('pt-BR') : '';
     const valorLinha = lan.valor > 0 ? `\n💰 Valor: R$ ${lan.valor.toFixed(2).replace('.', ',')}` : '';
+    const numLinha = lan.numero != null ? `📋 *Lançamento #${lan.numero}*\n` : '';
     const msg =
       `✅ *Lançamento registrado*\n` +
+      numLinha +
       `📍 Local: ${local}\n` +
       `📦 Quantidade: ${lan.quantidadeCacambas} caçamba${lan.quantidadeCacambas > 1 ? 's' : ''}` +
       valorLinha +
@@ -576,7 +578,12 @@ export default function OperationsView({
                       <span className="text-[10px] leading-tight font-extrabold">{lan.quantidadeCacambas}</span>
                     </div>
                     <div>
-                      <h4 className="font-sans font-bold text-sm text-slate-900 leading-tight">{lan.botaForaNome}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-sans font-bold text-sm text-slate-900 leading-tight">{lan.botaForaNome}</h4>
+                        {lan.numero != null && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-indigo-100 text-indigo-700 tracking-wider">#{lan.numero}</span>
+                        )}
+                      </div>
                       <code className="text-[9px] text-slate-400 font-mono font-semibold uppercase">{lan.id}</code>
                     </div>
                   </div>

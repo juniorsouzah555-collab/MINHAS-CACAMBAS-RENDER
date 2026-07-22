@@ -35,6 +35,12 @@ interface Registro {
   gerador_rua: string;
   gerador_num: string;
   gerador_cep: string;
+  obra_endereco: string;
+  obra_rua: string;
+  obra_num: string;
+  obra_bairro: string;
+  obra_cidade: string;
+  obra_cep: string;
   novo_ctr_numero: string;
   status: string;
   mensagem: string;
@@ -123,6 +129,12 @@ export default function CtrVencidosView() {
         gerador_rua: data.dados?.geradorRua || r.gerador_rua || "",
         gerador_num: data.dados?.geradorNum || r.gerador_num || "",
         gerador_cep: data.dados?.geradorCep || r.gerador_cep || "",
+        obra_endereco: data.dados?.obraEndereco || r.obra_endereco || "",
+        obra_rua: data.dados?.obraRua || r.obra_rua || "",
+        obra_num: data.dados?.obraNum || r.obra_num || "",
+        obra_bairro: data.dados?.obraBairro || r.obra_bairro || "",
+        obra_cidade: data.dados?.obraCidade || r.obra_cidade || "",
+        obra_cep: data.dados?.obraCep || r.obra_cep || "",
         novo_ctr_numero: r.novo_ctr_numero || "",
         status: r.status,
         mensagem: data.dados?.dataDestinoFinal ? `Entregue em ${data.dados.dataDestinoFinal}` : "",

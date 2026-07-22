@@ -1325,9 +1325,11 @@ export default function App() {
   // Action: Add new Lançamento
   const handleAddLancamento = (newLan: Omit<Lancamento, 'id' | 'createdAt'>) => {
     const generatedId = `LAN-${Date.now()}`;
+    const nextNumero = lancamentos.length + 1;
     const freshRecord: Lancamento = {
       ...newLan,
       id: generatedId,
+      numero: nextNumero,
       createdAt: new Date().toISOString()
     };
 
@@ -1370,6 +1372,7 @@ export default function App() {
     if (isSupabaseConfigured()) {
       supabase.from('lancamentos').insert([{
         id: freshRecord.id,
+        numero: freshRecord.numero,
         bota_fora_id: freshRecord.botaForaId,
         bota_fora_nome: freshRecord.botaForaNome,
         quantidade_cacambas: freshRecord.quantidadeCacambas,
