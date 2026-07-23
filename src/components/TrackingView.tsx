@@ -191,8 +191,8 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
       />
 
       {/* Online Drivers List */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-bold font-sans text-slate-800 flex items-center gap-2">
             <Navigation className="w-4 h-4 text-emerald-500" />
             Motoristas Online
@@ -201,47 +201,63 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Tempo real via SSE
           </span>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="p-3 space-y-2">
           {displayList.length === 0 ? (
-            <div className="px-5 py-8 text-center">
-              <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-400">Nenhum motorista online no momento</p>
-              <p className="text-[10px] text-slate-300 mt-1">Aguardando dados de GPS...</p>
+            <div className="px-5 py-10 text-center">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-400">Nenhum motorista online no momento</p>
+              <p className="text-xs text-slate-300 mt-1">Aguardando dados de GPS...</p>
             </div>
           ) : (
             displayList.map((l, i) => {
               const addrKey = l.lat && l.lng ? `${l.lat.toFixed(4)},${l.lng.toFixed(4)}` : '';
               const addr = addrKey ? addresses[addrKey] : '';
+              const isMoving = l.speed != null && l.speed > 0;
               return (
                 <div
                   key={l.vehicleId || i}
-                  className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl px-5 py-4 flex items-center gap-4 transition-all cursor-pointer hover:shadow-md hover:border-slate-300"
                   onClick={() => { if (l.lat && l.lng) setFlyTo({ lat: l.lat, lng: l.lng }); }}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0 bg-blue-500 animate-pulse" />
-                    <div className="min-w-0">
-                      <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
-                      <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
-                        {l.plate && <span className="text-slate-500 font-bold">{l.plate}</span>}
-                        {!l.plate && l.vehicleId}
-                        {l.ignition === false && <span className="ml-1 text-amber-500">ign off</span>}
-                        {l.speed != null && l.speed > 0 && <span className="ml-2 text-emerald-600 font-bold">{Math.round(l.speed)} km/h</span>}
-                      </span>
-                      {addr && (
-                        <span className="text-[10px] text-slate-500 font-medium block truncate max-w-[300px] mt-0.5">
-                          <MapPin className="w-3 h-3 inline mr-0.5 -mt-0.5" />{addr}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    {l.lat && l.lng && !addr && (
-                      <span className="text-[10px] font-mono text-slate-400">
-                        {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
-                      </span>
+                  {/* Status dot */}
+                  <div className="relative shrink-0">
+                    <div className={`w-3.5 h-3.5 rounded-full ${isMoving ? 'bg-emerald-500' : 'bg-blue-500'} animate-pulse`} />
+                    {isMoving && (
+                      <div className="absolute inset-0 w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping opacity-40" />
                     )}
                   </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg font-black text-slate-900 tracking-tight">{l.plate || l.vehicleId}</span>
+                      {isMoving && (
+                        <span className="text-sm font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-lg tabular-nums">
+                          {Math.round(l.speed!)} km/h
+                        </span>
+                      )}
+                      {l.ignition === false && (
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">IGN OFF</span>
+                      )}
+                    </div>
+                    {addr ? (
+                      <div className="flex items-center gap-1 text-sm text-slate-500 font-medium truncate">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{addr}</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 font-medium">
+                        Última atualização: {new Date(l.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Speed badge right side */}
+                  {!isMoving && (
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs font-bold text-slate-400">Parado</div>
+                    </div>
+                  )}
                 </div>
               );
             })
