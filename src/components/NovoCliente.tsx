@@ -10,9 +10,6 @@ interface CadastroPendente {
   created_at: string;
 }
 
-const WA_COMERCIAL = '5511979759316';
-const WA_MOTORISTA = '5511963760478';
-
 export default function NovoCliente() {
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
@@ -86,13 +83,13 @@ export default function NovoCliente() {
     setTimeout(() => setCopyOk(null), 2000);
   };
 
-  const handleSend = (text: string, wa: string) => {
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(text)}`, '_blank');
+  const handleSend = (text: string) => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  const handleEnviarPendente = (c: CadastroPendente, wa: string) => {
-    setEnviando(c.id + wa);
-    handleSend(gerarMensagem(c), wa);
+  const handleEnviarPendente = (c: CadastroPendente) => {
+    setEnviando(c.id);
+    handleSend(gerarMensagem(c));
     setTimeout(() => setEnviando(null), 1000);
   };
 
@@ -120,10 +117,10 @@ export default function NovoCliente() {
     setEditando(null);
   };
 
-  const handleEnviarTodos = (wa: string) => {
+  const handleEnviarTodos = () => {
     if (pendentes.length === 0) return;
     const texto = pendentes.map(c => gerarMensagem(c)).join('\n\n\n');
-    handleSend(texto, wa);
+    handleSend(texto);
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
@@ -145,7 +142,7 @@ export default function NovoCliente() {
             </div>
             {pendentes.length > 1 && (
               <button
-                onClick={() => handleEnviarTodos(WA_COMERCIAL)}
+                onClick={handleEnviarTodos}
                 className="text-xs font-bold text-amber-700 hover:text-amber-900 transition-all cursor-pointer"
               >
                 Enviar Todos
@@ -199,22 +196,12 @@ export default function NovoCliente() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleEnviarPendente(c, WA_COMERCIAL)}
-                        disabled={!!enviando}
-                        className="py-2 px-3 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                        title="Enviar via Comercial"
+                        onClick={() => handleEnviarPendente(c)}
+                        disabled={enviando === c.id}
+                        className="py-2 px-4 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        {enviando === c.id + WA_COMERCIAL ? '...' : 'Comercial'}
-                      </button>
-                      <button
-                        onClick={() => handleEnviarPendente(c, WA_MOTORISTA)}
-                        disabled={!!enviando}
-                        className="py-2 px-3 rounded-xl font-bold text-xs bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                        title="Enviar via Motorista"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        {enviando === c.id + WA_MOTORISTA ? '...' : 'Motorista'}
+                        {enviando === c.id ? '...' : 'Enviar'}
                       </button>
                     </div>
                   </div>
@@ -304,29 +291,21 @@ export default function NovoCliente() {
             <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
               {gerarMensagem()}
             </pre>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75', WA_COMERCIAL)}
+                onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}
                 className="py-3 rounded-xl font-bold text-sm bg-amber-500 text-white hover:bg-amber-600 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 💰 Enviar PIX
               </button>
               <button
                 type="button"
-                onClick={() => handleSend(gerarMensagem(), WA_COMERCIAL)}
+                onClick={() => handleSend(gerarMensagem())}
                 className="py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Comercial
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSend(gerarMensagem(), WA_MOTORISTA)}
-                className="py-3 rounded-xl font-bold text-sm bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Motorista
+                Enviar WhatsApp
               </button>
               <button
                 type="button"
