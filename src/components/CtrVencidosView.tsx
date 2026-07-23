@@ -79,6 +79,10 @@ export default function CtrVencidosView() {
 
   const carregarDados = useCallback(async () => {
     try {
+      await fetch("/api/ctr/limpar-stuck", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
       const res = await fetch("/api/ctr/historico", {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
@@ -222,8 +226,14 @@ export default function CtrVencidosView() {
     }
   }, [carregarDados]);
 
-  const handleApagar = useCallback((id: string) => {
+  const handleApagar = useCallback(async (id: string) => {
     setAtivos(prev => prev.filter(r => r.id !== id));
+    try {
+      await fetch(`/api/ctr/registro/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+    } catch {}
   }, []);
 
   return (

@@ -1922,6 +1922,24 @@ async function startServer() {
     }
   });
 
+  app.delete('/api/ctr/registro/:id', authMiddleware, async (req, res) => {
+    try {
+      await libsqlClient.execute({ sql: 'DELETE FROM ctr_expiradas WHERE id = ?', args: [req.params.id] });
+      res.json({ sucesso: true });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  app.post('/api/ctr/limpar-stuck', authMiddleware, async (_req, res) => {
+    try {
+      const stuck = await libsqlClient.execute({ sql: "UPDATE ctr_expiradas SET status = 'erro', mensagem = 'Resetado — processando há muito tempo', atualizado_em = ? WHERE status = 'processando'", args: [new Date().toISOString()] });
+      res.json({ sucesso: true, resetadas: Number(stuck.rowsAffected) });
+    } catch (err: any) {
+      res.status(200).json({ sucesso: false, error: err.message });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
