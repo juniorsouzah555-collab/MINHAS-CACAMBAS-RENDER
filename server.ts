@@ -1943,7 +1943,7 @@ async function startServer() {
   // ── Cadastro público de cliente (sem auth) ──────────────────────────
   app.post('/api/cadastro-publico', async (req, res) => {
     try {
-      const { nome, documento, telefone, endereco, observacao } = req.body;
+      const { nome, documento, telefone, endereco } = req.body;
       if (!nome || !documento || !telefone) {
         return res.status(200).json({ sucesso: false, error: 'Nome, CPF/CNPJ e telefone são obrigatórios' });
       }
@@ -1955,9 +1955,29 @@ async function startServer() {
         documento: documento.replace(/\D/g, ''),
         telefone: telefone.replace(/\D/g, ''),
         endereco: endereco || '',
-        observacao: observacao || '',
+        observacao: 'cadastro_publico',
         createdAt: new Date().toISOString(),
       });
+      res.json({ sucesso: true });
+    } catch (e: any) {
+      res.status(200).json({ sucesso: false, error: e.message });
+    }
+  });
+
+  // ── Cadastros pendentes (sem auth) ──────────────────────────────────
+  app.get('/api/cadastro-publico/pendentes', async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.clientes).where(eq(schema.clientes.observacao, 'cadastro_publico'));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(200).json([]);
+    }
+  });
+
+  // ── Marcar cadastro como contatado ──────────────────────────────────
+  app.put('/api/cadastro-publico/:id/contatar', async (req, res) => {
+    try {
+      await db.update(schema.clientes).set({ observacao: 'contatado' }).where(eq(schema.clientes.id, req.params.id));
       res.json({ sucesso: true });
     } catch (e: any) {
       res.status(200).json({ sucesso: false, error: e.message });
