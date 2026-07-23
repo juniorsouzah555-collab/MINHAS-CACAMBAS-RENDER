@@ -1994,6 +1994,58 @@ async function startServer() {
     }
   });
 
+  // ── Página PIX com botão copiar ────────────────────────────────────
+  app.get('/pix', (_req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chave PIX — Relâmpago Caçambas</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);width:100%;max-width:380px;padding:36px 28px;text-align:center}
+.logo{font-size:40px;margin-bottom:12px}
+h1{font-size:18px;font-weight:900;color:#0f172a;margin-bottom:4px}
+.sub{font-size:13px;color:#94a3b8;margin-bottom:24px}
+.pix-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.pix-key{font-size:22px;font-weight:900;color:#0f172a;letter-spacing:1px;margin-bottom:20px;font-family:monospace}
+.btn{width:100%;padding:16px;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-copiar{background:linear-gradient(135deg,#25D366,#128C7E);color:#fff}
+.btn-copiar:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,211,102,0.4)}
+.btn-copiar:active{transform:scale(0.98)}
+.btn-copiar.copiado{background:linear-gradient(135deg,#10b981,#059669)}
+.msg{font-size:12px;color:#94a3b8;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo">⚡</div>
+<h1>Relâmpago Caçambas</h1>
+<p class="sub">Chave PIX para pagamento</p>
+<div class="pix-label">CNPJ</div>
+<div class="pix-key">16.403.233.0001-75</div>
+<button class="btn btn-copiar" id="btnCopiar" onclick="copiar()">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+Copiar Chave PIX
+</button>
+<p class="msg"> Cole no campo de transferência do seu banco</p>
+</div>
+<script>
+async function copiar(){
+const key='16.403.233.0001-75';
+try{await navigator.clipboard.writeText(key)}
+catch{const t=document.createElement('textarea');t.value=key;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t)}
+const btn=document.getElementById('btnCopiar');
+btn.classList.add('copiado');
+btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copiado!';
+setTimeout(()=>{btn.classList.remove('copiado');btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar Chave PIX'},2000);
+}
+</script>
+</body>
+</html>`);
+  });
+
   // ── Página de cadastro público ──────────────────────────────────────
   app.get('/cadastro', (_req, res) => {
     res.send(`<!DOCTYPE html>
