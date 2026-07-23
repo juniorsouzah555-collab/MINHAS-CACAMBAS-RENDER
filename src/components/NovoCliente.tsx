@@ -88,6 +88,12 @@ export default function NovoCliente() {
     setEnviando(null);
   };
 
+  const handleApagarPendente = async (c: CadastroPendente) => {
+    if (!confirm(`Apagar o cadastro de ${c.nome}?`)) return;
+    await fetch(`/api/cadastro-publico/${c.id}`, { method: 'DELETE' }).catch(() => {});
+    setPendentes(prev => prev.filter(p => p.id !== c.id));
+  };
+
   const handleEnviarTodos = () => {
     if (pendentes.length === 0) return;
     const texto = pendentes.map(c => gerarMensagem(c)).join('\n\n\n');
@@ -133,6 +139,12 @@ export default function NovoCliente() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <button
+                    onClick={() => handleApagarPendente(c)}
+                    className="py-2 px-3 rounded-xl font-bold text-xs bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={() => handleEnviarPendente(c)}
                     disabled={enviando === c.id}

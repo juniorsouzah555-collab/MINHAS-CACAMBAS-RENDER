@@ -1984,6 +1984,16 @@ async function startServer() {
     }
   });
 
+  // ── Apagar cadastro público ─────────────────────────────────────────
+  app.delete('/api/cadastro-publico/:id', async (req, res) => {
+    try {
+      await db.delete(schema.clientes).where(eq(schema.clientes.id, req.params.id));
+      res.json({ sucesso: true });
+    } catch (e: any) {
+      res.status(200).json({ sucesso: false, error: e.message });
+    }
+  });
+
   // ── Página de cadastro público ──────────────────────────────────────
   app.get('/cadastro', (_req, res) => {
     res.send(`<!DOCTYPE html>
