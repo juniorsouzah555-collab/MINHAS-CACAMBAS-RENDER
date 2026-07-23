@@ -1940,6 +1940,138 @@ async function startServer() {
     }
   });
 
+  // ── Cadastro público de cliente (sem auth) ──────────────────────────
+  app.post('/api/cadastro-publico', async (req, res) => {
+    try {
+      const { nome, documento, telefone, endereco, observacao } = req.body;
+      if (!nome || !documento || !telefone) {
+        return res.status(200).json({ sucesso: false, error: 'Nome, CPF/CNPJ e telefone são obrigatórios' });
+      }
+      const id = `cli_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await db.insert(schema.clientes).values({
+        id,
+        tipo: 'PF',
+        nome: nome.trim(),
+        documento: documento.replace(/\D/g, ''),
+        telefone: telefone.replace(/\D/g, ''),
+        endereco: endereco || '',
+        observacao: observacao || '',
+        createdAt: new Date().toISOString(),
+      });
+      res.json({ sucesso: true });
+    } catch (e: any) {
+      res.status(200).json({ sucesso: false, error: e.message });
+    }
+  });
+
+  // ── Página de cadastro público ──────────────────────────────────────
+  app.get('/cadastro', (_req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadastro de Cliente — Relâmpago</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);width:100%;max-width:420px;padding:32px 28px}
+.header{text-align:center;margin-bottom:28px}
+.header h1{font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.02em}
+.header p{font-size:13px;color:#94a3b8;margin-top:4px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.field input{width:100%;padding:14px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;color:#0f172a;background:#f8fafc;outline:none;transition:border-color .2s}
+.field input:focus{border-color:#6366f1;background:#fff}
+.field input::placeholder{color:#94a3b8}
+.endereco-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;font-size:13px;color:#166534;line-height:1.5;display:none;margin-top:8px}
+.btn{width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:15px;font-weight:800;cursor:pointer;transition:all .2s;margin-top:8px;letter-spacing:-0.01em}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,0.4)}
+.btn:active{transform:scale(0.98)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.success{text-align:center;padding:40px 0;display:none}
+.success .icon{font-size:48px;margin-bottom:12px}
+.success h2{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px}
+.success p{font-size:13px;color:#64748b}
+.error-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;font-size:13px;color:#dc2626;font-weight:600;margin-bottom:16px;display:none}
+.logo{font-size:28px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="header">
+<div class="logo">⚡</div>
+<h1>Cadastro de Cliente</h1>
+<p>Preencha seus dados para prosseguir</p>
+</div>
+<div id="formArea">
+<div id="errorMsg" class="error-msg"></div>
+<div class="field">
+<label>Nome Completo</label>
+<input type="text" id="nome" placeholder="João da Silva" autocomplete="name">
+</div>
+<div class="field">
+<label>CPF / CNPJ</label>
+<input type="text" id="documento" placeholder="000.000.000-00" maxlength="18">
+</div>
+<div class="field">
+<label>CEP</label>
+<input type="text" id="cep" placeholder="00000-000" maxlength="9">
+<div id="enderecoBox" class="endereco-box"></div>
+</div>
+<div class="field">
+<label>Telefone / WhatsApp</label>
+<input type="tel" id="telefone" placeholder="(11) 99999-9999">
+</div>
+<button class="btn" id="btnEnviar" onclick="enviar()">Cadastrar</button>
+</div>
+<div id="successArea" class="success">
+<div class="icon">✅</div>
+<h2>Cadastro realizado!</h2>
+<p>Seus dados foram enviados com sucesso.</p>
+</div>
+</div>
+<script>
+const cepInput=document.getElementById('cep');
+const endBox=document.getElementById('enderecoBox');
+let endCompleto='';
+cepInput.addEventListener('blur',async()=>{
+const cep=cepInput.value.replace(/\\D/g,'');
+if(cep.length!==8)return;
+endBox.style.display='block';endBox.innerHTML='Buscando endereço...';
+try{
+const r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');
+const d=await r.json();
+if(d.erro){endBox.innerHTML='CEP não encontrado';endBox.style.color='#dc2626';return}
+endCompleto=d.logradouro+', '+d.bairro+', '+d.localidade+' - '+d.uf;
+endBox.innerHTML='<b>'+d.logradouro+'</b><br>'+d.bairro+' — '+d.localidade+'/'+d.uf;
+endBox.style.color='#166534';
+}catch{endBox.innerHTML='Erro ao buscar CEP';endBox.style.color='#dc2626'}
+});
+function maskCPF(v){v=v.replace(/\\D/g,'');if(v.length<=11)return v.replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2');return v.replace(/(\\d{2})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1/$2').replace(/(\\d{4})(\\d)/,'$1-$2')}
+function maskTel(v){v=v.replace(/\\D/g,'');if(v.length<=10)return v.replace(/(\\d{2})(\\d)/,'($1) $2').replace(/(\\d{4})(\\d)/,'$1-$2');return v.replace(/(\\d{2})(\\d)/,'($1) $2').replace(/(\\d{5})(\\d)/,'$1-$2')}
+function maskCEP(v){v=v.replace(/\\D/g,'');return v.replace(/(\\d{5})(\\d)/,'$1-$2')}
+document.getElementById('documento').addEventListener('input',e=>{e.target.value=maskCPF(e.target.value)});
+document.getElementById('telefone').addEventListener('input',e=>{e.target.value=maskTel(e.target.value)});
+document.getElementById('cep').addEventListener('input',e=>{e.target.value=maskCEP(e.target.value)});
+async function enviar(){
+const nome=document.getElementById('nome').value.trim();
+const documento=document.getElementById('documento').value.trim();
+const telefone=document.getElementById('telefone').value.trim();
+const errEl=document.getElementById('errorMsg');
+if(!nome||!documento||!telefone){errEl.textContent='Preencha nome, CPF/CNPJ e telefone.';errEl.style.display='block';return}
+document.getElementById('btnEnviar').disabled=true;document.getElementById('btnEnviar').textContent='Enviando...';
+try{
+const r=await fetch('/api/cadastro-publico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,documento,telefone,endereco:endCompleto})});
+const d=await r.json();
+if(d.sucesso){document.getElementById('formArea').style.display='none';document.getElementById('successArea').style.display='block'}
+else{errEl.textContent=d.error||'Erro ao cadastrar';errEl.style.display='block';document.getElementById('btnEnviar').disabled=false;document.getElementById('btnEnviar').textContent='Cadastrar'}
+}catch{errEl.textContent='Erro de conexão';errEl.style.display='block';document.getElementById('btnEnviar').disabled=false;document.getElementById('btnEnviar').textContent='Cadastrar'}
+}
+</script>
+</body>
+</html>`);
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
