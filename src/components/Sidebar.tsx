@@ -34,13 +34,15 @@ interface SidebarProps {
   transitCount: number;
   unseenBoletos?: number;
   pedagiosPendentes?: number;
+  cadastrosPendentes?: number;
   userRole?: string;
   userEmail?: string;
 }
 
-export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, unseenBoletos, pedagiosPendentes, userRole, userEmail }: SidebarProps) {
+export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, transitCount, unseenBoletos, pedagiosPendentes, cadastrosPendentes, userRole, userEmail }: SidebarProps) {
   const isDriver = (userRole?.toLowerCase().includes('motorista') || userEmail === 'motorista@relampago.com');
   const hasPedagiosPendentes = (pedagiosPendentes ?? 0) > 0;
+  const hasCadastrosPendentes = (cadastrosPendentes ?? 0) > 0;
 
   const navItems = [
     { id: 'dashboard', name: 'Painel', icon: LayoutDashboard },
@@ -58,7 +60,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'ctr-vencidos', name: 'CTR Vencidos', icon: Clock },
     { id: 'manutencao', name: 'Manutencao', icon: Wrench },
     { id: 'payslip', name: 'Holerites', icon: FileText },
-    { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus },
+    { id: 'novocliente', name: 'Novo Cliente', icon: UserPlus, alert: hasCadastrosPendentes, badge: cadastrosPendentes },
     { id: 'portao-control', name: 'Controle Portão', icon: ShieldCheck },
     { id: 'settings', name: 'Configuracoes', icon: SettingsIcon }
   ].filter(item => {
@@ -97,28 +99,34 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
                   id={`nav-item-${item.id}`}
                   onClick={() => setCurrentTab(item.id)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold transition-all duration-150 ease-in-out cursor-pointer group ${
-                    item.alert
-                      ? 'text-white bg-gradient-to-r from-amber-600 to-red-600 border-r-4 border-red-400 shadow-lg shadow-red-900/30 animate-pulse'
-                      : isActive
-                        ? 'text-purple-400 bg-purple-950/40 border-r-4 border-purple-500'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                    item.alert && item.id === 'novocliente'
+                      ? 'text-slate-900 bg-gradient-to-r from-yellow-400 to-amber-400 border-r-4 border-amber-600 shadow-lg shadow-amber-500/40 animate-pulse'
+                      : item.alert
+                        ? 'text-white bg-gradient-to-r from-amber-600 to-red-600 border-r-4 border-red-400 shadow-lg shadow-red-900/30 animate-pulse'
+                        : isActive
+                          ? 'text-purple-400 bg-purple-950/40 border-r-4 border-purple-500'
+                          : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className={`w-5 h-5 transition-transform duration-150 ${
-                      item.alert
-                        ? 'text-white animate-bounce'
-                        : isActive
-                          ? 'text-purple-400'
-                          : 'text-slate-450 group-hover:scale-105'
+                      item.alert && item.id === 'novocliente'
+                        ? 'text-slate-900 animate-bounce'
+                        : item.alert
+                          ? 'text-white animate-bounce'
+                          : isActive
+                            ? 'text-purple-400'
+                            : 'text-slate-450 group-hover:scale-105'
                     }`} />
                     <span>{item.name}</span>
                   </div>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className={`text-xs font-black px-2 py-0.5 rounded-full animate-pulse ${
-                      item.alert
-                        ? 'bg-white text-red-600'
-                        : 'bg-purple-600 text-white'
+                      item.alert && item.id === 'novocliente'
+                        ? 'bg-slate-900 text-yellow-400'
+                        : item.alert
+                          ? 'bg-white text-red-600'
+                          : 'bg-purple-600 text-white'
                     }`}>
                       {item.badge}
                     </span>

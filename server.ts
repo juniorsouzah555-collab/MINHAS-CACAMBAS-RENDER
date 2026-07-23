@@ -2096,7 +2096,7 @@ const telefone=document.getElementById('telefone').value.trim();
 const numero=document.getElementById('numero').value.trim();
 const complemento=document.getElementById('complemento').value.trim();
 const errEl=document.getElementById('errorMsg');
-if(!nome||!documento||!telefone){errEl.textContent='Preencha nome, CPF/CNPJ e telefone.';errEl.style.display='block';return}
+if(!nome||!documento||!telefone||!numero||!endRua){errEl.textContent='Preencha nome, CPF/CNPJ, CEP, número e telefone.';errEl.style.display='block';return}
 const endCompleto=endRua?(endRua+(numero?', '+numero:'')+(complemento?', '+complemento:'')+', '+endBairro+', '+endCidade+' - '+endUf):'';
 document.getElementById('btnEnviar').disabled=true;document.getElementById('btnEnviar').textContent='Enviando...';
 try{

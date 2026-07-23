@@ -101,6 +101,9 @@ export default function App() {
   const [pedagios, setPedagios] = useState<PedagioDebito[]>([]);
   const [pedagiosPendentes, setPedagiosPendentes] = useState(0);
 
+  // Cadastros pendentes state
+  const [cadastrosPendentes, setCadastrosPendentes] = useState(0);
+
   // Portão state
   const [portaoLoading, setPortaoLoading] = useState(false);
   const [portaoMsg, setPortaoMsg] = useState('');
@@ -452,6 +455,11 @@ export default function App() {
             const pendentes = data.filter((p: any) => !p.pago);
             setPedagiosPendentes(pendentes.length);
           }
+          const resCadastros = await fetch("/api/cadastro-publico/pendentes");
+          if (resCadastros.ok) {
+            const data = await resCadastros.json();
+            setCadastrosPendentes(Array.isArray(data) ? data.length : (data.value?.length || 0));
+          }
         } catch (error) {
           console.error("Database connection error:", error);
         }
@@ -511,6 +519,18 @@ export default function App() {
     const ping = () => fetch('/api/health').catch(() => {});
     ping();
     const interval = setInterval(ping, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const checkCadastros = () => {
+      fetch('/api/cadastro-publico/pendentes')
+        .then(r => r.json())
+        .then(data => setCadastrosPendentes(Array.isArray(data) ? data.length : (data.value?.length || 0)))
+        .catch(() => {});
+    };
+    checkCadastros();
+    const interval = setInterval(checkCadastros, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -2087,6 +2107,7 @@ export default function App() {
           transitCount={transitBadgeCount}
           unseenBoletos={boletosBadgeCount}
           pedagiosPendentes={pedagiosPendentes}
+          cadastrosPendentes={cadastrosPendentes}
           userRole={currentUserRole}
           userEmail={currentUserEmail}
         />
