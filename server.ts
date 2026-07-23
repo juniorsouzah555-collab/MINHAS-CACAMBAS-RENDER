@@ -2021,8 +2021,8 @@ h1{font-size:18px;font-weight:900;color:#0f172a;margin-bottom:4px}
 <body>
 <div class="card">
 <div class="logo">⚡</div>
-<h1>Relâmpago Caçambas</h1>
-<p class="sub">Chave PIX para pagamento</p>
+<h1>RELÂMPAGO CAÇAMBAS</h1>
+<p class="sub">Chave PIX — RELÂMPAGO CAÇAMBAS</p>
 <div class="pix-label">CNPJ</div>
 <div class="pix-key">16.403.233.0001-75</div>
 <button class="btn btn-copiar" id="btnCopiar" onclick="copiar()">
