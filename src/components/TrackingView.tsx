@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MapPin, Users, RefreshCw, Navigation, Truck, Smartphone } from 'lucide-react';
+import { MapPin, Users, RefreshCw, Navigation, Truck } from 'lucide-react';
 import { Vehicle } from '../types';
 import DriverLiveMap from './DriverLiveMap';
 
@@ -44,47 +44,14 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
   const [locations, setLocations] = useState<VehicleLocation[]>([]);
   const prevRef = useRef<VehicleLocation[]>([]);
   const ftDataRef = useRef<VehicleLocation[]>([]);
-  const pwaDataRef = useRef<VehicleLocation[]>([]);
   const [addresses, setAddresses] = useState<Record<string, string>>({});
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
-  // Normalize plate: remove non-alphanumeric, lowercase
-  const normPlate = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  // Merge FT + PWA → FullTrack always wins
-  const mergeAndUpdate = useCallback(() => {
+  const updateLocations = useCallback(() => {
     const ft = ftDataRef.current;
-    const pwa = pwaDataRef.current;
-
-    if (ft.length === 0 && pwa.length === 0) return;
-
-    // 1) FullTrack entries keyed by vehicleId (FT-xxx)
-    const merged = new Map<string, VehicleLocation>();
-    for (const v of ft) merged.set(v.vehicleId, v);
-
-    // Build lookup sets for deduplication
-    const ftIds = new Set(ft.map(f => f.vehicleId));
-    const ftPlates = new Set(ft.filter(f => f.plate).map(f => normPlate(f.plate!)));
-    const ftNames = new Set(ft.filter(f => f.vehicleName).map(f => f.vehicleName!.toLowerCase().trim()));
-    const ftDriverNames = new Set(ft.map(f => (f.driverName || '').toLowerCase().trim()));
-
-    // 2) PWA entries — only add if NOT already covered by FullTrack
-    for (const p of pwa) {
-      const pVid = normPlate(p.vehicleId || '');
-      const pName = (p.driverName || '').toLowerCase().trim();
-      // Skip if FT has same vehicleId
-      if (ftIds.has(p.vehicleId)) continue;
-      // Skip if FT has matching plate (normalize both sides)
-      if (ftPlates.has(pVid)) continue;
-      // Skip if FT has matching driver name
-      if (ftDriverNames.has(pName)) continue;
-      // Skip if FT has matching vehicle name
-      if (ftNames.has(pName)) continue;
-      merged.set(p.vehicleId, p);
-    }
-
-    const result = Array.from(merged.values());
-    prevRef.current = result;
-    setLocations(result);
+    if (ft.length === 0) return;
+    prevRef.current = ft;
+    setLocations(ft);
   }, []);
 
   // SSE: FullTrack real-time stream
@@ -99,7 +66,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
           const data = JSON.parse(e.data);
           if (Array.isArray(data)) {
             ftDataRef.current = data;
-            mergeAndUpdate();
+            updateLocations();
           }
         } catch {}
       };
@@ -114,7 +81,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
                 const data = await res.json();
                 if (Array.isArray(data)) {
                   ftDataRef.current = data;
-                  mergeAndUpdate();
+                  updateLocations();
                 }
               }
             } catch {}
@@ -129,26 +96,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
       es?.close();
       if (fallbackTimer) clearInterval(fallbackTimer);
     };
-  }, [mergeAndUpdate]);
-
-  // Poll PWA (Turso) a cada 10s
-  useEffect(() => {
-    const pollPwa = async () => {
-      try {
-        const res = await fetch('/api/vehicle-locations?_=' + Date.now());
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            pwaDataRef.current = data;
-            mergeAndUpdate();
-          }
-        }
-      } catch {}
-    };
-    pollPwa();
-    const id = setInterval(pollPwa, 10000);
-    return () => clearInterval(id);
-  }, [mergeAndUpdate]);
+  }, [updateLocations]);
 
   // Filtra só motoristas com localização recente (últimos 60 min)
   const now = Date.now();
@@ -202,8 +150,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
     plate: l.plate,
   }));
 
-  const pwaCount = displayList.filter(l => l.source !== 'fulltrack').length;
-  const ftCount = displayList.filter(l => l.source === 'fulltrack').length;
+  const ftCount = displayList.length;
 
   return (
     <div className="space-y-6">
@@ -215,7 +162,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             Rastreamento de Motoristas
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            FullTrack + GPS PWA · Tempo real
+            FullTrack · Tempo real
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -227,12 +174,6 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
             <div className="bg-blue-50 border border-blue-200/60 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 flex items-center gap-1">
               <Truck className="w-3 h-3" />
               {ftCount} rastreador
-            </div>
-          )}
-          {pwaCount > 0 && (
-            <div className="bg-violet-50 border border-violet-200/60 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-violet-600 flex items-center gap-1">
-              <Smartphone className="w-3 h-3" />
-              {pwaCount} PWA
             </div>
           )}
         </div>
@@ -278,7 +219,7 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
                   onClick={() => { if (l.lat && l.lng) setFlyTo({ lat: l.lat, lng: l.lng }); }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${l.source === 'fulltrack' ? 'bg-blue-500' : 'bg-violet-500'} animate-pulse`} />
+                    <div className="w-2 h-2 rounded-full shrink-0 bg-blue-500 animate-pulse" />
                     <div className="min-w-0">
                       <span className="text-sm font-semibold text-slate-800 block truncate">{l.driverName}</span>
                       <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[300px]">
@@ -295,9 +236,6 @@ export default function TrackingView({ vehicles, motoristas }: TrackingViewProps
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    {l.source === 'fulltrack' && (
-                      <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">FT</span>
-                    )}
                     {l.lat && l.lng && !addr && (
                       <span className="text-[10px] font-mono text-slate-400">
                         {l.lat.toFixed(4)}, {l.lng.toFixed(4)}
