@@ -56,6 +56,8 @@ export default function NovoCliente() {
       `📄 *TERMOS DE CONTRATAÇÃO (PDF):*\n` +
       `${baseUrl}/termos.pdf\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `💰 *CHAVE PIX (CNPJ):*\n` +
+      `16.403.233.0001-75\n\n` +
       ` RELÂMPAGO ATT\n\n` +
       `✅ *Cliente declara estar ciente e de acordo com os termos.*`
     );
