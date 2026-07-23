@@ -2045,6 +2045,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 <div id="enderecoBox" class="endereco-box"></div>
 <div class="field">
+<label>Complemento / Apartamento</label>
+<input type="text" id="complemento" placeholder="Apto 101, Bloco B, Casa 2..." disabled>
+</div>
+<div class="field">
 <label>Telefone / WhatsApp</label>
 <input type="tel" id="telefone" placeholder="(11) 99999-9999">
 </div>
@@ -2059,6 +2063,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const cepInput=document.getElementById('cep');
 const numInput=document.getElementById('numero');
+const compInput=document.getElementById('complemento');
 const endBox=document.getElementById('enderecoBox');
 let endRua='';
 let endBairro='';
@@ -2071,9 +2076,9 @@ endBox.style.display='block';endBox.innerHTML='Buscando endereço...';
 try{
 const r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');
 const d=await r.json();
-if(d.erro){endBox.innerHTML='CEP não encontrado';endBox.style.color='#dc2626';numInput.disabled=true;return}
+if(d.erro){endBox.innerHTML='CEP não encontrado';endBox.style.color='#dc2626';numInput.disabled=true;compInput.disabled=true;return}
 endRua=d.logradouro;endBairro=d.bairro;endCidade=d.localidade;endUf=d.uf;
-numInput.disabled=false;numInput.focus();
+numInput.disabled=false;compInput.disabled=false;numInput.focus();
 endBox.innerHTML='<b>'+d.logradouro+'</b><br>'+d.bairro+' — '+d.localidade+'/'+d.uf;
 endBox.style.color='#166534';
 }catch{endBox.innerHTML='Erro ao buscar CEP';endBox.style.color='#dc2626'}
@@ -2089,9 +2094,10 @@ const nome=document.getElementById('nome').value.trim();
 const documento=document.getElementById('documento').value.trim();
 const telefone=document.getElementById('telefone').value.trim();
 const numero=document.getElementById('numero').value.trim();
+const complemento=document.getElementById('complemento').value.trim();
 const errEl=document.getElementById('errorMsg');
 if(!nome||!documento||!telefone){errEl.textContent='Preencha nome, CPF/CNPJ e telefone.';errEl.style.display='block';return}
-const endCompleto=endRua?(endRua+(numero?', '+numero:'')+', '+endBairro+', '+endCidade+' - '+endUf):'';
+const endCompleto=endRua?(endRua+(numero?', '+numero:'')+(complemento?', '+complemento:'')+', '+endBairro+', '+endCidade+' - '+endUf):'';
 document.getElementById('btnEnviar').disabled=true;document.getElementById('btnEnviar').textContent='Enviando...';
 try{
 const r=await fetch('/api/cadastro-publico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,documento,telefone,endereco:endCompleto})});
