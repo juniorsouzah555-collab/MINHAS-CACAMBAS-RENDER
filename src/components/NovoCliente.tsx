@@ -83,13 +83,17 @@ export default function NovoCliente() {
     setTimeout(() => setCopyOk(null), 2000);
   };
 
-  const handleSend = (text: string) => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  const handleSend = (text: string, via?: 'desktop' | 'web') => {
+    if (via === 'web') {
+      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
   };
 
-  const handleEnviarPendente = (c: CadastroPendente) => {
-    setEnviando(c.id);
-    handleSend(gerarMensagem(c));
+  const handleEnviarPendente = (c: CadastroPendente, via?: 'desktop' | 'web') => {
+    setEnviando(c.id + (via || 'desktop'));
+    handleSend(gerarMensagem(c), via);
     setTimeout(() => setEnviando(null), 1000);
   };
 
@@ -117,10 +121,10 @@ export default function NovoCliente() {
     setEditando(null);
   };
 
-  const handleEnviarTodos = () => {
+  const handleEnviarTodos = (via?: 'desktop' | 'web') => {
     if (pendentes.length === 0) return;
     const texto = pendentes.map(c => gerarMensagem(c)).join('\n\n\n');
-    handleSend(texto);
+    handleSend(texto, via);
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
@@ -141,12 +145,20 @@ export default function NovoCliente() {
               </span>
             </div>
             {pendentes.length > 1 && (
+              <div className="flex items-center gap-2">
               <button
-                onClick={handleEnviarTodos}
+                onClick={() => handleEnviarTodos('desktop')}
+                className="text-xs font-bold text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
+              >
+                Todos (Motorista)
+              </button>
+              <button
+                onClick={() => handleEnviarTodos('web')}
                 className="text-xs font-bold text-amber-700 hover:text-amber-900 transition-all cursor-pointer"
               >
-                Enviar Todos
+                Todos (Comercial)
               </button>
+              </div>
             )}
           </div>
           <div className="p-4 space-y-3">
@@ -196,12 +208,22 @@ export default function NovoCliente() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleEnviarPendente(c)}
-                        disabled={enviando === c.id}
-                        className="py-2 px-4 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        onClick={() => handleEnviarPendente(c, 'desktop')}
+                        disabled={!!enviando}
+                        className="py-2 px-3 rounded-xl font-bold text-xs bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                        title="Enviar via Motorista (Desktop)"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        {enviando === c.id ? '...' : 'Enviar'}
+                        {enviando === c.id + 'desktop' ? '...' : 'Motorista'}
+                      </button>
+                      <button
+                        onClick={() => handleEnviarPendente(c, 'web')}
+                        disabled={!!enviando}
+                        className="py-2 px-3 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                        title="Enviar via Comercial (Web)"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        {enviando === c.id + 'web' ? '...' : 'Comercial'}
                       </button>
                     </div>
                   </div>
@@ -291,21 +313,29 @@ export default function NovoCliente() {
             <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
               {gerarMensagem()}
             </pre>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}
                 className="py-3 rounded-xl font-bold text-sm bg-amber-500 text-white hover:bg-amber-600 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                💰 Enviar PIX
+                💰 PIX
               </button>
               <button
                 type="button"
-                onClick={() => handleSend(gerarMensagem())}
+                onClick={() => handleSend(gerarMensagem(), 'desktop')}
+                className="py-3 rounded-xl font-bold text-sm bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Motorista
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSend(gerarMensagem(), 'web')}
                 className="py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Enviar WhatsApp
+                Comercial
               </button>
               <button
                 type="button"
