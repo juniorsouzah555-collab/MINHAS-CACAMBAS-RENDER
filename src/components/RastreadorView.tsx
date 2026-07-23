@@ -834,7 +834,6 @@ export default function RastreadorView() {
         {[
           { val: online.length, label: 'Online', color: '#22c55e' },
           { val: online.filter(d => d.source === 'FullTrack').length, label: 'FullTrack', color: '#3b82f6' },
-          { val: online.filter(d => d.source === 'PWA').length, label: 'PWA', color: '#f59e0b' },
         ].map((s, i) => (
           <div key={i} style={{
             flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
