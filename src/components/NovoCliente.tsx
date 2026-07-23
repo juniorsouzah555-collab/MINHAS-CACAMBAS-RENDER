@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Copy, Send, CheckCircle, ExternalLink, Clock, Trash2 } from 'lucide-react';
+import { UserPlus, Copy, Send, CheckCircle, Trash2, Pencil, X, Check } from 'lucide-react';
 
 interface CadastroPendente {
   id: string;
@@ -10,6 +10,9 @@ interface CadastroPendente {
   created_at: string;
 }
 
+const WA_COMERCIAL = '5511979759316';
+const WA_MOTORISTA = '5511963760478';
+
 export default function NovoCliente() {
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
@@ -19,6 +22,11 @@ export default function NovoCliente() {
   const [copyOk, setCopyOk] = useState<string | null>(null);
   const [pendentes, setPendentes] = useState<CadastroPendente[]>([]);
   const [enviando, setEnviando] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState('');
+  const [editCpf, setEditCpf] = useState('');
+  const [editTel, setEditTel] = useState('');
+  const [editEnd, setEditEnd] = useState('');
 
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'BOM DIA' : hora < 18 ? 'BOA TARDE' : 'BOA NOITE';
@@ -52,13 +60,13 @@ export default function NovoCliente() {
       `📅 *Data da Locação:* ${data}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📄 *REGRAS DE CONTRATAÇÃO:*\n` +
-      `${baseUrl}/regras.jpg\n` +
+      `${baseUrl}/regras.jpg\n\n` +
       `📄 *TERMOS DE CONTRATAÇÃO (PDF):*\n` +
       `${baseUrl}/termos.pdf\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n\n` +
       `💰 *CHAVE PIX (CNPJ):*\n` +
       `${baseUrl}/pix\n\n` +
-      ` RELÂMPAGO ATT\n\n` +
+      `RELÂMPAGO ATT\n\n` +
       `✅ *Cliente declara estar ciente e de acordo com os termos.*`
     );
   };
@@ -78,16 +86,14 @@ export default function NovoCliente() {
     setTimeout(() => setCopyOk(null), 2000);
   };
 
-  const handleSend = (text: string) => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  const handleSend = (text: string, wa: string) => {
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  const handleEnviarPendente = async (c: CadastroPendente) => {
-    setEnviando(c.id);
-    handleSend(gerarMensagem(c));
-    await fetch(`/api/cadastro-publico/${c.id}/contatar`, { method: 'PUT' }).catch(() => {});
-    setPendentes(prev => prev.filter(p => p.id !== c.id));
-    setEnviando(null);
+  const handleEnviarPendente = (c: CadastroPendente, wa: string) => {
+    setEnviando(c.id + wa);
+    handleSend(gerarMensagem(c), wa);
+    setTimeout(() => setEnviando(null), 1000);
   };
 
   const handleApagarPendente = async (c: CadastroPendente) => {
@@ -96,10 +102,28 @@ export default function NovoCliente() {
     setPendentes(prev => prev.filter(p => p.id !== c.id));
   };
 
-  const handleEnviarTodos = () => {
+  const handleEditar = (c: CadastroPendente) => {
+    setEditando(c.id);
+    setEditNome(c.nome);
+    setEditCpf(c.documento);
+    setEditTel(c.telefone);
+    setEditEnd(c.endereco);
+  };
+
+  const handleSalvarEdicao = async (c: CadastroPendente) => {
+    await fetch(`/api/cadastro-publico/${c.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: editNome, documento: editCpf, telefone: editTel, endereco: editEnd }),
+    }).catch(() => {});
+    setPendentes(prev => prev.map(p => p.id === c.id ? { ...p, nome: editNome, documento: editCpf, telefone: editTel, endereco: editEnd } : p));
+    setEditando(null);
+  };
+
+  const handleEnviarTodos = (wa: string) => {
     if (pendentes.length === 0) return;
     const texto = pendentes.map(c => gerarMensagem(c)).join('\n\n\n');
-    handleSend(texto);
+    handleSend(texto, wa);
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
@@ -111,7 +135,7 @@ export default function NovoCliente() {
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
+              <span className="text-amber-600 text-lg">🔔</span>
               <h3 className="text-sm font-bold text-amber-800">
                 Cadastros Pendentes
               </h3>
@@ -121,7 +145,7 @@ export default function NovoCliente() {
             </div>
             {pendentes.length > 1 && (
               <button
-                onClick={handleEnviarTodos}
+                onClick={() => handleEnviarTodos(WA_COMERCIAL)}
                 className="text-xs font-bold text-amber-700 hover:text-amber-900 transition-all cursor-pointer"
               >
                 Enviar Todos
@@ -130,32 +154,71 @@ export default function NovoCliente() {
           </div>
           <div className="p-4 space-y-3">
             {pendentes.map(c => (
-              <div key={c.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-800 truncate">{c.nome}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {c.documento} · {c.telefone}
-                  </p>
-                  {c.endereco && (
-                    <p className="text-xs text-slate-400 mt-0.5 truncate">{c.endereco}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-3 shrink-0">
-                  <button
-                    onClick={() => handleApagarPendente(c)}
-                    className="py-2 px-3 rounded-xl font-bold text-xs bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleEnviarPendente(c)}
-                    disabled={enviando === c.id}
-                    className="py-2 px-4 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    {enviando === c.id ? '...' : 'Enviar'}
-                  </button>
-                </div>
+              <div key={c.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                {editando === c.id ? (
+                  <div className="space-y-3">
+                    <input value={editNome} onChange={e => setEditNome(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="Nome" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input value={editCpf} onChange={e => setEditCpf(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="CPF" />
+                      <input value={editTel} onChange={e => setEditTel(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="Telefone" />
+                    </div>
+                    <input value={editEnd} onChange={e => setEditEnd(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="Endereço" />
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleSalvarEdicao(c)} className="py-2 px-4 rounded-xl font-bold text-xs bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5" /> Salvar
+                      </button>
+                      <button onClick={() => setEditando(null)} className="py-2 px-4 rounded-xl font-bold text-xs bg-slate-200 text-slate-600 hover:bg-slate-300 cursor-pointer flex items-center gap-1.5">
+                        <X className="w-3.5 h-3.5" /> Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-800 truncate">{c.nome}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {c.documento} · {c.telefone}
+                      </p>
+                      {c.endereco && (
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">{c.endereco}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                      <button
+                        onClick={() => handleEditar(c)}
+                        className="py-2 px-2.5 rounded-xl font-bold text-xs bg-blue-50 text-blue-500 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer"
+                        title="Editar"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleApagarPendente(c)}
+                        className="py-2 px-2.5 rounded-xl font-bold text-xs bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-all cursor-pointer"
+                        title="Apagar"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleEnviarPendente(c, WA_COMERCIAL)}
+                        disabled={!!enviando}
+                        className="py-2 px-3 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                        title="Enviar via Comercial"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        {enviando === c.id + WA_COMERCIAL ? '...' : 'Comercial'}
+                      </button>
+                      <button
+                        onClick={() => handleEnviarPendente(c, WA_MOTORISTA)}
+                        disabled={!!enviando}
+                        className="py-2 px-3 rounded-xl font-bold text-xs bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                        title="Enviar via Motorista"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        {enviando === c.id + WA_MOTORISTA ? '...' : 'Motorista'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -241,21 +304,29 @@ export default function NovoCliente() {
             <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
               {gerarMensagem()}
             </pre>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75')}
+                onClick={() => handleSend('💰 *CHAVE PIX (CNPJ):*\n16.403.233.0001-75', WA_COMERCIAL)}
                 className="py-3 rounded-xl font-bold text-sm bg-amber-500 text-white hover:bg-amber-600 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 💰 Enviar PIX
               </button>
               <button
                 type="button"
-                onClick={() => handleSend(gerarMensagem())}
+                onClick={() => handleSend(gerarMensagem(), WA_COMERCIAL)}
                 className="py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Enviar Mensagem
+                Comercial
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSend(gerarMensagem(), WA_MOTORISTA)}
+                className="py-3 rounded-xl font-bold text-sm bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Motorista
               </button>
               <button
                 type="button"

@@ -1994,6 +1994,25 @@ async function startServer() {
     }
   });
 
+  // ── Editar cadastro público ─────────────────────────────────────────
+  app.put('/api/cadastro-publico/:id', async (req, res) => {
+    try {
+      const { nome, documento, telefone, endereco } = req.body;
+      const updates: any = {};
+      if (nome !== undefined) updates.nome = nome;
+      if (documento !== undefined) updates.documento = documento;
+      if (telefone !== undefined) updates.telefone = telefone;
+      if (endereco !== undefined) updates.endereco = endereco;
+      if (Object.keys(updates).length === 0) {
+        return res.status(200).json({ sucesso: false, error: 'Nada para atualizar' });
+      }
+      await db.update(schema.clientes).set(updates).where(eq(schema.clientes.id, req.params.id));
+      res.json({ sucesso: true });
+    } catch (e: any) {
+      res.status(200).json({ sucesso: false, error: e.message });
+    }
+  });
+
   // ── Página PIX com botão copiar ────────────────────────────────────
   app.get('/pix', (_req, res) => {
     res.send(`<!DOCTYPE html>
