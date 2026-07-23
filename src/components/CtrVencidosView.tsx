@@ -7,6 +7,7 @@ import {
   Loader2,
   Truck,
   Search,
+  Trash2,
 } from "lucide-react";
 
 const PLACAS = ["BTR-7G55", "BTT-1H69", "CVP-5184", "DHP-2C75"];
@@ -221,6 +222,10 @@ export default function CtrVencidosView() {
     }
   }, [carregarDados]);
 
+  const handleApagar = useCallback((id: string) => {
+    setAtivos(prev => prev.filter(r => r.id !== id));
+  }, []);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header + Busca */}
@@ -374,6 +379,15 @@ export default function CtrVencidosView() {
                         Refazer
                       </button>
                     )}
+                    {r.status === "erro" && (
+                      <button
+                        onClick={() => handleApagar(r.id)}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-100 text-red-600 text-xs font-bold hover:bg-red-200 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Apagar
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -393,6 +407,11 @@ export default function CtrVencidosView() {
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span className="text-sm font-bold text-slate-800">GG-{r.ctr_numero}</span>
                   {r.cacamba && <span className="text-xs text-slate-500">Caçamba {r.cacamba}</span>}
+                  {r.gerador_rua && (
+                    <span className="text-xs text-slate-500">
+                      {r.gerador_rua}{r.gerador_num ? `, ${r.gerador_num}` : ""}
+                    </span>
+                  )}
                   {r.novo_ctr_numero && (
                     <span className="text-xs text-green-600 font-bold">→ {r.novo_ctr_numero}</span>
                   )}
