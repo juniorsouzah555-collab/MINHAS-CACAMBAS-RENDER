@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { Calendar, Printer, FileText, Truck, Smartphone, Monitor, Building2 } from "lucide-react";
+import { Printer, FileText, Truck, Smartphone, Monitor, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Lancamento, BotaFora } from "../types";
 
 interface RelatorioImpressoProps {
@@ -23,6 +25,91 @@ function formatTime(iso: string): string {
   }
 }
 
+function generatePDF(
+  filtered: Lancamento[],
+  empresaNome: string,
+  startDate: string,
+  endDate: string,
+  totalCacambas: number,
+  totalValor: number
+) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const green: [number, number, number] = [5, 150, 80];
+
+  // ── Cabeçalho verde ──
+  doc.setFillColor(...green);
+  doc.rect(0, 0, pageW, 32, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("RELATORIO DE DESCARTES (CACAMBAS)", 14, 14);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Cliente: ${empresaNome}`, 14, 21);
+  doc.text(`Periodo: ${formatDate(startDate)} a ${formatDate(endDate)}`, 14, 26);
+  doc.text(
+    `Total: ${totalCacambas} cacamba(s)  |  Valor: R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    pageW / 2,
+    26,
+    { align: "center" }
+  );
+  doc.text(
+    `Impresso em: ${new Date().toLocaleDateString("pt-BR")} as ${new Date().toLocaleTimeString("pt-BR")}`,
+    pageW - 14,
+    26,
+    { align: "right" }
+  );
+
+  // ── Tabela ──
+  const rows = filtered.map((lan, i) => [
+    `${i + 1}o`,
+    formatDate(lan.data),
+    formatTime(lan.createdAt),
+    lan.botaForaNome || "—",
+    lan.numero != null ? `#${lan.numero}` : "—",
+    lan.source === "mobile" ? "Celular" : "Web",
+    String(lan.quantidadeCacambas),
+    `R$ ${lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    `R$ ${(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+  ]);
+
+  autoTable(doc, {
+    startY: 36,
+    head: [["#", "Data", "Horario", "Empresa", "Nº Lanc.", "Origem", "Qtd", "Valor Unit.", "Total"]],
+    body: rows,
+    foot: [["", "", "", "", "TOTAIS", "", String(totalCacambas), "", `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]],
+    theme: "grid",
+    styles: { fontSize: 7, cellPadding: 2, textColor: [30, 30, 30] },
+    headStyles: { fillColor: green, fontStyle: "bold", textColor: [255, 255, 255] },
+    footStyles: { fillColor: [226, 232, 240], fontStyle: "bold", textColor: [15, 23, 42] },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 12 },
+      6: { halign: "center" as const },
+      7: { halign: "right" as const },
+      8: { halign: "right" as const },
+    },
+    didParseCell(data) {
+      if (data.section === "body" && data.column.index === 5) {
+        const src = filtered[data.row.index]?.source;
+        data.cell.styles.textColor = src === "mobile" ? [194, 65, 12] : [37, 99, 235];
+      }
+    },
+  });
+
+  // ── Rodapé ──
+  const finalY = (doc as any).lastAutoTable?.finalY || 36;
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text("RELAMPAGO CACAMBAS — Sistema de Gestao de Cacambas", 14, finalY + 6);
+  doc.text(`${filtered.length} registro(s)`, pageW - 14, finalY + 6, { align: "right" });
+
+  doc.save(`relatorio-descartes-${startDate}-${endDate}.pdf`);
+}
+
 export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioImpressoProps) {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -31,6 +118,7 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedBotaFora, setSelectedBotaFora] = useState("ALL");
+  const [generating, setGenerating] = useState(false);
 
   const filtered = useMemo(() => {
     return lancamentos
@@ -46,11 +134,20 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
   const totalCacambas = filtered.reduce((s, l) => s + l.quantidadeCacambas, 0);
   const totalValor = filtered.reduce((s, l) => s + l.valor, 0);
   const empresaSelecionada = botaForas.find((b) => b.id === selectedBotaFora);
+  const empresaNome = empresaSelecionada?.nome || "TODAS AS EMPRESAS";
 
   const handlePrint = () => {
     const ts = document.getElementById("print-timestamp-rel");
     if (ts) ts.textContent = `Impresso em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`;
     window.print();
+  };
+
+  const handleDownloadPDF = () => {
+    setGenerating(true);
+    setTimeout(() => {
+      generatePDF(filtered, empresaNome, startDate, endDate, totalCacambas, totalValor);
+      setGenerating(false);
+    }, 100);
   };
 
   return (
@@ -104,6 +201,14 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
             <Printer className="w-4 h-4" />
             Imprimir
           </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={generating || filtered.length === 0}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" />
+            {generating ? "Gerando..." : "Baixar PDF"}
+          </button>
         </div>
       </div>
 
@@ -118,7 +223,7 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mt-3">
             <div>
               <span className="text-emerald-200 text-xs">Cliente</span>
-              <p className="font-bold">{empresaSelecionada?.nome || "TODAS AS EMPRESAS"}</p>
+              <p className="font-bold">{empresaNome}</p>
             </div>
             <div>
               <span className="text-emerald-200 text-xs">Período</span>
