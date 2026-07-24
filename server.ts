@@ -65,6 +65,15 @@ app.get("/api/public/botaforas", authMiddleware, async (_req, res) => {
   }
 });
 
+app.get("/api/public/lancamentos", async (_req, res) => {
+  try {
+    const rows = await db.select().from(schema.lancamentos);
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/descarga-rapida", authMiddleware, async (req, res) => {
   try {
     const { id, bota_fora_id, bota_fora_nome, quantidade_cacambas, valor, data, driver_name, vehicle_id, status, observacao, source } = req.body;

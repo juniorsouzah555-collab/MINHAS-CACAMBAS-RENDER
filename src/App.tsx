@@ -470,6 +470,41 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  // Carrega lancamentos para a tela de seleção de motorista (sem auth)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const motoristaParam = urlParams.get('motorista') || urlParams.get('MOTORISTA');
+    if (!motoristaParam) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/public/lancamentos');
+        if (res.ok) {
+          const data = await res.json();
+          setLancamentos(Array.isArray(data) ? data.map((l: any) => ({
+            id: l.id,
+            numero: l.numero ?? undefined,
+            botaForaId: l.bota_fora_id || l.botaForaId,
+            botaForaNome: l.bota_fora_nome || l.botaForaNome,
+            quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
+            valor: l.valor,
+            data: l.data,
+            driverName: l.driver_name || l.driverName,
+            vehicleId: l.vehicle_id || l.vehicleId,
+            status: l.status,
+            createdAt: l.created_at || l.createdAt,
+            lat: l.lat,
+            lng: l.lng,
+            observacao: l.observacao || l.observation,
+            pago: l.pago === true,
+            valorPago: l.valor_pago !== undefined ? l.valor_pago : undefined,
+            dataPagamento: l.data_pagamento || undefined,
+            source: l.source || undefined,
+          })) : []);
+        }
+      } catch {}
+    })();
+  }, []);
+
   // Carrega dados para a página de descarga (com auth)
   useEffect(() => {
     const publicPage = new URLSearchParams(window.location.search).get('page');
