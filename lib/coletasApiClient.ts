@@ -6,8 +6,9 @@ export function splitEndereco(endereco: string): { rua: string; num: string } {
   return { rua: endereco, num: '' };
 }
 
-export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
+export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string, num?: string): Promise<string> {
   const cidadeNormalizada = cidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const streetQuery = num ? `${rua} ${num}` : rua;
 
   // 1) ViaCEP por bairro — rápido e confiável pra bairros de SP
   try {
@@ -40,10 +41,10 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
     } catch {}
   }
 
-  // 2) Nominatim/OSM — CEP exato da rua (refinamento)
+  // 2) Nominatim estruturado — street+city+state (preciso, evita confusão com cidades homônimas)
   try {
-    const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
-    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
+    const q = new URLSearchParams({ street: `${streetQuery} ${bairro}`, city: cidade, state: uf, format: 'json', limit: '1', countrycodes: 'br' });
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, {
       headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
       signal: AbortSignal.timeout(5000),
     });
@@ -62,10 +63,32 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
     }
   } catch {}
 
-  // 2b) Nominatim without bairro (just street + city)
+  // 2b) Nominatim free text (fallback mais amplo)
   try {
-    const q2 = encodeURIComponent(`${rua} ${cidade}`);
+    const q2 = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=1`, {
+      headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (data.length > 0 && data[0].display_name) {
+        const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
+        if (cepMatch) {
+          const cep = cepMatch[1].replace(/\D/g, '');
+          const validado = await validarCep(cep);
+          if (validado && validado.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
+            return cep;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2c) Nominatim sem bairro (só rua + cidade)
+  try {
+    const q3 = encodeURIComponent(`${rua} ${cidade}`);
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q3}&format=json&limit=1`, {
       headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
       signal: AbortSignal.timeout(5000),
     });
@@ -192,7 +215,7 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
 
   // 2) Fallback: buscarCep por bairro/rua
   if (!cep && rua && bairro && cidade) {
-    cep = await buscarCep('SP', cidade, bairro, rua);
+    cep = await buscarCep('SP', cidade, bairro, rua, num);
   }
 
   // Endereço da Obra vem do XML do ConsultarCTR (campos sem prefixo)

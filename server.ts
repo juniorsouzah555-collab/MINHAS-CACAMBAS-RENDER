@@ -1662,10 +1662,10 @@ async function startServer() {
         if (!ggCep) {
           const bairro = dados?.geradorBairro || '';
           const cidade = dados?.geradorCidade || 'São Paulo';
-          ggCep = await buscarCep('SP', cidade, bairro, ggRua);
+          ggCep = await buscarCep('SP', cidade, bairro, ggRua, ggNum);
           if (!ggCep) {
             const split = splitEndereco(ggRua);
-            ggCep = await buscarCep('SP', cidade, bairro, split.rua);
+            ggCep = await buscarCep('SP', cidade, bairro, split.rua, ggNum || split.num);
             if (!ggNum) ggNum = split.num;
           }
         }
@@ -1680,7 +1680,7 @@ async function startServer() {
       if (ctrRua && ctrBairro && ctrCidade && !ctrCep) {
         const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
         const split = splitEndereco(ctrRua);
-        ctrCep = await buscarCep('SP', ctrCidade, ctrBairro, split.rua);
+        ctrCep = await buscarCep('SP', ctrCidade, ctrBairro, split.rua, ctrNum || split.num);
         if (!ctrNum) ctrNum = split.num;
       }
 
@@ -1700,7 +1700,7 @@ async function startServer() {
         if (cidadeDoCep && !norm(cidadeDoCep).includes(norm(dados?.geradorCidade || 'SAO PAULO').substring(0, 5))) {
           console.log(`[processar] GG CEP ${ggCep} não corresponde a ${dados?.geradorCidade}. Rebuscando...`);
           const { buscarCep: bc2 } = await import('./lib/coletasApiClient.ts');
-          ggCep = await bc2('SP', dados?.geradorCidade || 'São Paulo', dados?.geradorBairro || '', ggRua);
+          ggCep = await bc2('SP', dados?.geradorCidade || 'São Paulo', dados?.geradorBairro || '', ggRua, ggNum);
           if (ggCep) {
             ggRua = ggRua; // keep same rua
           }
@@ -1712,7 +1712,7 @@ async function startServer() {
           console.log(`[processar] CTR CEP ${ctrCep} não corresponde a ${ctrCidade}. Rebuscando...`);
           const { buscarCep: bc3, splitEndereco: se3 } = await import('./lib/coletasApiClient.ts');
           const split = se3(ctrRua);
-          ctrCep = await bc3('SP', ctrCidade, ctrBairro, split.rua);
+          ctrCep = await bc3('SP', ctrCidade, ctrBairro, split.rua, ctrNum || split.num);
         }
       }
 
