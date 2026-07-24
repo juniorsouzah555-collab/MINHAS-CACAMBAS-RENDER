@@ -305,6 +305,15 @@ export default function CtrVencidosView() {
               {loadingOcorrencias ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
               Atualizar
             </button>
+            {ocorrencias.length > 0 && (
+              <button
+                onClick={() => { setOcorrencias([]); setLastUpdate(""); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3 h-3" />
+                Limpar
+              </button>
+            )}
           </div>
         </div>
         {mensagemOcorrencias && (
