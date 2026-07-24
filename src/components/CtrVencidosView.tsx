@@ -8,9 +8,25 @@ import {
   Truck,
   Search,
   Trash2,
+  Bell,
 } from "lucide-react";
 
 const PLACAS = ["BTR-7G55", "BTT-1H69", "CVP-5184", "DHP-2C75"];
+
+interface Ocorrencia {
+  ctrId: string;
+  notId: string;
+  tipo: string;
+  descricao: string;
+  solicitante: string;
+  telefone: string;
+  endereco: string;
+  dtEnvioObra: string;
+  dtRetirada: string;
+  dtFiscalizacao: string;
+  cacamba: string;
+  observacao: string;
+}
 
 interface CtrDados {
   numeroGuia: string;
@@ -76,6 +92,35 @@ export default function CtrVencidosView() {
   const [ativos, setAtivos] = useState<Registro[]>([]);
   const [concluidas, setConcluidas] = useState<Registro[]>([]);
   const [cepEdits, setCepEdits] = useState<Record<string, string>>({});
+
+  // ── Estado para ocorrências (Alertas do Portal) ──
+  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
+  const [loadingOcorrencias, setLoadingOcorrencias] = useState(false);
+  const [mensagemOcorrencias, setMensagemOcorrencias] = useState("");
+  const [lastUpdate, setLastUpdate] = useState<string>("");
+
+  const fetchOcorrencias = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoadingOcorrencias(true);
+    setMensagemOcorrencias("");
+    try {
+      const res = await fetch("/api/ctr/ocorrencias");
+      const data = await res.json();
+      if (data.sucesso) {
+        setOcorrencias(data.ocorrencias || []);
+        setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
+      } else {
+        setMensagemOcorrencias(data.erro || "Erro ao buscar ocorrências");
+      }
+    } catch (err: any) {
+      setMensagemOcorrencias(`Erro de conexão: ${err.message}`);
+    } finally {
+      setLoadingOcorrencias(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOcorrencias(false);
+  }, [fetchOcorrencias]);
 
   const carregarDados = useCallback(async () => {
     try {
@@ -238,6 +283,63 @@ export default function CtrVencidosView() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* ── Seção de Ocorrências (Alertas do Portal) ── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-orange-100 text-orange-600">
+              <Bell className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-900">Alertas do Portal (Ocorrências)</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Ocorrências de fiscalização do Coletas Online</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {lastUpdate && <span className="text-xs text-slate-400">Atualizado: {lastUpdate}</span>}
+            <button
+              onClick={() => fetchOcorrencias()}
+              disabled={loadingOcorrencias}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-bold hover:bg-orange-700 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {loadingOcorrencias ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Atualizar
+            </button>
+          </div>
+        </div>
+        {mensagemOcorrencias && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">{mensagemOcorrencias}</div>
+        )}
+        {ocorrencias.length === 0 && !loadingOcorrencias && !mensagemOcorrencias && (
+          <div className="text-center py-6 text-sm text-slate-400">Nenhuma ocorrência encontrada no portal</div>
+        )}
+        {ocorrencias.length > 0 && (
+          <div className="space-y-3">
+            <div className="text-xs text-slate-500 mb-2">{ocorrencias.length} ocorrência(s) encontrada(s)</div>
+            {ocorrencias.map((occ, i) => (
+              <div key={`${occ.ctrId}-${occ.notId}-${i}`} className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-orange-600" />
+                    <span className="font-black text-sm text-slate-900">CTR {occ.ctrId}</span>
+                    {occ.cacamba && <span className="text-xs text-slate-500">| Caçamba: {occ.cacamba}</span>}
+                  </div>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-200 text-orange-800">{occ.tipo}</span>
+                </div>
+                <p className="text-sm font-medium text-slate-700 mb-2">{occ.descricao}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-slate-400">Solicitante:</span><span className="ml-1 text-slate-700">{occ.solicitante || "—"}</span></div>
+                  <div><span className="text-slate-400">Endereço:</span><span className="ml-1 text-slate-700">{occ.endereco || "—"}</span></div>
+                  <div><span className="text-slate-400">DT Envio:</span><span className="ml-1 text-slate-700">{occ.dtEnvioObra || "—"}</span></div>
+                  <div><span className="text-slate-400">DT Fiscalização:</span><span className="ml-1 text-slate-700">{occ.dtFiscalizacao || "—"}</span></div>
+                </div>
+                {occ.observacao && <div className="mt-2 text-xs text-slate-500 italic">Obs: {occ.observacao}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Header + Busca */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">

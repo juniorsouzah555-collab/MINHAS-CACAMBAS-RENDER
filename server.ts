@@ -10,6 +10,7 @@ import { db, libsqlClient, initializeDatabase } from './src/db/index.ts';
 import { initDatabase } from './src/db/init.ts';
 import { eq, count } from 'drizzle-orm';
 import * as schema from './src/db/schema.ts';
+import cron from 'node-cron';
 // mock data removed — system uses only real DB data
 
 function norm(s: string): string {
@@ -2191,6 +2192,54 @@ else{errEl.textContent=d.error||'Erro ao cadastrar';errEl.style.display='block';
 </body>
 </html>`);
   });
+
+  // ── CTR Ocorrências (Alertas do Portal) ──────────────────────────────
+  let ocorrenciasCache: any[] = [];
+  let ocorrenciasCacheTime = 0;
+  const OCORRENCIAS_CACHE_TTL = 5 * 60 * 1000;
+
+  app.get("/api/ctr/ocorrencias", async (_req, res) => {
+    try {
+      if (ocorrenciasCache.length > 0 && Date.now() - ocorrenciasCacheTime < OCORRENCIAS_CACHE_TTL) {
+        return res.json({ sucesso: true, ocorrencias: ocorrenciasCache, cached: true });
+      }
+      const { listarOcorrencias } = await import("./lib/ocorrenciasClient.ts");
+      const ocorrencias = await listarOcorrencias();
+      ocorrenciasCache = ocorrencias;
+      ocorrenciasCacheTime = Date.now();
+      res.json({ sucesso: true, ocorrencias, cached: false });
+    } catch (e: any) {
+      console.error("Erro ao buscar ocorrências:", e.message);
+      res.status(500).json({ sucesso: false, erro: e.message });
+    }
+  });
+
+  app.post("/api/ctr/ocorrencias/refresh", async (_req, res) => {
+    try {
+      const { listarOcorrencias } = await import("./lib/ocorrenciasClient.ts");
+      const ocorrencias = await listarOcorrencias();
+      ocorrenciasCache = ocorrencias;
+      ocorrenciasCacheTime = Date.now();
+      res.json({ sucesso: true, ocorrencias });
+    } catch (e: any) {
+      console.error("Erro ao atualizar ocorrências:", e.message);
+      res.status(500).json({ sucesso: false, erro: e.message });
+    }
+  });
+
+  // ── Scheduler: buscar ocorrências todo dia às 06:00 (Seg-Sab) ──
+  cron.schedule("0 6 * * 1-6", async () => {
+    console.log("[CRON] Iniciando busca automática de ocorrências...");
+    try {
+      const { listarOcorrencias } = await import("./lib/ocorrenciasClient.ts");
+      const ocorrencias = await listarOcorrencias();
+      ocorrenciasCache = ocorrencias;
+      ocorrenciasCacheTime = Date.now();
+      console.log(`[CRON] ${ocorrencias.length} ocorrência(s) atualizada(s)`);
+    } catch (e: any) {
+      console.error("[CRON] Erro ao buscar ocorrências:", e.message);
+    }
+  }, { timezone: "America/Sao_Paulo" });
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
