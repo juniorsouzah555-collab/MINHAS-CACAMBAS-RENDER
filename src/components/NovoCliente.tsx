@@ -51,7 +51,7 @@ export default function NovoCliente() {
       `📋 *CADASTRO DE CLIENTE - RELÂMPAGO CAÇAMBAS*\n\n` +
       `👤 *Nome:* ${n}\n` +
       `📄 *CPF:* ${d}\n` +
-      `📍 *Endereço:* ${e}\n` +
+      `📍 *Endereço:* ${e.toUpperCase()}\n` +
       `📱 *Telefone:* ${t}\n\n` +
       `💰 *Pagamento:* NA ENTREGA DA CAÇAMBA\n` +
       `📅 *Data da Locação:* ${data}\n\n` +
@@ -83,17 +83,23 @@ export default function NovoCliente() {
     setTimeout(() => setCopyOk(null), 2000);
   };
 
-  const handleSend = (text: string, via?: 'desktop' | 'web') => {
-    if (via === 'web') {
-      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  const handleSend = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
     }
+    window.open('https://wa.me/', '_blank');
   };
 
-  const handleEnviarPendente = (c: CadastroPendente, via?: 'desktop' | 'web') => {
-    setEnviando(c.id + (via || 'desktop'));
-    handleSend(gerarMensagem(c), via);
+  const handleEnviarPendente = (c: CadastroPendente) => {
+    setEnviando(c.id);
+    handleSend(gerarMensagem(c));
     setTimeout(() => setEnviando(null), 1000);
   };
 
@@ -121,10 +127,10 @@ export default function NovoCliente() {
     setEditando(null);
   };
 
-  const handleEnviarTodos = (via?: 'desktop' | 'web') => {
+  const handleEnviarTodos = () => {
     if (pendentes.length === 0) return;
     const texto = pendentes.map(c => gerarMensagem(c)).join('\n\n\n');
-    handleSend(texto, via);
+    handleSend(texto);
   };
 
   const isValid = nome.trim() && cpf.trim() && endereco.trim();
@@ -145,20 +151,12 @@ export default function NovoCliente() {
               </span>
             </div>
             {pendentes.length > 1 && (
-              <div className="flex items-center gap-2">
               <button
-                onClick={() => handleEnviarTodos('desktop')}
-                className="text-xs font-bold text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
-              >
-                Todos (Motorista)
-              </button>
-              <button
-                onClick={() => handleEnviarTodos('web')}
+                onClick={() => handleEnviarTodos()}
                 className="text-xs font-bold text-amber-700 hover:text-amber-900 transition-all cursor-pointer"
               >
-                Todos (Comercial)
+                Enviar Todos
               </button>
-              </div>
             )}
           </div>
           <div className="p-4 space-y-3">
@@ -208,22 +206,13 @@ export default function NovoCliente() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleEnviarPendente(c, 'desktop')}
-                        disabled={!!enviando}
-                        className="py-2 px-3 rounded-xl font-bold text-xs bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                        title="Enviar via Motorista (Desktop)"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        {enviando === c.id + 'desktop' ? '...' : 'Motorista'}
-                      </button>
-                      <button
-                        onClick={() => handleEnviarPendente(c, 'web')}
+                        onClick={() => handleEnviarPendente(c)}
                         disabled={!!enviando}
                         className="py-2 px-3 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                        title="Enviar via Comercial (Web)"
+                        title="Enviar no WhatsApp"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        {enviando === c.id + 'web' ? '...' : 'Comercial'}
+                        {enviando === c.id ? '...' : 'Enviar'}
                       </button>
                     </div>
                   </div>
@@ -323,19 +312,11 @@ export default function NovoCliente() {
               </button>
               <button
                 type="button"
-                onClick={() => handleSend(gerarMensagem(), 'desktop')}
-                className="py-3 rounded-xl font-bold text-sm bg-slate-700 text-white hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Motorista
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSend(gerarMensagem(), 'web')}
+                onClick={() => handleSend(gerarMensagem())}
                 className="py-3 rounded-xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20b858] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Comercial
+                Enviar no WhatsApp
               </button>
               <button
                 type="button"
