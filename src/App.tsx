@@ -2252,6 +2252,7 @@ export default function App() {
           {currentTab === 'relatorio-impresso' && (
             <RelatorioImpresso
               lancamentos={lancamentos}
+              botaForas={botaForas}
             />
           )}
 

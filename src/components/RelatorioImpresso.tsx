@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { Calendar, Printer, FileText, Truck, Smartphone, Monitor } from "lucide-react";
-import { Lancamento } from "../types";
+import { Calendar, Printer, FileText, Truck, Smartphone, Monitor, Building2 } from "lucide-react";
+import { Lancamento, BotaFora } from "../types";
 
 interface RelatorioImpressoProps {
   lancamentos: Lancamento[];
+  botaForas: BotaFora[];
 }
 
 function formatDate(d: string): string {
@@ -22,25 +23,29 @@ function formatTime(iso: string): string {
   }
 }
 
-export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProps) {
+export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioImpressoProps) {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedBotaFora, setSelectedBotaFora] = useState("ALL");
 
   const filtered = useMemo(() => {
     return lancamentos
       .filter((l) => {
         const d = l.data;
-        return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+        const matchDate = (!startDate || d >= startDate) && (!endDate || d <= endDate);
+        const matchBf = selectedBotaFora === "ALL" || l.botaForaId === selectedBotaFora;
+        return matchDate && matchBf;
       })
       .sort((a, b) => (b.data || "").localeCompare(a.data || ""));
-  }, [lancamentos, startDate, endDate]);
+  }, [lancamentos, startDate, endDate, selectedBotaFora]);
 
   const totalCacambas = filtered.reduce((s, l) => s + l.quantidadeCacambas, 0);
   const totalValor = filtered.reduce((s, l) => s + l.valor, 0);
+  const empresaSelecionada = botaForas.find((b) => b.id === selectedBotaFora);
 
   const handlePrint = () => {
     const ts = document.getElementById("print-timestamp-rel");
@@ -58,7 +63,6 @@ export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProp
           </div>
           <div>
             <h2 className="text-lg font-black text-slate-900">Relatório de Descartes</h2>
-            <p className="text-xs text-slate-500">Relatório para impressão — formato ATT Transcar</p>
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -79,6 +83,19 @@ export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProp
               onChange={(e) => setEndDate(e.target.value)}
               className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Empresa</label>
+            <select
+              value={selectedBotaFora}
+              onChange={(e) => setSelectedBotaFora(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              <option value="ALL">Todas</option>
+              {botaForas.map((bf) => (
+                <option key={bf.id} value={bf.id}>{bf.nome}</option>
+              ))}
+            </select>
           </div>
           <button
             onClick={handlePrint}
@@ -101,7 +118,7 @@ export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProp
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mt-3">
             <div>
               <span className="text-emerald-200 text-xs">Cliente</span>
-              <p className="font-bold">RELAMPAGO CACAMBAS</p>
+              <p className="font-bold">{empresaSelecionada?.nome || "TODAS AS EMPRESAS"}</p>
             </div>
             <div>
               <span className="text-emerald-200 text-xs">Período</span>
@@ -147,7 +164,7 @@ export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProp
                   <td className="px-3 py-2 text-slate-700">{formatDate(lan.data)}</td>
                   <td className="px-3 py-2 text-slate-700 font-mono text-xs">{formatTime(lan.createdAt)}</td>
                   <td className="px-3 py-2 text-slate-700">{lan.botaForaNome || "—"}</td>
-                  <td className="px-3 py-2 font-bold text-slate-800">{lan.numero ? `#${lan.numero}` : "—"}</td>
+                  <td className="px-3 py-2 font-bold text-slate-800">{lan.numero != null ? `#${lan.numero}` : "—"}</td>
                   <td className="px-3 py-2 text-center">
                     {lan.source === "mobile" ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">

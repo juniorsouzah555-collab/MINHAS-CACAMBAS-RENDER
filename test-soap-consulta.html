@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teste SOAP - ConsultaCTRs</title>
+  <style>
+    body { font-family: monospace; margin: 20px; background: #1a1a2e; color: #e0e0e0; }
+    h1 { color: #00d4ff; }
+    button { background: #00d4ff; color: #000; padding: 10px 20px; border: none; cursor: pointer; margin: 5px; }
+    button:hover { background: #00b8d4; }
+    pre { background: #16213e; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; }
+    .error { color: #ff6b6b; }
+    .success { color: #51cf66; }
+    .status-list { margin: 10px 0; }
+    .status-item { padding: 5px; border-bottom: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h1>Teste SOAP - ConsultaCTRs</h1>
+  
+  <button onclick="testarConsultaGeral()">1. Consulta Geral (sem filtro)</button>
+  <button onclick="testarConsultaStatus()">2. Consulta por Status</button>
+  <button onclick="testarConsultaNumero()">3. Consulta por Número CTR</button>
+  
+  <div id="resultado" style="margin-top: 20px;">
+    <p>Clique em um botão para testar...</p>
+  </div>
+
+  <script>
+    const WS_URL = "https://ws.coletas.online/WSColetas.asmx";
+    const USER = "02948345000105";
+    const PASS = "21685430";
+    const CIDADE = 0;
+
+    function buildEnvelope(method, params) {
+      let xml = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <${method} xmlns="http://tempuri.org/">`;
+      
+      xml += `<iCodCidade>${CIDADE}</iCodCidade>`;
+      xml += `<stLoginUser>${USER}</stLoginUser>`;
+      xml += `<stSenhaUser>${PASS}</stSenhaUser>`;
+      
+      for (const [key, val] of Object.entries(params)) {
+        if (val !== undefined && val !== null) {
+          xml += `<${key}>${val}</${key}>`;
+        }
+      }
+      
+      xml += `</${method}>
+  </soap:Body>
+</soap:Envelope>`;
+      return xml;
+    }
+
+    async function callSoap(method, params = {}) {
+      const envelope = buildEnvelope(method, params);
+      
+      const response = await fetch(WS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": `http://tempuri.org/${method}`
+        },
+        body: envelope
+      });
+      
+      const text = await response.text();
+      return text;
+    }
+
+    function parseXml(xml) {
+      const result = {};
+      
+      const codigo = xml.match(/<codigo[^>]*>([^<]*)<\/codigo>/);
+      const mensagem = xml.match(/<mensagem[^>]*>([^<]*)<\/mensagem>/);
+      if (codigo) result.codigo = codigo[1];
+      if (mensagem) result.mensagem = mensagem[1];
+      
+      const items = [];
+      const itemRegex = /<Item[^>]*>([\s\S]*?)<\/Item>/g;
+      let itemMatch;
+      while ((itemMatch = itemRegex.exec(xml)) !== null) {
+        const itemXml = itemMatch[1];
+        const item = {};
+        const fieldRegex = /<([^/\s>]+)[^>]*>([^<]*)<\/\1>/g;
+        let fieldMatch;
+        while ((fieldMatch = fieldRegex.exec(itemXml)) !== null) {
+          item[fieldMatch[1]] = fieldMatch[2];
+        }
+        items.push(item);
+      }
+      if (items.length > 0) result.items = items;
+      
+      return result;
+    }
+
+    async function testarConsultaGeral() {
+      const div = document.getElementById("resultado");
+      div.innerHTML = "<p>Consultando todas as CTRs...</p>";
+      
+      try {
+        const xml = await callSoap("ConsultaCTRs", {});
+        const parsed = parseXml(xml);
+        
+        let html = `<h3>Resultado:</h3>`;
+        html += `<p><strong>Código:</strong> ${parsed.codigo || "N/A"}</p>`;
+        html += `<p><strong>Mensagem:</strong> ${parsed.mensagem || "N/A"}</p>`;
+        
+        if (parsed.items && parsed.items.length > 0) {
+          html += `<p><strong>Total de CTRs:</strong> ${parsed.items.length}</p>`;
+          
+          // Coletar status únicos
+          const statusSet = new Set();
+          parsed.items.forEach(item => {
+            if (item.Status) statusSet.add(item.Status);
+          });
+          
+          html += `<div class="status-list">`;
+          html += `<p><strong>Status encontrados:</strong></p>`;
+          statusSet.forEach(s => {
+            html += `<div class="status-item">${s}</div>`;
+          });
+          html += `</div>`;
+          
+          // Mostrar primeiras 5 CTRs como exemplo
+          html += `<p><strong>Primeiras 5 CTRs:</strong></p>`;
+          html += `<pre>`;
+          parsed.items.slice(0, 5).forEach((item, i) => {
+            html += `\n--- CTR ${i + 1} ---\n`;
+            html += JSON.stringify(item, null, 2);
+          });
+          html += `</pre>`;
+        } else {
+          html += `<p class="error">Nenhuma CTR encontrada</p>`;
+        }
+        
+        div.innerHTML = html;
+      } catch (err) {
+        div.innerHTML = `<p class="error">Erro: ${err.message}</p>`;
+      }
+    }
+
+    async function testarConsultaStatus() {
+      const div = document.getElementById("resultado");
+      const status = prompt("Digite o status para filtrar (ex: VENCIDA, PENDENTE, etc):");
+      
+      if (!status) return;
+      
+      div.innerHTML = `<p>Consultando CTRs com status "${status}"...</p>`;
+      
+      try {
+        const xml = await callSoap("ConsultaCTRs", { stStatus: status });
+        const parsed = parseXml(xml);
+        
+        let html = `<h3>Resultado para status "${status}":</h3>`;
+        html += `<p><strong>Código:</strong> ${parsed.codigo || "N/A"}</p>`;
+        html += `<p><strong>Mensagem:</strong> ${parsed.mensagem || "N/A"}</p>`;
+        
+        if (parsed.items && parsed.items.length > 0) {
+          html += `<p><strong>Total encontradas:</strong> ${parsed.items.length}</p>`;
+          html += `<pre>${JSON.stringify(parsed.items.slice(0, 3), null, 2)}</pre>`;
+        } else {
+          html += `<p class="error">Nenhuma CTR encontrada com esse status</p>`;
+        }
+        
+        div.innerHTML = html;
+      } catch (err) {
+        div.innerHTML = `<p class="error">Erro: ${err.message}</p>`;
+      }
+    }
+
+    async function testarConsultaNumero() {
+      const div = document.getElementById("resultado");
+      const numero = prompt("Digite o número da CTR:");
+      
+      if (!numero) return;
+      
+      div.innerHTML = `<p>Consultando CTR ${numero}...</p>`;
+      
+      try {
+        const xml = await callSoap("ConsultarCTR", { stNumeroCTR: numero });
+        const parsed = parseXml(xml);
+        
+        let html = `<h3>Resultado para CTR ${numero}:</h3>`;
+        html += `<p><strong>Código:</strong> ${parsed.codigo || "N/A"}</p>`;
+        html += `<p><strong>Mensagem:</strong> ${parsed.mensagem || "N/A"}</p>`;
+        
+        if (parsed.items && parsed.items.length > 0) {
+          html += `<pre>${JSON.stringify(parsed.items[0], null, 2)}</pre>`;
+        } else {
+          html += `<p class="error">CTR não encontrada</p>`;
+        }
+        
+        div.innerHTML = html;
+      } catch (err) {
+        div.innerHTML = `<p class="error">Erro: ${err.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
