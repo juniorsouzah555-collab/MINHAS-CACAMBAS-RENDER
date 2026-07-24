@@ -98,6 +98,32 @@ export default function CtrVencidosView() {
   const [loadingOcorrencias, setLoadingOcorrencias] = useState(false);
   const [mensagemOcorrencias, setMensagemOcorrencias] = useState("");
   const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ctr_dismissed") || "[]"); } catch { return []; }
+  });
+
+  const saveDismissed = (ids: string[]) => {
+    setDismissedIds(ids);
+    localStorage.setItem("ctr_dismissed", JSON.stringify(ids));
+  };
+
+  const dismissOcorrencia = useCallback((i: number) => {
+    setOcorrencias(prev => {
+      const occ = prev[i];
+      if (occ) {
+        const key = `${occ.ctrId}-${occ.notId}`;
+        saveDismissed([...dismissedIds, key]);
+      }
+      return prev.filter((_, idx) => idx !== i);
+    });
+  }, [dismissedIds]);
+
+  const dismissAll = useCallback(() => {
+    const keys = ocorrencias.map(o => `${o.ctrId}-${o.notId}`);
+    saveDismissed([...dismissedIds, ...keys]);
+    setOcorrencias([]);
+    setLastUpdate("");
+  }, [ocorrencias, dismissedIds]);
 
   const fetchOcorrencias = useCallback(async (showLoading = true) => {
     if (showLoading) setLoadingOcorrencias(true);
@@ -106,7 +132,9 @@ export default function CtrVencidosView() {
       const res = await fetch("/api/ctr/ocorrencias");
       const data = await res.json();
       if (data.sucesso) {
-        setOcorrencias(data.ocorrencias || []);
+        const all = (data.ocorrencias || []) as Ocorrencia[];
+        const filtered = all.filter(o => !dismissedIds.includes(`${o.ctrId}-${o.notId}`));
+        setOcorrencias(filtered);
         setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
       } else {
         setMensagemOcorrencias(data.erro || "Erro ao buscar ocorrências");
@@ -116,7 +144,7 @@ export default function CtrVencidosView() {
     } finally {
       setLoadingOcorrencias(false);
     }
-  }, []);
+  }, [dismissedIds]);
 
   useEffect(() => {
     fetchOcorrencias(false);
@@ -307,7 +335,7 @@ export default function CtrVencidosView() {
             </button>
             {ocorrencias.length > 0 && (
               <button
-                onClick={() => { setOcorrencias([]); setLastUpdate(""); }}
+                onClick={dismissAll}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition-all cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
@@ -336,7 +364,7 @@ export default function CtrVencidosView() {
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-200 text-orange-800">{occ.tipo}</span>
                     <button
-                      onClick={() => setOcorrencias(prev => prev.filter((_, idx) => idx !== i))}
+                      onClick={() => dismissOcorrencia(i)}
                       className="p-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-all cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3" />
