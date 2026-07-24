@@ -137,7 +137,7 @@ export async function consultarCTR(ctrNumero: string): Promise<{ link: string; h
   return link ? { link, hash, item } : null;
 }
 
-async function buscarCepPelaConsultaCTRs(cpfCnpj: string): Promise<{ cep: string; rua: string; num: string } | null> {
+export async function buscarCepPelaConsultaCTRs(cpfCnpj: string): Promise<{ cep: string; rua: string; num: string } | null> {
   try {
     const res = await callSoap("ConsultaCTRs", {});
     if (res.codigo !== "00" || !res.items) return null;
@@ -180,6 +180,17 @@ export async function buscarDadosCTR(ctrNumero: string): Promise<CtrPrintData | 
   let ruaFinal = rua;
   let numFinal = num;
 
+  // 1) CEP de CTRs anteriores com mesmo CPF/CNPJ (mais confiável)
+  if (cpfCnpj) {
+    const dadosConsulta = await buscarCepPelaConsultaCTRs(cpfCnpj);
+    if (dadosConsulta) {
+      cep = dadosConsulta.cep;
+      if (dadosConsulta.rua) ruaFinal = dadosConsulta.rua;
+      if (dadosConsulta.num) numFinal = dadosConsulta.num;
+    }
+  }
+
+  // 2) Fallback: buscarCep por bairro/rua
   if (!cep && rua && bairro && cidade) {
     cep = await buscarCep('SP', cidade, bairro, rua);
   }

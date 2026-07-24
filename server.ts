@@ -1647,14 +1647,27 @@ async function startServer() {
       let ggNum = dados?.geradorNum || '';
 
       if (!ggCep) {
-        const { buscarCep, splitEndereco } = await import('./lib/coletasApiClient.ts');
-        const bairro = dados?.geradorBairro || '';
-        const cidade = dados?.geradorCidade || 'São Paulo';
-        ggCep = await buscarCep('SP', cidade, bairro, ggRua);
+        const { buscarCep, splitEndereco, buscarCepPelaConsultaCTRs } = await import('./lib/coletasApiClient.ts');
+        // 1) CEP de CTRs anteriores com mesmo CPF/CNPJ
+        const cpfCnpj = dados?.cpfCnpj || '';
+        if (cpfCnpj) {
+          const dadosConsulta = await buscarCepPelaConsultaCTRs(cpfCnpj);
+          if (dadosConsulta) {
+            ggCep = dadosConsulta.cep;
+            if (dadosConsulta.rua) ggRua = dadosConsulta.rua;
+            if (dadosConsulta.num) ggNum = dadosConsulta.num;
+          }
+        }
+        // 2) Fallback: buscarCep por bairro/rua
         if (!ggCep) {
-          const split = splitEndereco(ggRua);
-          ggCep = await buscarCep('SP', cidade, bairro, split.rua);
-          if (!ggNum) ggNum = split.num;
+          const bairro = dados?.geradorBairro || '';
+          const cidade = dados?.geradorCidade || 'São Paulo';
+          ggCep = await buscarCep('SP', cidade, bairro, ggRua);
+          if (!ggCep) {
+            const split = splitEndereco(ggRua);
+            ggCep = await buscarCep('SP', cidade, bairro, split.rua);
+            if (!ggNum) ggNum = split.num;
+          }
         }
       }
 
