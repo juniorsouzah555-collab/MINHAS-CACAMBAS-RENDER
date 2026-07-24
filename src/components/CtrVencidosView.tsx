@@ -311,7 +311,7 @@ export default function CtrVencidosView() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition-all cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
-                Limpar
+                Limpar Tudo
               </button>
             )}
           </div>
@@ -333,7 +333,15 @@ export default function CtrVencidosView() {
                     <span className="font-black text-sm text-slate-900">CTR {occ.ctrId}</span>
                     {occ.cacamba && <span className="text-xs text-slate-500">| Caçamba: {occ.cacamba}</span>}
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-200 text-orange-800">{occ.tipo}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-200 text-orange-800">{occ.tipo}</span>
+                    <button
+                      onClick={() => setOcorrencias(prev => prev.filter((_, idx) => idx !== i))}
+                      className="p-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm font-medium text-slate-700 mb-2">{occ.descricao}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
