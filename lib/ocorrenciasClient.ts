@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page } from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
+import { execSync } from "child_process";
 
 const COLETAS_ONLINE_URL =
   process.env.COLETAS_ONLINE_URL || "https://rcc-spregula.coletas.online";
@@ -7,6 +8,8 @@ const USER = process.env.COLETAS_ONLINE_USER || "02948345000105";
 const PASS = process.env.COLETAS_ONLINE_PASS || "21685430";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+let scrapingEmAndamento = false;
 
 export interface Ocorrencia {
   ctrId: string;
@@ -21,6 +24,12 @@ export interface Ocorrencia {
   dtFiscalizacao: string;
   cacamba: string;
   observacao: string;
+}
+
+function killChromium(): void {
+  try {
+    execSync("pkill -f chromium || pkill -f chrome || true", { timeout: 5000 });
+  } catch {}
 }
 
 async function login(page: Page): Promise<void> {
@@ -53,37 +62,32 @@ async function selecionarModuloTransportador(page: Page): Promise<void> {
 }
 
 export async function listarOcorrencias(): Promise<Ocorrencia[]> {
-  let browser: Browser | null = null;
-
-  async function launchWithRetry(retries = 3): Promise<Browser> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const execPath = await chromium.executablePath();
-        const b = await puppeteer.launch({
-          headless: true,
-          executablePath: execPath,
-          timeout: 60000,
-          args: [
-            ...chromium.args,
-            "--disable-dev-shm-usage",
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-gpu",
-            "--single-process",
-          ],
-        });
-        return b;
-      } catch (err: any) {
-        console.error(`Tentativa ${i + 1}/${retries} falhou:`, err.message);
-        if (i < retries - 1) await delay(3000);
-        else throw err;
-      }
-    }
-    throw new Error("Falha ao iniciar Chromium após múltiplas tentativas");
+  if (scrapingEmAndamento) {
+    console.log("[OCORRENCIAS] Scraping já em andamento, ignorando...");
+    return [];
   }
 
+  scrapingEmAndamento = true;
+  let browser: Browser | null = null;
+
   try {
-    browser = await launchWithRetry();
+    killChromium();
+    await delay(2000);
+
+    const execPath = await chromium.executablePath();
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: execPath,
+      timeout: 60000,
+      args: [
+        ...chromium.args,
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--single-process",
+      ],
+    });
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 900 });
@@ -146,5 +150,7 @@ export async function listarOcorrencias(): Promise<Ocorrencia[]> {
     try {
       if (browser) await browser.close();
     } catch {}
+    killChromium();
+    scrapingEmAndamento = false;
   }
 }
