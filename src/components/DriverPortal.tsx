@@ -14,7 +14,8 @@ import {
   Camera,
   Trash2,
   FileText,
-  LogOut
+  LogOut,
+  Truck
 } from 'lucide-react';
 import { Vehicle, BotaFora, Lancamento, FuelLog, ComissaoMotorista, Dispatch } from '../types';
 import { supabase, isSupabaseConfigured, sendHeartbeat, getOnlineUsers, uploadFuelReceipt } from '../lib/supabase';
@@ -164,7 +165,7 @@ export default function DriverPortal({
   const activeVehicle = vehicles.find(v => v.id === selectedVehicleId);
 
   // Form states and active forms
-  const [activeForm, setActiveForm] = useState<'discharges' | 'refueling'>('discharges');
+  const [activeForm, setActiveForm] = useState<'discharges' | 'refueling' | 'report'>('discharges');
 
   const CTR_URL = import.meta.env.VITE_CTR_URL || 'https://ctr-automacao-relampago.onrender.com';
 
@@ -925,7 +926,7 @@ export default function DriverPortal({
           </p>
 
           {/* Quick Select Buttons between actions forms */}
-          <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-4 gap-2 mb-6">
             <button
               type="button"
               onClick={() => setActiveForm('discharges')}
@@ -937,7 +938,7 @@ export default function DriverPortal({
             >
               {activeForm === 'discharges' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
               <Building className={`w-5 h-5 ${activeForm === 'discharges' ? 'text-emerald-200' : ''}`} />
-              <span>Descarregar Aterro</span>
+              <span>Descarregar</span>
             </button>
 
             <button
@@ -952,6 +953,20 @@ export default function DriverPortal({
               {activeForm === 'refueling' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
               <Fuel className={`w-5 h-5 ${activeForm === 'refueling' ? 'text-emerald-200' : ''}`} />
               <span>Abastecimento</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveForm('report')}
+              className={`relative py-3 px-2 sm:px-4 rounded-2xl border-2 text-[11px] sm:text-xs font-black tracking-wide flex flex-col items-center gap-2 transition-all text-center cursor-pointer overflow-hidden ${
+                activeForm === 'report' 
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/25 scale-[1.02]'
+                  : 'bg-white border-blue-200/60 text-slate-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700'
+              }`}
+            >
+              {activeForm === 'report' && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
+              <FileText className={`w-5 h-5 ${activeForm === 'report' ? 'text-blue-200' : ''}`} />
+              <span>Relatório</span>
             </button>
 
             <button
@@ -1370,6 +1385,110 @@ export default function DriverPortal({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
               </button>
             </form>
+          )}
+
+          {/* Relatório de Descartes do Motorista */}
+          {activeForm === 'report' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 rounded-xl bg-blue-100">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-extrabold text-sm text-slate-900">Meus Descartes</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Registros de descarte deste motorista</p>
+                </div>
+              </div>
+
+              {(() => {
+                const myLancamentos = lancamentos
+                  .filter(l => {
+                    const matchDriver = !selectedDriver || l.driverName === selectedDriver;
+                    const matchVehicle = !selectedVehicleId || l.vehicleId === selectedVehicleId;
+                    return matchDriver && matchVehicle;
+                  })
+                  .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+                const totalValor = myLancamentos.reduce((s, l) => s + l.valor, 0);
+                const totalQtd = myLancamentos.reduce((s, l) => s + l.quantidadeCacambas, 0);
+
+                return (
+                  <>
+                    {/* Resumo */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-blue-50 rounded-xl p-3 text-center">
+                        <p className="text-[9px] text-blue-500 font-bold uppercase tracking-wider">Registros</p>
+                        <p className="text-xl font-black text-blue-700">{myLancamentos.length}</p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                        <p className="text-[9px] text-emerald-500 font-bold uppercase tracking-wider">Caçambas</p>
+                        <p className="text-xl font-black text-emerald-700">{totalQtd}</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-xl p-3 text-center">
+                        <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">Valor Total</p>
+                        <p className="text-lg font-black text-amber-700">R$ {totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
+
+                    {/* Lista */}
+                    {myLancamentos.length === 0 ? (
+                      <div className="bg-slate-50 rounded-2xl p-8 text-center">
+                        <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                        <p className="text-sm font-bold text-slate-400">Nenhum descarte registrado</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                        {myLancamentos.map((lan) => {
+                          const dataFmt = lan.data ? (() => {
+                            const [y, m, d] = lan.data.split('-');
+                            return `${d}/${m}/${y}`;
+                          })() : '—';
+                          const horaFmt = lan.createdAt ? (() => {
+                            try {
+                              return new Date(lan.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            } catch { return '—'; }
+                          })() : '—';
+                          return (
+                            <div key={lan.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                                <span className="text-emerald-700 font-black text-sm">{lan.quantidadeCacambas}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-800 text-xs truncate">{lan.botaForaNome || '—'}</span>
+                                  {lan.numero != null && (
+                                    <span className="text-[9px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">#{lan.numero}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />{dataFmt}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />{horaFmt}
+                                  </span>
+                                  {lan.vehicleId && (
+                                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                      <Truck className="w-3 h-3" />{lan.vehicleId}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-black text-slate-800">R$ {lan.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-[9px] text-slate-400 font-medium">
+                                  {lan.source === 'mobile' ? '📱 Celular' : '💻 Web'}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           )}
         </div>
       </div>
