@@ -62,6 +62,8 @@ export default function NovoCliente() {
       `${baseUrl}/termos.pdf\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n\n` +
       `💰 *CHAVE PIX (CNPJ):*\n` +
+      `16.403.233.0001-75\n\n` +
+      `🔗 *Link pra copiar a chave:*\n` +
       `${baseUrl}/pix\n\n` +
       `RELÂMPAGO ATT\n\n` +
       `✅ *Cliente declara estar ciente e de acordo com os termos.*`
