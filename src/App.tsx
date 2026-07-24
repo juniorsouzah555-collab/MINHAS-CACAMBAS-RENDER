@@ -1919,7 +1919,6 @@ export default function App() {
           motoristas={motoristasVisiveis}
           vehicles={[]}
           onSelectMotorista={(nome) => {
-            // Salva o nome do motorista no PWA
             if (nome === 'TADEU' || nome === 'RAMON' || nome === 'JUNIOR') {
               try { localStorage.setItem('relampago_driver_name', nome); } catch {}
             }
@@ -1930,6 +1929,8 @@ export default function App() {
           portaoMsg={portaoMsg}
           onAdmin={() => { window.location.href = '/?page=admin'; }}
           onCtr={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+          lancamentos={lancamentos}
+          isJunior={urlMotoristaParam === 'JUNIOR'}
         />
       );
     }
@@ -2042,6 +2043,7 @@ export default function App() {
         portaoMsg={portaoMsg}
         onAdmin={() => { window.location.href = '/?page=admin'; }}
         onCtr={() => { window.open('https://ctr-automacao-relampago.onrender.com', '_blank'); }}
+        lancamentos={lancamentos}
       />
     );
   }

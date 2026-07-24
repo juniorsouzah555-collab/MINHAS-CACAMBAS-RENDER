@@ -1,6 +1,7 @@
-import React from 'react';
-import { Truck } from 'lucide-react';
-import { Vehicle } from '../types';
+import React, { useState } from 'react';
+import { Truck, FileText, BarChart3, ArrowLeft } from 'lucide-react';
+import { Vehicle, Lancamento } from '../types';
+import MeusDescartes from './MeusDescartes';
 
 interface DriverSelectScreenProps {
   motoristas: string[];
@@ -11,6 +12,8 @@ interface DriverSelectScreenProps {
   portaoMsg: string;
   onAdmin: () => void;
   onCtr: () => void;
+  lancamentos?: Lancamento[];
+  isJunior?: boolean;
 }
 
 export default function DriverSelectScreen({
@@ -21,7 +24,22 @@ export default function DriverSelectScreen({
   portaoMsg,
   onAdmin,
   onCtr,
+  lancamentos = [],
+  isJunior = false,
 }: DriverSelectScreenProps) {
+  const [viewReport, setViewReport] = useState(false);
+
+  if (viewReport) {
+    return (
+      <MeusDescartes
+        motorista={motoristas.length === 1 ? motoristas[0] : ''}
+        motoristas={motoristas}
+        lancamentos={lancamentos}
+        onBack={() => setViewReport(false)}
+      />
+    );
+  }
+
   return (
     <div className="bg-gradient-to-br from-slate-900 to-indigo-950 min-h-screen text-slate-100 font-sans antialiased flex items-center justify-center p-6 relative">
       {/* Botão Portão */}
@@ -64,6 +82,17 @@ export default function DriverSelectScreen({
             </React.Fragment>
           ))}
         </div>
+
+        {/* Botão Relatório - só pra JUNIOR */}
+        {isJunior && (
+          <button
+            onClick={() => setViewReport(true)}
+            className="mt-4 w-full py-3 rounded-xl bg-blue-600 text-white font-black text-sm hover:bg-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 cursor-pointer flex items-center justify-center gap-2"
+          >
+            <BarChart3 className="w-4 h-4" />
+            RELATÓRIO
+          </button>
+        )}
 
         <button
           onClick={onCtr}
