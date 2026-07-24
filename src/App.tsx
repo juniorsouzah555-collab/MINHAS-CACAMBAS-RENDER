@@ -46,6 +46,7 @@ import DisposalView from './components/DisposalView';
 import SettingsView from './components/SettingsView';
 import NewDispatchModal from './components/NewDispatchModal';
 import ReportsView from './components/ReportsView';
+import RelatorioImpresso from './components/RelatorioImpresso';
 import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
 import DriverPortal from './components/DriverPortal';
@@ -2244,6 +2245,12 @@ export default function App() {
           {currentTab === 'reports' && (
             <ReportsView 
               botaForas={botaForas}
+              lancamentos={lancamentos}
+            />
+          )}
+
+          {currentTab === 'relatorio-impresso' && (
+            <RelatorioImpresso
               lancamentos={lancamentos}
             />
           )}

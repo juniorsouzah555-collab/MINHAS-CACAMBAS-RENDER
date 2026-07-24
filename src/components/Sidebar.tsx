@@ -24,7 +24,8 @@ import {
   UserPlus,
   Clock,
   AlertTriangle,
-  ShieldCheck
+  ShieldCheck,
+  Printer
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -56,6 +57,7 @@ export default function Sidebar({ currentTab, setCurrentTab, onOpenNewDispatch, 
     { id: 'bancario', name: 'Bancarios', icon: Landmark },
     { id: 'pedagios', name: 'Pedagios', icon: AlertTriangle, alert: hasPedagiosPendentes, badge: pedagiosPendentes },
     { id: 'reports', name: 'Relatorios', icon: FileText },
+    { id: 'relatorio-impresso', name: 'Rel. Impresso', icon: Printer },
     { id: 'fleet', name: 'Frota', icon: Truck, badge: transitCount },
     { id: 'ctr-vencidos', name: 'CTR Vencidos', icon: Clock },
     { id: 'manutencao', name: 'Manutencao', icon: Wrench },
