@@ -49,9 +49,9 @@ export default function RelatorioImpresso({ lancamentos }: RelatorioImpressoProp
   };
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* ── Controles (não imprime) ── */}
-      <div className="no-print bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <div className="no-print mb-6 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 rounded-lg bg-emerald-100 text-emerald-600">
             <FileText className="w-5 h-5" />
