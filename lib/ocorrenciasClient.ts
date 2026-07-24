@@ -55,21 +55,35 @@ async function selecionarModuloTransportador(page: Page): Promise<void> {
 export async function listarOcorrencias(): Promise<Ocorrencia[]> {
   let browser: Browser | null = null;
 
+  async function launchWithRetry(retries = 3): Promise<Browser> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const execPath = await chromium.executablePath();
+        const b = await puppeteer.launch({
+          headless: true,
+          executablePath: execPath,
+          timeout: 60000,
+          args: [
+            ...chromium.args,
+            "--disable-dev-shm-usage",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-gpu",
+            "--single-process",
+          ],
+        });
+        return b;
+      } catch (err: any) {
+        console.error(`Tentativa ${i + 1}/${retries} falhou:`, err.message);
+        if (i < retries - 1) await delay(3000);
+        else throw err;
+      }
+    }
+    throw new Error("Falha ao iniciar Chromium após múltiplas tentativas");
+  }
+
   try {
-    const execPath = await chromium.executablePath();
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath: execPath,
-      timeout: 60000,
-      args: [
-        ...chromium.args,
-        "--disable-dev-shm-usage",
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-gpu",
-        "--single-process",
-      ],
-    });
+    browser = await launchWithRetry();
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 900 });
