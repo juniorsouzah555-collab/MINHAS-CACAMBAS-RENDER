@@ -105,8 +105,8 @@ function generatePDF(
     lan.numero != null ? String(lan.numero) : "—",
     lan.source === "mobile" ? "CELULAR" : "WEB",
     String(lan.quantidadeCacambas),
+    `R$ ${(lan.quantidadeCacambas > 0 ? lan.valor / lan.quantidadeCacambas : lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     `R$ ${lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-    `R$ ${(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
   ]);
 
   const footRow = [
@@ -364,10 +364,10 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
                   </td>
                   <td className="px-3 py-2 text-center font-bold">{lan.quantidadeCacambas}</td>
                   <td className="px-3 py-2 text-right text-slate-600">
-                    R$ {lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    R$ {(lan.quantidadeCacambas > 0 ? lan.valor / lan.quantidadeCacambas : lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-3 py-2 text-right font-bold text-slate-900">
-                    R$ {(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    R$ {lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}
