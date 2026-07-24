@@ -36,82 +36,49 @@ function generatePDF(
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  const greenDark: [number, number, number] = [0, 100, 60];
-  const greenLight: [number, number, number] = [220, 245, 230];
-  const grayLine: [number, number, number] = [200, 210, 220];
+  const margin = 18;
+  const lineColor: [number, number, number] = [220, 220, 220];
+  const textDark: [number, number, number] = [30, 30, 30];
+  const textMuted: [number, number, number] = [130, 130, 130];
 
-  // ════════════════════════════════════════════
-  // 1. HEADER — faixa escura com logo文字
-  // ════════════════════════════════════════════
-  doc.setFillColor(...greenDark);
-  doc.rect(0, 0, pageW, 28, "F");
-
-  // Titulo principal
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
+  // ── Titulo + linha fina ──
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("RELATORIO DE DESCARTES", margin, 12);
+  doc.setTextColor(...textDark);
+  doc.text("Relatorio de Descartes", margin, 18);
 
-  doc.setFontSize(10);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text("Relampago Cacambas — Gestao de Residuos", margin, 18);
-
-  // Data de impressao (canto direito)
-  doc.setFontSize(8);
+  doc.setTextColor(...textMuted);
   doc.text(
-    `Impresso: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+    `${empresaNome}  |  ${formatDate(startDate)} a ${formatDate(endDate)}  |  ${new Date().toLocaleDateString("pt-BR")}`,
+    margin,
+    24
+  );
+
+  doc.setDrawColor(...lineColor);
+  doc.setLineWidth(0.4);
+  doc.line(margin, 28, pageW - margin, 28);
+
+  // ── Resumo inline ──
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...textMuted);
+  doc.text(
+    `${filtered.length} registro(s)   ·   ${totalCacambas} cacamba(s)   ·   R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     pageW - margin,
-    12,
+    24,
     { align: "right" }
   );
 
-  // ════════════════════════════════════════════
-  // 2. BOX DE INFORMACOES
-  // ════════════════════════════════════════════
-  const boxY = 32;
-  const boxH = 18;
-
-  doc.setFillColor(...greenLight);
-  doc.roundedRect(margin, boxY, pageW - margin * 2, boxH, 2, 2, "F");
-
-  doc.setFontSize(8);
-  doc.setTextColor(80, 80, 80);
-  doc.setFont("helvetica", "bold");
-
-  const col1 = margin + 4;
-  const col2 = margin + 80;
-  const col3 = margin + 160;
-  const col4 = pageW - margin - 4;
-
-  doc.text("CLIENTE", col1, boxY + 5);
-  doc.text("PERIODO", col2, boxY + 5);
-  doc.text("TOTAL CACAMBAS", col3, boxY + 5);
-  doc.text("VALOR TOTAL", col4, boxY + 5, { align: "right" });
-
-  doc.setFontSize(10);
-  doc.setTextColor(0, 70, 40);
-  doc.setFont("helvetica", "bold");
-  doc.text(empresaNome, col1, boxY + 12);
-  doc.text(`${formatDate(startDate)} a ${formatDate(endDate)}`, col2, boxY + 12);
-  doc.text(String(totalCacambas), col3, boxY + 12);
-  doc.text(
-    `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-    col4,
-    boxY + 12,
-    { align: "right" }
-  );
-
-  // ════════════════════════════════════════════
-  // 3. TABELA
-  // ════════════════════════════════════════════
+  // ── Tabela ──
   const rows = filtered.map((lan, i) => [
     String(i + 1),
     formatDate(lan.data),
     formatTime(lan.createdAt),
     lan.botaForaNome || "—",
     lan.numero != null ? String(lan.numero) : "—",
-    lan.source === "mobile" ? "CELULAR" : "WEB",
+    lan.source === "mobile" ? "CEL" : "WEB",
     String(lan.quantidadeCacambas),
     `R$ ${lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     `R$ ${(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
@@ -125,78 +92,68 @@ function generatePDF(
   ];
 
   autoTable(doc, {
-    startY: boxY + boxH + 4,
+    startY: 32,
     margin: { left: margin, right: margin },
-    head: [["#", "DATA", "HORARIO", "EMPRESA", "LANC.", "ORIGEM", "QTD", "VALOR UNIT.", "TOTAL"]],
+    head: [["#", "DATA", "HORARIO", "EMPRESA", "LANC", "ORIG", "QTD", "VALOR", "TOTAL"]],
     body: rows,
     foot: [footRow],
-    theme: "striped",
+    theme: "plain",
     styles: {
       fontSize: 7.5,
-      cellPadding: 2.2,
-      textColor: [30, 30, 30],
-      lineColor: grayLine,
-      lineWidth: 0.2,
+      cellPadding: 2,
+      textColor: textDark,
+      lineColor: lineColor,
+      lineWidth: 0.15,
     },
     headStyles: {
-      fillColor: greenDark,
+      fillColor: [250, 250, 250],
+      textColor: textMuted,
       fontStyle: "bold",
-      textColor: [255, 255, 255],
-      fontSize: 7,
+      fontSize: 6.5,
       cellPadding: 2.5,
+      lineColor: lineColor,
+      lineWidth: 0.4,
     },
     footStyles: {
-      fillColor: greenLight,
+      fillColor: [250, 250, 250],
+      textColor: textDark,
       fontStyle: "bold",
-      textColor: greenDark,
-      fontSize: 8,
-      cellPadding: 3,
+      fontSize: 7.5,
+      cellPadding: 2.5,
+      lineColor: lineColor,
+      lineWidth: 0.4,
     },
     alternateRowStyles: {
-      fillColor: [248, 250, 252],
+      fillColor: [252, 252, 252],
     },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" as const },
       1: { cellWidth: 22 },
       2: { cellWidth: 18 },
       3: { cellWidth: 50 },
-      4: { cellWidth: 16, halign: "center" as const },
-      5: { cellWidth: 18, halign: "center" as const },
+      4: { cellWidth: 14, halign: "center" as const },
+      5: { cellWidth: 14, halign: "center" as const },
       6: { cellWidth: 12, halign: "center" as const },
-      7: { cellWidth: 28, halign: "right" as const },
-      8: { cellWidth: 28, halign: "right" as const },
+      7: { cellWidth: 26, halign: "right" as const },
+      8: { cellWidth: 26, halign: "right" as const },
     },
     didParseCell(data) {
-      // Coluna origem colorida
       if (data.section === "body" && data.column.index === 5) {
         const src = filtered[data.row.index]?.source;
-        data.cell.styles.textColor = src === "mobile" ? [194, 65, 12] : [37, 99, 235];
-        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.textColor = src === "mobile" ? [180, 90, 30] : [80, 120, 200];
       }
-      // Negrito na coluna LANC
       if (data.section === "body" && data.column.index === 4) {
         data.cell.styles.fontStyle = "bold";
       }
     },
     didDrawPage(data) {
-      // Rodape em cada pagina
-      doc.setFontSize(7);
-      doc.setTextColor(150, 150, 150);
-      doc.text(
-        "Relampago Cacambas — Sistema de Gestao de Residuos",
-        margin,
-        pageH - 8
-      );
-      doc.text(
-        `Pagina ${data.pageNumber}`,
-        pageW - margin,
-        pageH - 8,
-        { align: "right" }
-      );
-      // Linha separadora no rodape
-      doc.setDrawColor(...grayLine);
+      doc.setDrawColor(...lineColor);
       doc.setLineWidth(0.3);
-      doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+      doc.line(margin, pageH - 14, pageW - margin, pageH - 14);
+      doc.setFontSize(6.5);
+      doc.setTextColor(...textMuted);
+      doc.text("Relampago Cacambas", margin, pageH - 9);
+      doc.text(`Pag. ${data.pageNumber}`, pageW - margin, pageH - 9, { align: "right" });
     },
   });
 
