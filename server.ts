@@ -1555,7 +1555,7 @@ async function startServer() {
         args: [numero, 'concluida', 'processando'],
       });
       const existRow = existing.rows?.[0] as any;
-      if (existRow && existRow.status !== 'erro' && existRow.gerador_rua) {
+      if (existRow && existRow.status !== 'erro' && existRow.gerador_rua && existRow.gerador_cep) {
         return res.json({ sucesso: true, dados: {
           numeroGuia: 'GG-' + existRow.ctr_numero,
           cacamba: existRow.cacamba || '',
