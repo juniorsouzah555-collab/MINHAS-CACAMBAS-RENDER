@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Layout 2 — Elegante</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Georgia', 'Times New Roman', serif; background: #f5f5f0; display: flex; justify-content: center; padding: 30px; }
+  .page { width: 297mm; min-height: 210mm; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,.08); padding: 0; overflow: hidden; }
+
+  .header { padding: 32px 40px 20px; text-align: center; border-bottom: 3px double #2d2d2d; }
+  .header h1 { font-size: 26px; font-weight: 400; letter-spacing: 4px; text-transform: uppercase; color: #2d2d2d; }
+  .header .line { width: 60px; height: 1px; background: #2d2d2d; margin: 10px auto; }
+  .header .sub { font-size: 11px; color: #888; letter-spacing: 2px; }
+
+  .meta-bar { display: flex; justify-content: space-between; padding: 12px 40px; font-size: 10px; color: #999; border-bottom: 1px solid #eee; font-style: italic; }
+
+  .summary-row { display: flex; justify-content: center; gap: 40px; padding: 20px 40px; }
+  .summary-row .item { text-align: center; }
+  .summary-row .label { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; color: #999; }
+  .summary-row .value { font-size: 22px; font-weight: 400; color: #2d2d2d; margin-top: 2px; }
+  .summary-row .divider { width: 1px; background: #ddd; align-self: stretch; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; font-weight: 400; padding: 10px 14px; border-bottom: 1px solid #2d2d2d; text-align: left; }
+  thead th:nth-child(n+6) { text-align: center; }
+  thead th:nth-child(n+8) { text-align: right; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; color: #333; }
+  tbody tr:last-child td { border-bottom: 1px solid #2d2d2d; }
+  td:nth-child(n+6) { text-align: center; }
+  td:nth-child(n+8) { text-align: right; }
+  .origem-cel { color: #b45309; font-style: italic; }
+  .origem-web { color: #1d4ed8; font-style: italic; }
+  .lanc { font-weight: 600; }
+
+  tfoot td { padding: 14px; font-weight: 600; border-top: 3px double #2d2d2d; color: #2d2d2d; font-size: 13px; }
+  tfoot td:nth-child(n+8) { text-align: right; }
+
+  .footer { padding: 14px 40px; font-size: 9px; color: #bbb; display: flex; justify-content: space-between; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Relatório de Descartes</h1>
+    <div class="line"></div>
+    <div class="sub">Relampago Caçambas</div>
+  </div>
+
+  <div class="meta-bar">
+    <span>Cliente: Todas as Empresas</span>
+    <span>Período: 17/07/2026 — 24/07/2026</span>
+    <span>Gerado: 24/07/2026 às 14:30</span>
+  </div>
+
+  <div class="summary-row">
+    <div class="item"><div class="label">Registros</div><div class="value">8</div></div>
+    <div class="divider"></div>
+    <div class="item"><div class="label">Caçambas</div><div class="value">23</div></div>
+    <div class="divider"></div>
+    <div class="item"><div class="label">Valor Total</div><div class="value">R$ 5.750,00</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Data</th><th>Horário</th><th>Empresa</th><th>Lanç.</th><th>Origem</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>24/07/2026</td><td>08:12</td><td>Construtora Alpha</td><td class="lanc">45</td><td class="origem-cel">Celular</td><td>3</td><td>R$ 250,00</td><td>R$ 750,00</td></tr>
+      <tr><td>2</td><td>23/07/2026</td><td>14:45</td><td>Empresa Beta Ltda</td><td class="lanc">44</td><td class="origem-web">Web</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+      <tr><td>3</td><td>23/07/2026</td><td>10:20</td><td>Construtora Alpha</td><td class="lanc">43</td><td class="origem-cel">Celular</td><td>4</td><td>R$ 250,00</td><td>R$ 1.000,00</td></tr>
+      <tr><td>4</td><td>22/07/2026</td><td>16:30</td><td>Engenharia Gamma</td><td class="lanc">42</td><td class="origem-web">Web</td><td>1</td><td>R$ 300,00</td><td>R$ 300,00</td></tr>
+      <tr><td>5</td><td>22/07/2026</td><td>09:15</td><td>Construtora Alpha</td><td class="lanc">41</td><td class="origem-cel">Celular</td><td>5</td><td>R$ 250,00</td><td>R$ 1.250,00</td></tr>
+      <tr><td>6</td><td>21/07/2026</td><td>11:00</td><td>Empresa Beta Ltda</td><td class="lanc">40</td><td class="origem-web">Web</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+      <tr><td>7</td><td>20/07/2026</td><td>07:45</td><td>Engenharia Gamma</td><td class="lanc">39</td><td class="origem-cel">Celular</td><td>3</td><td>R$ 300,00</td><td>R$ 900,00</td></tr>
+      <tr><td>8</td><td>19/07/2026</td><td>15:10</td><td>Construtora Alpha</td><td class="lanc">38</td><td class="origem-web">Web</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+    </tbody>
+    <tfoot>
+      <tr><td colspan="5" style="text-align:right">TOTAL</td><td></td><td>23</td><td></td><td>R$ 5.750,00</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="footer">
+    <span>Relampago Caçambas</span>
+    <span>8 registro(s)</span>
+  </div>
+</div>
+</body>
+</html>

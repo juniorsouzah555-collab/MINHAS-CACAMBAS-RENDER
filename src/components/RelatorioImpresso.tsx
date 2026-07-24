@@ -36,49 +36,74 @@ function generatePDF(
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 18;
-  const lineColor: [number, number, number] = [220, 220, 220];
-  const textDark: [number, number, number] = [30, 30, 30];
-  const textMuted: [number, number, number] = [130, 130, 130];
+  const margin = 16;
+  const greenDark: [number, number, number] = [26, 82, 118];
+  const greenAccent: [number, number, number] = [46, 134, 193];
 
-  // ── Titulo + linha fina ──
-  doc.setFontSize(14);
+  // ═══════════════════════════════════════
+  // 1. HEADER — gradiente azul
+  // ═══════════════════════════════════════
+  doc.setFillColor(...greenDark);
+  doc.rect(0, 0, pageW * 0.55, 30, "F");
+  doc.setFillColor(...greenAccent);
+  doc.rect(pageW * 0.55, 0, pageW * 0.45, 30, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...textDark);
-  doc.text("Relatorio de Descartes", margin, 18);
+  doc.text("RELATORIO DE DESCARTES", margin, 13);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("Relampago Cacambas — Gestao de Residuos", margin, 20);
 
   doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...textMuted);
   doc.text(
-    `${empresaNome}  |  ${formatDate(startDate)} a ${formatDate(endDate)}  |  ${new Date().toLocaleDateString("pt-BR")}`,
-    margin,
-    24
-  );
-
-  doc.setDrawColor(...lineColor);
-  doc.setLineWidth(0.4);
-  doc.line(margin, 28, pageW - margin, 28);
-
-  // ── Resumo inline ──
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...textMuted);
-  doc.text(
-    `${filtered.length} registro(s)   ·   ${totalCacambas} cacamba(s)   ·   R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    `Impresso: ${new Date().toLocaleDateString("pt-BR")} as ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
     pageW - margin,
-    24,
+    13,
     { align: "right" }
   );
+  doc.text(`Relatorio No ${filtered.length > 0 ? String(filtered[0].numero || 1).padStart(3, "0") : "000"}`, pageW - margin, 19, { align: "right" });
 
-  // ── Tabela ──
+  // ═══════════════════════════════════════
+  // 2. CARDS DE RESUMO
+  // ═══════════════════════════════════════
+  const cardY = 34;
+  const cardH = 16;
+  const cardGap = 6;
+  const cardW = (pageW - margin * 2 - cardGap * 3) / 4;
+  const labels = ["CLIENTE", "PERIODO", "TOTAL CACAMBAS", "VALOR TOTAL"];
+  const values = [
+    empresaNome.length > 22 ? empresaNome.slice(0, 20) + "..." : empresaNome,
+    `${formatDate(startDate)} a ${formatDate(endDate)}`,
+    String(totalCacambas),
+    `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+  ];
+
+  for (let i = 0; i < 4; i++) {
+    const x = margin + i * (cardW + cardGap);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(x, cardY, cardW, cardH, 1.5, 1.5, "F");
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(107, 114, 128);
+    doc.text(labels[i], x + 4, cardY + 5);
+    doc.setFontSize(12);
+    doc.setTextColor(26, 82, 118);
+    doc.setFont("helvetica", "bold");
+    doc.text(values[i], x + 4, cardY + 12);
+  }
+
+  // ═══════════════════════════════════════
+  // 3. TABELA
+  // ═══════════════════════════════════════
   const rows = filtered.map((lan, i) => [
     String(i + 1),
     formatDate(lan.data),
     formatTime(lan.createdAt),
     lan.botaForaNome || "—",
     lan.numero != null ? String(lan.numero) : "—",
-    lan.source === "mobile" ? "CEL" : "WEB",
+    lan.source === "mobile" ? "CELULAR" : "WEB",
     String(lan.quantidadeCacambas),
     `R$ ${lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     `R$ ${(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
@@ -92,47 +117,47 @@ function generatePDF(
   ];
 
   autoTable(doc, {
-    startY: 32,
+    startY: cardY + cardH + 6,
     margin: { left: margin, right: margin },
-    head: [["#", "DATA", "HORARIO", "EMPRESA", "LANC", "ORIG", "QTD", "VALOR", "TOTAL"]],
+    head: [["#", "DATA", "HORARIO", "EMPRESA", "LANC.", "ORIGEM", "QTD", "VALOR UNIT.", "TOTAL"]],
     body: rows,
     foot: [footRow],
-    theme: "plain",
+    theme: "striped",
     styles: {
-      fontSize: 7.5,
-      cellPadding: 2,
-      textColor: textDark,
-      lineColor: lineColor,
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [31, 41, 55],
+      lineColor: [229, 231, 235],
       lineWidth: 0.15,
     },
     headStyles: {
-      fillColor: [250, 250, 250],
-      textColor: textMuted,
+      fillColor: [248, 249, 250],
+      textColor: [55, 65, 81],
       fontStyle: "bold",
-      fontSize: 6.5,
-      cellPadding: 2.5,
-      lineColor: lineColor,
-      lineWidth: 0.4,
+      fontSize: 7,
+      cellPadding: 3,
+      lineColor: [26, 82, 118],
+      lineWidth: 0.5,
     },
     footStyles: {
-      fillColor: [250, 250, 250],
-      textColor: textDark,
+      fillColor: [239, 246, 255],
+      textColor: [26, 82, 118],
       fontStyle: "bold",
-      fontSize: 7.5,
-      cellPadding: 2.5,
-      lineColor: lineColor,
-      lineWidth: 0.4,
+      fontSize: 9,
+      cellPadding: 3,
+      lineColor: [26, 82, 118],
+      lineWidth: 0.5,
     },
     alternateRowStyles: {
-      fillColor: [252, 252, 252],
+      fillColor: [250, 251, 252],
     },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" as const },
       1: { cellWidth: 22 },
       2: { cellWidth: 18 },
-      3: { cellWidth: 50 },
+      3: { cellWidth: 48 },
       4: { cellWidth: 14, halign: "center" as const },
-      5: { cellWidth: 14, halign: "center" as const },
+      5: { cellWidth: 18, halign: "center" as const },
       6: { cellWidth: 12, halign: "center" as const },
       7: { cellWidth: 26, halign: "right" as const },
       8: { cellWidth: 26, halign: "right" as const },
@@ -140,20 +165,24 @@ function generatePDF(
     didParseCell(data) {
       if (data.section === "body" && data.column.index === 5) {
         const src = filtered[data.row.index]?.source;
-        data.cell.styles.textColor = src === "mobile" ? [180, 90, 30] : [80, 120, 200];
+        data.cell.styles.textColor = src === "mobile" ? [217, 119, 6] : [37, 99, 235];
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 7;
       }
       if (data.section === "body" && data.column.index === 4) {
         data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 8.5;
       }
     },
     didDrawPage(data) {
-      doc.setDrawColor(...lineColor);
+      doc.setDrawColor(229, 231, 235);
       doc.setLineWidth(0.3);
-      doc.line(margin, pageH - 14, pageW - margin, pageH - 14);
-      doc.setFontSize(6.5);
-      doc.setTextColor(...textMuted);
-      doc.text("Relampago Cacambas", margin, pageH - 9);
-      doc.text(`Pag. ${data.pageNumber}`, pageW - margin, pageH - 9, { align: "right" });
+      doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+      doc.setFontSize(7);
+      doc.setTextColor(156, 163, 175);
+      doc.setFont("helvetica", "normal");
+      doc.text("Relampago Cacambas — Sistema de Gestao de Cacambas", margin, pageH - 7);
+      doc.text(`${filtered.length} registro(s)  ·  Pag. ${data.pageNumber}`, pageW - margin, pageH - 7, { align: "right" });
     },
   });
 

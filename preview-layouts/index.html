@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Escolha o Layout do PDF</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: #111; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .sub { color: #888; font-size: 14px; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 900px; width: 100%; }
+  .card { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; padding: 0; overflow: hidden; cursor: pointer; transition: all .2s; text-decoration: none; color: #fff; }
+  .card:hover { border-color: #3b82f6; transform: translateY(-4px); box-shadow: 0 8px 30px rgba(59,130,246,.2); }
+  .card .preview { width: 100%; aspect-ratio: 16/10; border-bottom: 1px solid #333; overflow: hidden; }
+  .card .preview iframe { width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none; pointer-events: none; }
+  .card .info { padding: 16px 20px; }
+  .card .info h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .card .info p { font-size: 12px; color: #888; line-height: 1.4; }
+  .card .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 10px; font-weight: 600; margin-top: 8px; }
+  .b1 { background: #1e3a5f; color: #93c5fd; }
+  .b2 { background: #3d2c00; color: #fbbf24; }
+  .b3 { background: #064e3b; color: #34d399; }
+  .b4 { background: #1f1f1f; color: #a3a3a3; }
+</style>
+</head>
+<body>
+<h1>Escolha o Layout do PDF</h1>
+<p class="sub">Clique no layout que você preferir</p>
+<div class="grid">
+  <a class="card" href="layout-1-corporativo.html" target="_blank">
+    <div class="preview"><iframe src="layout-1-corporativo.html"></iframe></div>
+    <div class="info">
+      <h2>1 — Corporativo</h2>
+      <p>Cabeçalho gradiente azul, cards de resumo, tabela com hover</p>
+      <span class="badge b1">Profissional</span>
+    </div>
+  </a>
+  <a class="card" href="layout-2-elegante.html" target="_blank">
+    <div class="preview"><iframe src="layout-2-elegante.html"></iframe></div>
+    <div class="info">
+      <h2>2 — Elegante</h2>
+      <p>Serif, centralizado, bordas duplas, estilo editorial</p>
+      <span class="badge b2">Clássico</span>
+    </div>
+  </a>
+  <a class="card" href="layout-3-moderno.html" target="_blank">
+    <div class="preview"><iframe src="layout-3-moderno.html"></iframe></div>
+    <div class="info">
+      <h2>3 — Moderno</h2>
+      <p>Fundo escuro, badges coloridas, monospace nos números</p>
+      <span class="badge b3">Moderno</span>
+    </div>
+  </a>
+  <a class="card" href="layout-4-ultraclean.html" target="_blank">
+    <div class="preview"><iframe src="layout-4-ultraclean.html"></iframe></div>
+    <div class="info">
+      <h2>4 — Ultra Clean</h2>
+      <p>Mínimo, sem cores, só linhas e tipografia</p>
+      <span class="badge b4">Minimalista</span>
+    </div>
+  </a>
+</div>
+</body>
+</html>

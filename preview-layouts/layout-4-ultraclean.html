@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Layout 4 — Ultra Clean</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8f8f8; display: flex; justify-content: center; padding: 30px; }
+  .page { width: 297mm; min-height: 210mm; background: #fff; box-shadow: 0 1px 10px rgba(0,0,0,.06); overflow: hidden; }
+
+  .header { padding: 36px 44px 0; display: flex; justify-content: space-between; align-items: flex-start; }
+  .header h1 { font-size: 15px; font-weight: 600; color: #000; letter-spacing: -.2px; }
+  .header .right { text-align: right; }
+  .header .right .title { font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  .header .right .date { font-size: 11px; color: #666; margin-top: 2px; }
+
+  .divider { height: 1px; background: #e5e5e5; margin: 16px 44px; }
+
+  .meta { display: flex; gap: 32px; padding: 0 44px 16px; font-size: 10px; color: #999; }
+  .meta strong { color: #333; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  thead th { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; font-weight: 500; padding: 8px 16px; text-align: left; border-bottom: 1px solid #eee; }
+  thead th:nth-child(n+6) { text-align: center; }
+  thead th:nth-child(n+8) { text-align: right; }
+  tbody td { padding: 8px 16px; color: #333; border-bottom: 1px solid #f5f5f5; }
+  tbody tr:last-child td { border-bottom: 1px solid #ddd; }
+  td:nth-child(n+6) { text-align: center; }
+  td:nth-child(n+8) { text-align: right; }
+  .lanc { font-weight: 600; }
+  .origem-cel { color: #c2410c; font-weight: 500; }
+  .origem-web { color: #2563eb; font-weight: 500; }
+
+  .total-row td { padding: 12px 16px; font-weight: 600; color: #000; border-top: 1px solid #ddd; border-bottom: none; font-size: 11px; }
+  .total-row td:nth-child(n+8) { text-align: right; }
+
+  .footer { padding: 20px 44px 24px; font-size: 8px; color: #ccc; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Relatório de Descartes</h1>
+    <div class="right">
+      <div class="title">Relampago Caçambas</div>
+      <div class="date">24 de julho de 2026</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="meta">
+    <span>Período: <strong>17/07/2026 — 24/07/2026</strong></span>
+    <span>Empresa: <strong>Todas</strong></span>
+    <span>Caçambas: <strong>23</strong></span>
+    <span>Total: <strong>R$ 5.750,00</strong></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Data</th><th>Horário</th><th>Empresa</th><th>Lanç.</th><th>Origem</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>24/07/2026</td><td>08:12</td><td>Construtora Alpha</td><td class="lanc">45</td><td class="origem-cel">CEL</td><td>3</td><td>R$ 250,00</td><td>R$ 750,00</td></tr>
+      <tr><td>2</td><td>23/07/2026</td><td>14:45</td><td>Empresa Beta Ltda</td><td class="lanc">44</td><td class="origem-web">WEB</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+      <tr><td>3</td><td>23/07/2026</td><td>10:20</td><td>Construtora Alpha</td><td class="lanc">43</td><td class="origem-cel">CEL</td><td>4</td><td>R$ 250,00</td><td>R$ 1.000,00</td></tr>
+      <tr><td>4</td><td>22/07/2026</td><td>16:30</td><td>Engenharia Gamma</td><td class="lanc">42</td><td class="origem-web">WEB</td><td>1</td><td>R$ 300,00</td><td>R$ 300,00</td></tr>
+      <tr><td>5</td><td>22/07/2026</td><td>09:15</td><td>Construtora Alpha</td><td class="lanc">41</td><td class="origem-cel">CEL</td><td>5</td><td>R$ 250,00</td><td>R$ 1.250,00</td></tr>
+      <tr><td>6</td><td>21/07/2026</td><td>11:00</td><td>Empresa Beta Ltda</td><td class="lanc">40</td><td class="origem-web">WEB</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+      <tr><td>7</td><td>20/07/2026</td><td>07:45</td><td>Engenharia Gamma</td><td class="lanc">39</td><td class="origem-cel">CEL</td><td>3</td><td>R$ 300,00</td><td>R$ 900,00</td></tr>
+      <tr><td>8</td><td>19/07/2026</td><td>15:10</td><td>Construtora Alpha</td><td class="lanc">38</td><td class="origem-web">WEB</td><td>2</td><td>R$ 250,00</td><td>R$ 500,00</td></tr>
+      <tr class="total-row"><td colspan="5" style="text-align:right">TOTAL</td><td></td><td>23</td><td></td><td>R$ 5.750,00</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">RELAMPAGO CACAMBAS — GESTÃO DE RESÍDUOS</div>
+</div>
+</body>
+</html>
