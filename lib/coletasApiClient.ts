@@ -43,7 +43,7 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
 
   // 2) Nominatim estruturado — street+city+state (preciso, evita confusão com cidades homônimas)
   try {
-    const q = new URLSearchParams({ street: `${streetQuery} ${bairro}`, city: cidade, state: uf, format: 'json', limit: '1', countrycodes: 'br' });
+    const q = new URLSearchParams({ street: streetQuery, city: cidade, state: uf, format: 'json', limit: '1', countrycodes: 'br' });
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, {
       headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
       signal: AbortSignal.timeout(5000),
