@@ -9,7 +9,38 @@ export function splitEndereco(endereco: string): { rua: string; num: string } {
 export async function buscarCep(uf: string, cidade: string, bairro: string, rua: string): Promise<string> {
   const cidadeNormalizada = cidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
-  // 1) Nominatim/OSM — gives exact street CEP (preferred)
+  // 1) ViaCEP por bairro — rápido e confiável pra bairros de SP
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as any[];
+      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+        const cep = data[0].cep.replace(/\D/g, '');
+        if (cep) return cep;
+      }
+    }
+  } catch {}
+
+  // 1b) ViaCEP with expanded abbreviation (JD → JARDIM, VL → VILA, etc.)
+  const expanded = bairro.replace(/\bJD\b/gi, 'JARDIM').replace(/\bVL\b/gi, 'VILA').replace(/\bJD\b/gi, 'JARDIM');
+  if (expanded !== bairro) {
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(expanded)}/json/`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as any[];
+        if (Array.isArray(data) && data.length > 0 && data[0].cep) {
+          const cep = data[0].cep.replace(/\D/g, '');
+          if (cep) return cep;
+        }
+      }
+    } catch {}
+  }
+
+  // 2) Nominatim/OSM — CEP exato da rua (refinamento)
   try {
     const q = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
@@ -31,7 +62,7 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
     }
   } catch {}
 
-  // 1b) Nominatim without bairro (just street + city)
+  // 2b) Nominatim without bairro (just street + city)
   try {
     const q2 = encodeURIComponent(`${rua} ${cidade}`);
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=1`, {
@@ -52,37 +83,6 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
       }
     }
   } catch {}
-
-  // 2) ViaCEP por bairro — fallback (may not match exact street)
-  try {
-    const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(bairro)}/json/`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (resp.ok) {
-      const data = await resp.json() as any[];
-      if (Array.isArray(data) && data.length > 0 && data[0].cep) {
-        const cep = data[0].cep.replace(/\D/g, '');
-        if (cep) return cep;
-      }
-    }
-  } catch {}
-
-  // 2b) ViaCEP with expanded abbreviation (JD → JARDIM, VL → VILA, etc.)
-  const expanded = bairro.replace(/\bJD\b/gi, 'JARDIM').replace(/\bVL\b/gi, 'VILA').replace(/\bJD\b/gi, 'JARDIM');
-  if (expanded !== bairro) {
-    try {
-      const resp = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(expanded)}/json/`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (resp.ok) {
-        const data = await resp.json() as any[];
-        if (Array.isArray(data) && data.length > 0 && data[0].cep) {
-          const cep = data[0].cep.replace(/\D/g, '');
-          if (cep) return cep;
-        }
-      }
-    } catch {}
-  }
 
   return '';
 }
