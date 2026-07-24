@@ -63,6 +63,31 @@ export async function buscarCep(uf: string, cidade: string, bairro: string, rua:
     }
   } catch {}
 
+  // 2a) Nominatim estruturado sem prefixo (Av/Rua/Alameda/etc.)
+  try {
+    const stripped = streetQuery.replace(/\b(Avenida|Rua|Alameda|R\.)\s+/gi, '');
+    if (stripped !== streetQuery) {
+      const q = new URLSearchParams({ street: stripped, city: cidade, state: uf, format: 'json', limit: '1', countrycodes: 'br' });
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, {
+        headers: { 'User-Agent': 'MINHAS-CACAMBAS/1.0' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as any[];
+        if (data.length > 0 && data[0].display_name) {
+          const cepMatch = data[0].display_name.match(/(\d{5}-?\d{3})/);
+          if (cepMatch) {
+            const cep = cepMatch[1].replace(/\D/g, '');
+            const validado = await validarCep(cep);
+            if (validado && validado.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(cidadeNormalizada.substring(0, 5))) {
+              return cep;
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
   // 2b) Nominatim free text (fallback mais amplo)
   try {
     const q2 = encodeURIComponent(`${rua} ${bairro} ${cidade}`);
