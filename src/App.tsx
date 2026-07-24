@@ -243,6 +243,7 @@ export default function App() {
             if (!errLan) {
               setLancamentos((listLan || []).map((l: any) => ({
                 id: l.id,
+                numero: l.numero ?? undefined,
                 botaForaId: l.bota_fora_id || l.botaForaId,
                 botaForaNome: l.bota_fora_nome || l.botaForaNome,
                 quantidadeCacambas: l.quantidade_cacambas !== undefined ? l.quantidade_cacambas : l.quantidadeCacambas,
@@ -1346,7 +1347,8 @@ export default function App() {
   // Action: Add new Lançamento
   const handleAddLancamento = (newLan: Omit<Lancamento, 'id' | 'createdAt'>) => {
     const generatedId = `LAN-${Date.now()}`;
-    const nextNumero = lancamentos.length + 1;
+    const maxNumero = lancamentos.reduce((max, l) => Math.max(max, l.numero || 0), 0);
+    const nextNumero = maxNumero + 1;
     const freshRecord: Lancamento = {
       ...newLan,
       id: generatedId,

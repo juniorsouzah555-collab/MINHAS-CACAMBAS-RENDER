@@ -35,77 +35,170 @@ function generatePDF(
 ) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
-  const green: [number, number, number] = [5, 150, 80];
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const greenDark: [number, number, number] = [0, 100, 60];
+  const greenLight: [number, number, number] = [220, 245, 230];
+  const grayLine: [number, number, number] = [200, 210, 220];
 
-  // ── Cabeçalho verde ──
-  doc.setFillColor(...green);
-  doc.rect(0, 0, pageW, 32, "F");
+  // ════════════════════════════════════════════
+  // 1. HEADER — faixa escura com logo文字
+  // ════════════════════════════════════════════
+  doc.setFillColor(...greenDark);
+  doc.rect(0, 0, pageW, 28, "F");
 
+  // Titulo principal
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("RELATORIO DE DESCARTES (CACAMBAS)", 14, 14);
+  doc.text("RELATORIO DE DESCARTES", margin, 12);
 
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Cliente: ${empresaNome}`, 14, 21);
-  doc.text(`Periodo: ${formatDate(startDate)} a ${formatDate(endDate)}`, 14, 26);
+  doc.text("Relampago Cacambas — Gestao de Residuos", margin, 18);
+
+  // Data de impressao (canto direito)
+  doc.setFontSize(8);
   doc.text(
-    `Total: ${totalCacambas} cacamba(s)  |  Valor: R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-    pageW / 2,
-    26,
-    { align: "center" }
-  );
-  doc.text(
-    `Impresso em: ${new Date().toLocaleDateString("pt-BR")} as ${new Date().toLocaleTimeString("pt-BR")}`,
-    pageW - 14,
-    26,
+    `Impresso: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+    pageW - margin,
+    12,
     { align: "right" }
   );
 
-  // ── Tabela ──
+  // ════════════════════════════════════════════
+  // 2. BOX DE INFORMACOES
+  // ════════════════════════════════════════════
+  const boxY = 32;
+  const boxH = 18;
+
+  doc.setFillColor(...greenLight);
+  doc.roundedRect(margin, boxY, pageW - margin * 2, boxH, 2, 2, "F");
+
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  doc.setFont("helvetica", "bold");
+
+  const col1 = margin + 4;
+  const col2 = margin + 80;
+  const col3 = margin + 160;
+  const col4 = pageW - margin - 4;
+
+  doc.text("CLIENTE", col1, boxY + 5);
+  doc.text("PERIODO", col2, boxY + 5);
+  doc.text("TOTAL CACAMBAS", col3, boxY + 5);
+  doc.text("VALOR TOTAL", col4, boxY + 5, { align: "right" });
+
+  doc.setFontSize(10);
+  doc.setTextColor(0, 70, 40);
+  doc.setFont("helvetica", "bold");
+  doc.text(empresaNome, col1, boxY + 12);
+  doc.text(`${formatDate(startDate)} a ${formatDate(endDate)}`, col2, boxY + 12);
+  doc.text(String(totalCacambas), col3, boxY + 12);
+  doc.text(
+    `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    col4,
+    boxY + 12,
+    { align: "right" }
+  );
+
+  // ════════════════════════════════════════════
+  // 3. TABELA
+  // ════════════════════════════════════════════
   const rows = filtered.map((lan, i) => [
-    `${i + 1}o`,
+    String(i + 1),
     formatDate(lan.data),
     formatTime(lan.createdAt),
     lan.botaForaNome || "—",
-    lan.numero != null ? `#${lan.numero}` : "—",
-    lan.source === "mobile" ? "Celular" : "Web",
+    lan.numero != null ? String(lan.numero) : "—",
+    lan.source === "mobile" ? "CELULAR" : "WEB",
     String(lan.quantidadeCacambas),
     `R$ ${lan.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     `R$ ${(lan.quantidadeCacambas * lan.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
   ]);
 
+  const footRow = [
+    "", "", "", "", "TOTAL", "",
+    String(totalCacambas),
+    "",
+    `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+  ];
+
   autoTable(doc, {
-    startY: 36,
-    head: [["#", "Data", "Horario", "Empresa", "Nº Lanc.", "Origem", "Qtd", "Valor Unit.", "Total"]],
+    startY: boxY + boxH + 4,
+    margin: { left: margin, right: margin },
+    head: [["#", "DATA", "HORARIO", "EMPRESA", "LANC.", "ORIGEM", "QTD", "VALOR UNIT.", "TOTAL"]],
     body: rows,
-    foot: [["", "", "", "", "TOTAIS", "", String(totalCacambas), "", `R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]],
-    theme: "grid",
-    styles: { fontSize: 7, cellPadding: 2, textColor: [30, 30, 30] },
-    headStyles: { fillColor: green, fontStyle: "bold", textColor: [255, 255, 255] },
-    footStyles: { fillColor: [226, 232, 240], fontStyle: "bold", textColor: [15, 23, 42] },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    foot: [footRow],
+    theme: "striped",
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2.2,
+      textColor: [30, 30, 30],
+      lineColor: grayLine,
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: greenDark,
+      fontStyle: "bold",
+      textColor: [255, 255, 255],
+      fontSize: 7,
+      cellPadding: 2.5,
+    },
+    footStyles: {
+      fillColor: greenLight,
+      fontStyle: "bold",
+      textColor: greenDark,
+      fontSize: 8,
+      cellPadding: 3,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
     columnStyles: {
-      0: { cellWidth: 12 },
-      6: { halign: "center" as const },
-      7: { halign: "right" as const },
-      8: { halign: "right" as const },
+      0: { cellWidth: 10, halign: "center" as const },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 50 },
+      4: { cellWidth: 16, halign: "center" as const },
+      5: { cellWidth: 18, halign: "center" as const },
+      6: { cellWidth: 12, halign: "center" as const },
+      7: { cellWidth: 28, halign: "right" as const },
+      8: { cellWidth: 28, halign: "right" as const },
     },
     didParseCell(data) {
+      // Coluna origem colorida
       if (data.section === "body" && data.column.index === 5) {
         const src = filtered[data.row.index]?.source;
         data.cell.styles.textColor = src === "mobile" ? [194, 65, 12] : [37, 99, 235];
+        data.cell.styles.fontStyle = "bold";
+      }
+      // Negrito na coluna LANC
+      if (data.section === "body" && data.column.index === 4) {
+        data.cell.styles.fontStyle = "bold";
       }
     },
+    didDrawPage(data) {
+      // Rodape em cada pagina
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        "Relampago Cacambas — Sistema de Gestao de Residuos",
+        margin,
+        pageH - 8
+      );
+      doc.text(
+        `Pagina ${data.pageNumber}`,
+        pageW - margin,
+        pageH - 8,
+        { align: "right" }
+      );
+      // Linha separadora no rodape
+      doc.setDrawColor(...grayLine);
+      doc.setLineWidth(0.3);
+      doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+    },
   });
-
-  // ── Rodapé ──
-  const finalY = (doc as any).lastAutoTable?.finalY || 36;
-  doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
-  doc.text("RELAMPAGO CACAMBAS — Sistema de Gestao de Cacambas", 14, finalY + 6);
-  doc.text(`${filtered.length} registro(s)`, pageW - 14, finalY + 6, { align: "right" });
 
   doc.save(`relatorio-descartes-${startDate}-${endDate}.pdf`);
 }
@@ -269,7 +362,7 @@ export default function RelatorioImpresso({ lancamentos, botaForas }: RelatorioI
                   <td className="px-3 py-2 text-slate-700">{formatDate(lan.data)}</td>
                   <td className="px-3 py-2 text-slate-700 font-mono text-xs">{formatTime(lan.createdAt)}</td>
                   <td className="px-3 py-2 text-slate-700">{lan.botaForaNome || "—"}</td>
-                  <td className="px-3 py-2 font-bold text-slate-800">{lan.numero != null ? `#${lan.numero}` : "—"}</td>
+                  <td className="px-3 py-2 font-bold text-slate-800">{lan.numero != null ? lan.numero : "—"}</td>
                   <td className="px-3 py-2 text-center">
                     {lan.source === "mobile" ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
