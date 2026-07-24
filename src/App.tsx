@@ -49,7 +49,7 @@ import ReportsView from './components/ReportsView';
 import RelatorioImpresso from './components/RelatorioImpresso';
 import CommissionsView from './components/CommissionsView';
 import LoginScreen from './components/LoginScreen';
-import DriverPortal from './components/DriverPortal';
+
 import TrackingView from './components/TrackingView';
 import BoletoView from './components/BoletoView';
 import BancarioView from './components/BancarioView';
@@ -1938,27 +1938,14 @@ export default function App() {
 
   // Renderização exclusiva para motoristas (sem sidebar, header ou footer)
   if (isDriverUser()) {
+    const driverName = motoristas.find(m => currentUserRole.toLowerCase().includes(m.toLowerCase())) || currentUserEmail.split('@')[0];
     return (
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100/40 min-h-screen text-slate-800 font-sans antialiased">
-        <DriverPortal
-          vehicles={vehicles}
+      <div className="min-h-screen">
+        <DescargaRapida
+          motorista={driverName}
+          veiculo=""
           botaForas={botaForas}
-          motoristas={motoristas}
-          currentUserEmail={currentUserEmail}
-          currentUserRole={currentUserRole}
-          lancamentos={lancamentos}
-          comissoes={comissoes}
-          dispatches={dispatches}
-          fuelLogs={fuelLogs}
-          garageDieselPrice={garageDieselPrice}
-          garageDieselQty={garageDieselQty}
-          onAddLancamento={handleAddLancamento}
-          onAddComissao={handleAddComissao}
-          onUpdateComissao={handleUpdateComissao}
-          onAddFuelLog={handleAddFuelLog}
-          onAuthorizeDispatch={handleAuthorizeDispatch}
-          onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
-          onLogout={handleLogout}
+          vehicles={vehicles}
         />
 
         {/* Dynamic Slide-Up Toast Popup */}
@@ -2212,25 +2199,11 @@ export default function App() {
           )}
 
           {currentTab === 'driver-portal' && (
-            <DriverPortal
-              vehicles={vehicles}
+            <DescargaRapida
+              motorista={currentUserEmail.split('@')[0]}
+              veiculo=""
               botaForas={botaForas}
-              motoristas={motoristas}
-              currentUserEmail={currentUserEmail}
-              currentUserRole={currentUserRole}
-              lancamentos={lancamentos}
-              comissoes={comissoes}
-              dispatches={dispatches}
-              fuelLogs={fuelLogs}
-              garageDieselPrice={garageDieselPrice}
-              garageDieselQty={garageDieselQty}
-              onAddLancamento={handleAddLancamento}
-              onAddComissao={handleAddComissao}
-              onUpdateComissao={handleUpdateComissao}
-              onAddFuelLog={handleAddFuelLog}
-              onAuthorizeDispatch={handleAuthorizeDispatch}
-              onShowToast={(title, msg, type) => handleShowToast(title, msg, type === 'warning' ? 'info' : type)}
-              onLogout={handleLogout}
+              vehicles={vehicles}
             />
           )}
 
